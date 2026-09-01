@@ -1,0 +1,98 @@
+[
+  {
+    "id": "patients",
+    "table": "patients",
+    "description_vi": "Bảng nhân khẩu học bệnh nhân. Chứa giới tính, tuổi, nhóm năm nhập viện và ngày mất.",
+    "description_en": "Patient demographic table. Contains gender, anchor age, year group, and date of death.",
+    "document": "Bảng patients: thông tin nhân khẩu học bệnh nhân (giới tính, tuổi, ngày mất). Patient demographics: gender, age, death date.",
+    "ddl": "CREATE TABLE patients (\n  subject_id          INT PRIMARY KEY,       -- mã định danh duy nhất của bệnh nhân\n  gender              VARCHAR(1),            -- 'M': nam, 'F': nữ\n  anchor_age          INT,                   -- tuổi tại thời điểm anchor_year\n  anchor_year         INT,                   -- năm tham chiếu đã dịch chuyển để ẩn danh\n  anchor_year_group   VARCHAR(20),           -- nhóm năm: '2008 - 2010', '2011 - 2013'...\n  dod                 DATE                   -- ngày mất, NULL nếu còn sống\n);"
+  },
+  {
+    "id": "admissions",
+    "table": "admissions",
+    "description_vi": "Bảng đợt nhập viện. Mỗi hàng là một lần nhập viện, chứa thời gian nhập/xuất, loại nhập viện, bảo hiểm, chủng tộc và cờ tử vong trong viện.",
+    "description_en": "Hospital admissions table. Each row is one admission with admit/discharge time, type, insurance, race and in-hospital mortality flag.",
+    "document": "Bảng admissions: đợt nhập viện (thời gian nhập, xuất viện, loại nhập viện EMERGENCY/ELECTIVE, tử vong trong viện hospital_expire_flag, bảo hiểm, chủng tộc race). Hospital admissions: admittime, dischtime, deathtime, admission_type, discharge_location, hospital_expire_flag.",
+    "ddl": "CREATE TABLE admissions (\n  subject_id          INT,                   -- mã bệnh nhân (FK → patients)\n  hadm_id             INT PRIMARY KEY,       -- mã đợt nhập viện\n  admittime           TIMESTAMP,             -- thời điểm nhập viện\n  dischtime           TIMESTAMP,             -- thời điểm xuất viện\n  deathtime           TIMESTAMP,             -- thời điểm tử vong (NULL nếu không tử vong tại viện)\n  admission_type      VARCHAR(50),           -- loại nhập viện: 'EMERGENCY', 'ELECTIVE', 'URGENT', 'OBSERVATION ADMIT'\n  admit_provider_id   VARCHAR(10),\n  admission_location  VARCHAR(60),           -- nơi chuyển đến: 'EMERGENCY ROOM', 'PHYSICIAN REFERRAL'...\n  discharge_location  VARCHAR(60),           -- nơi chuyển khi xuất viện: 'HOME', 'SKILLED NURSING FACILITY'...\n  insurance           VARCHAR(50),           -- bảo hiểm: 'Medicare', 'Medicaid', 'Other'\n  language            VARCHAR(10),           -- ngôn ngữ bệnh nhân\n  marital_status      VARCHAR(30),           -- tình trạng hôn nhân\n  race                VARCHAR(80),           -- chủng tộc/dân tộc\n  edregtime           TIMESTAMP,             -- đăng ký phòng cấp cứu\n  edouttime           TIMESTAMP,             -- rời phòng cấp cứu\n  hospital_expire_flag INT                   -- 1 nếu tử vong trong bệnh viện, 0 nếu không\n);\n-- QUAN TRỌNG: Các cột thời gian lưu dạng TEXT, phải CAST khi tính: dischtime::TIMESTAMP\n-- Tính LOS (ngày): EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400"
+  },
+  {
+    "id": "diagnoses_icd",
+    "table": "diagnoses_icd",
+    "description_vi": "Bảng chẩn đoán theo mã ICD. Mỗi hàng là một mã chẩn đoán trong một đợt nhập viện. seq_num=1 là chẩn đoán chính. Hỗ trợ cả ICD-9 (icd_version=9) và ICD-10 (icd_version=10).",
+    "description_en": "Diagnoses coded by ICD. seq_num=1 is primary diagnosis. Supports ICD-9 (version=9) and ICD-10 (version=10).",
+    "document": "Bảng diagnoses_icd: chẩn đoán bệnh theo mã ICD (icd_code, icd_version 9 hoặc 10, seq_num thứ tự ưu tiên). JOIN với d_icd_diagnoses để lấy tên bệnh. ICD diagnoses per admission.",
+    "ddl": "CREATE TABLE diagnoses_icd (\n  subject_id  INT,           -- mã bệnh nhân\n  hadm_id     INT,           -- mã đợt nhập viện\n  seq_num     INT,           -- thứ tự ưu tiên: 1 = chẩn đoán chính (primary diagnosis)\n  icd_code    VARCHAR(10),   -- mã ICD không có dấu chấm, ví dụ: '486', 'J189', 'I10'\n  icd_version INT            -- 9: ICD-9-CM, 10: ICD-10-CM\n);\n-- Các mã ICD thông dụng:\n--   Viêm phổi: ICD9='486', ICD10='J189'\n--   Suy tim: ICD10 LIKE 'I50%'\n--   Tiểu đường type 2: ICD10 LIKE 'E11%'\n--   Tăng huyết áp: ICD10='I10', ICD9='4011'\n--   Nhiễm khuẩn huyết: ICD10 LIKE 'A41%'"
+  },
+  {
+    "id": "d_icd_diagnoses",
+    "table": "d_icd_diagnoses",
+    "description_vi": "Từ điển mã ICD chẩn đoán. Tra cứu tên đầy đủ của mã bệnh (long_title) từ icd_code và icd_version.",
+    "description_en": "ICD diagnosis codes dictionary. Look up full disease name (long_title) from icd_code and icd_version.",
+    "document": "Bảng d_icd_diagnoses: từ điển tra mã ICD chẩn đoán, lấy tên bệnh long_title từ icd_code và icd_version. ICD diagnosis dictionary.",
+    "ddl": "CREATE TABLE d_icd_diagnoses (\n  icd_code    VARCHAR(10),   -- mã ICD\n  icd_version INT,           -- 9 hoặc 10\n  long_title  VARCHAR(300)   -- tên đầy đủ của bệnh bằng tiếng Anh\n);\n-- JOIN: diagnoses_icd d JOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version"
+  },
+  {
+    "id": "procedures_icd",
+    "table": "procedures_icd",
+    "description_vi": "Bảng thủ thuật/phẫu thuật theo mã ICD. Chứa các thủ thuật được thực hiện trong mỗi đợt nhập viện.",
+    "description_en": "ICD-coded procedures table. Contains all procedures performed during each admission.",
+    "document": "Bảng procedures_icd: thủ thuật phẫu thuật theo mã ICD (icd_code, icd_version). JOIN với d_icd_procedures để lấy tên thủ thuật. Procedures per admission.",
+    "ddl": "CREATE TABLE procedures_icd (\n  subject_id  INT,\n  hadm_id     INT,\n  seq_num     INT,\n  chartdate   DATE,          -- ngày thực hiện thủ thuật\n  icd_code    VARCHAR(10),\n  icd_version INT\n);"
+  },
+  {
+    "id": "d_icd_procedures",
+    "table": "d_icd_procedures",
+    "description_vi": "Từ điển mã ICD thủ thuật. Tra cứu tên đầy đủ của thủ thuật từ icd_code.",
+    "description_en": "ICD procedure codes dictionary. Look up procedure name from icd_code.",
+    "document": "Bảng d_icd_procedures: từ điển mã ICD thủ thuật, lấy tên thủ thuật long_title. ICD procedure dictionary.",
+    "ddl": "CREATE TABLE d_icd_procedures (\n  icd_code    VARCHAR(10),\n  icd_version INT,\n  long_title  VARCHAR(300)\n);\n-- JOIN: procedures_icd p JOIN d_icd_procedures di ON p.icd_code = di.icd_code AND p.icd_version = di.icd_version"
+  },
+  {
+    "id": "labevents",
+    "table": "labevents",
+    "description_vi": "Bảng kết quả xét nghiệm cận lâm sàng. Chứa toàn bộ kết quả lab: máu, nước tiểu... với giá trị số (valuenum), đơn vị (valueuom) và cờ bất thường (flag).",
+    "description_en": "Laboratory test results. Contains all lab results with numeric value, unit and abnormal flag.",
+    "document": "Bảng labevents: kết quả xét nghiệm cận lâm sàng (itemid, valuenum giá trị số, valueuom đơn vị, flag bất thường, ref_range_lower/upper ngưỡng bình thường). JOIN với d_labitems để lấy tên xét nghiệm. Lab results blood urine chemistry hematology.",
+    "ddl": "CREATE TABLE labevents (\n  labevent_id     BIGINT PRIMARY KEY,\n  subject_id      INT,\n  hadm_id         INT,\n  specimen_id     INT,\n  itemid          INT,           -- mã xét nghiệm (FK → d_labitems)\n  charttime       TIMESTAMP,     -- thời điểm lấy mẫu\n  storetime       TIMESTAMP,\n  value           VARCHAR(200),  -- giá trị dạng chuỗi\n  valuenum        FLOAT,         -- giá trị dạng số (NULL nếu không số)\n  valueuom        VARCHAR(20),   -- đơn vị: 'mg/dL', 'mmol/L', '%'...\n  ref_range_lower FLOAT,         -- giới hạn dưới bình thường\n  ref_range_upper FLOAT,         -- giới hạn trên bình thường\n  flag            VARCHAR(10),   -- 'abnormal' nếu bất thường, NULL nếu bình thường\n  priority        VARCHAR(20),   -- 'STAT': khẩn, 'ROUTINE': thường quy\n  comments        TEXT\n);"
+  },
+  {
+    "id": "d_labitems",
+    "table": "d_labitems",
+    "description_vi": "Từ điển xét nghiệm cận lâm sàng. Tra cứu tên xét nghiệm (label), loại dịch (fluid: Blood/Urine/CSF) và nhóm (category: Chemistry/Hematology).",
+    "description_en": "Lab items dictionary. Look up test name (label), fluid type and category.",
+    "document": "Bảng d_labitems: từ điển xét nghiệm (label tên xét nghiệm như Creatinine Glucose Hemoglobin, fluid loại dịch Blood/Urine, category nhóm Chemistry/Hematology). Lab items dictionary.",
+    "ddl": "CREATE TABLE d_labitems (\n  itemid   INT PRIMARY KEY,\n  label    VARCHAR(100),  -- tên xét nghiệm: 'Creatinine', 'Glucose', 'Hemoglobin', 'Potassium'...\n  fluid    VARCHAR(50),   -- loại dịch: 'Blood', 'Urine', 'CSF', 'Other Body Fluid'\n  category VARCHAR(50)    -- nhóm: 'Chemistry', 'Hematology', 'Blood Gas', 'Microbiology'\n);\n-- JOIN: labevents le JOIN d_labitems dl ON le.itemid = dl.itemid"
+  },
+  {
+    "id": "prescriptions",
+    "table": "prescriptions",
+    "description_vi": "Bảng đơn thuốc. Chứa tên thuốc, liều dùng, đường dùng (route: IV, PO, SQ) và thời gian dùng thuốc.",
+    "description_en": "Medication prescriptions. Contains drug name, dose, route (IV, PO, SQ) and start/stop time.",
+    "document": "Bảng prescriptions: đơn thuốc (drug tên thuốc, dose_val_rx liều dùng, route đường dùng IV/PO/SQ tiêm tĩnh mạch/uống/dưới da, starttime/stoptime thời gian). Medication prescriptions pharmacy.",
+    "ddl": "CREATE TABLE prescriptions (\n  subject_id        INT,\n  hadm_id           INT,\n  pharmacy_id       INT,\n  poe_id            VARCHAR(20),\n  poe_seq           INT,\n  starttime         TIMESTAMP,      -- thời điểm bắt đầu dùng thuốc\n  stoptime          TIMESTAMP,      -- thời điểm ngừng thuốc\n  drug_type         VARCHAR(20),    -- 'MAIN', 'BASE', 'ADDITIVE'\n  drug              VARCHAR(200),   -- tên thuốc: 'Heparin', 'Insulin', 'Aspirin'...\n  formulary_drug_cd VARCHAR(20),\n  gsn               VARCHAR(200),\n  ndc               VARCHAR(25),\n  prod_strength     VARCHAR(200),   -- hàm lượng\n  form_rx           VARCHAR(25),    -- dạng: 'TAB', 'VIAL', 'CAP'\n  dose_val_rx       VARCHAR(50),    -- liều dùng\n  dose_unit_rx      VARCHAR(50),    -- đơn vị liều\n  form_val_disp     VARCHAR(50),\n  form_unit_disp    VARCHAR(50),\n  doses_per_24_hrs  FLOAT,          -- số lần dùng trong 24 giờ\n  route             VARCHAR(50)     -- đường dùng: 'IV', 'PO', 'SQ', 'IM', 'ORAL'\n);"
+  },
+  {
+    "id": "transfers",
+    "table": "transfers",
+    "description_vi": "Bảng chuyển khoa/chuyển viện. Theo dõi hành trình bệnh nhân qua các khoa điều trị (careunit) như ICU, phòng cấp cứu, khoa nội...",
+    "description_en": "Patient transfer table. Tracks movement through care units like ICU, Emergency Department, medical wards.",
+    "document": "Bảng transfers: chuyển khoa bệnh nhân (careunit khoa điều trị MICU/SICU/Emergency Department, eventtype admit/transfer/discharge, intime/outtime thời gian vào ra khoa). ICU transfers care unit.",
+    "ddl": "CREATE TABLE transfers (\n  subject_id  INT,\n  hadm_id     INT,\n  transfer_id INT PRIMARY KEY,\n  eventtype   VARCHAR(20),    -- 'admit': nhập viện, 'transfer': chuyển khoa, 'discharge': xuất viện\n  careunit    VARCHAR(60),    -- khoa: 'Medical Intensive Care Unit (MICU)', 'Surgical Intensive Care Unit (SICU)', 'Emergency Department', 'Medicine'...\n  intime      TIMESTAMP,      -- thời điểm vào khoa\n  outtime     TIMESTAMP       -- thời điểm rời khoa\n);"
+  },
+  {
+    "id": "services",
+    "table": "services",
+    "description_vi": "Bảng dịch vụ điều trị. Ghi nhận dịch vụ y tế mà bệnh nhân được điều trị: MED (nội khoa), SURG (ngoại khoa), CMED (hồi sức nội)...",
+    "description_en": "Clinical services table. Records service type: MED (medicine), SURG (surgery), CMED (cardiac medicine), etc.",
+    "document": "Bảng services: dịch vụ điều trị (curr_service loại dịch vụ MED nội khoa/SURG ngoại khoa/CMED tim mạch nội/TRAUM chấn thương). Clinical service assignment.",
+    "ddl": "CREATE TABLE services (\n  subject_id    INT,\n  hadm_id       INT,\n  transfertime  TIMESTAMP,      -- thời điểm chuyển dịch vụ\n  prev_service  VARCHAR(20),    -- dịch vụ trước\n  curr_service  VARCHAR(20)     -- dịch vụ hiện tại: 'MED', 'SURG', 'CMED', 'TRAUM', 'OMED', 'NB'\n);"
+  },
+  {
+    "id": "microbiologyevents",
+    "table": "microbiologyevents",
+    "description_vi": "Bảng kết quả vi sinh (cấy vi khuẩn). Chứa loại bệnh phẩm (máu, nước tiểu...), tên vi khuẩn phát hiện và kết quả kháng sinh đồ.",
+    "description_en": "Microbiology culture results. Contains specimen type (blood, urine), organism name and antibiotic susceptibility.",
+    "document": "Bảng microbiologyevents: kết quả cấy vi khuẩn (spec_type_desc loại bệnh phẩm BLOOD CULTURE/URINE, org_name tên vi khuẩn, interpretation S nhạy cảm/R kháng thuốc/I trung gian). Microbiology culture bacteria infection.",
+    "ddl": "CREATE TABLE microbiologyevents (\n  microevent_id   BIGINT PRIMARY KEY,\n  subject_id      INT,\n  hadm_id         INT,\n  chartdate       DATE,\n  charttime       TIMESTAMP,\n  spec_itemid     INT,\n  spec_type_desc  VARCHAR(100),  -- loại bệnh phẩm: 'BLOOD CULTURE', 'URINE', 'SPUTUM', 'WOUND CULTURE'\n  test_seq        INT,\n  storedate       DATE,\n  storetime       TIMESTAMP,\n  org_itemid      INT,\n  org_name        VARCHAR(100),  -- tên vi khuẩn (NULL nếu không mọc khuẩn)\n  isolate_num     INT,\n  interpretation  VARCHAR(5),    -- kháng sinh đồ: 'S'=nhạy cảm, 'R'=kháng thuốc, 'I'=trung gian\n  comments        TEXT\n);"
+  }
+]

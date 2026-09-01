@@ -1,0 +1,556 @@
+"""
+Mở rộng tập dữ liệu kiểm nghiệm (Test Dataset) từ 30 câu lên 100 câu hỏi (t031 - t100).
+Các câu hỏi mới phủ kín 12 bảng trong MIMIC-IV subset và đa dạng độ khó (easy, medium, hard, complex).
+"""
+
+import json
+import sys
+
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+NEW_QUESTIONS = [
+    # ── PATIENTS & ADMISSIONS (Easy/Medium) ─────────────────────────
+    {
+        "id": "t031",
+        "question_vi": "Liệt kê 10 bệnh nhân nữ lớn tuổi nhất trong cơ sở dữ liệu.",
+        "gold_sql": "SELECT subject_id, anchor_age FROM patients WHERE gender = 'F' ORDER BY anchor_age DESC LIMIT 10;",
+        "tables": ["patients"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t032",
+        "question_vi": "Có bao nhiêu đợt nhập viện vào ban đêm (từ 22h đêm đến 6h sáng hôm sau)?",
+        "gold_sql": "SELECT COUNT(*) AS so_dot_nhap_dem FROM admissions WHERE EXTRACT(HOUR FROM admittime) >= 22 OR EXTRACT(HOUR FROM admittime) < 6;",
+        "tables": ["admissions"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t033",
+        "question_vi": "Tính thời gian nằm viện trung bình (theo ngày) của các đợt nhập viện khẩn cấp (EMERGENCY).",
+        "gold_sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400)::NUMERIC, 2) AS los_tb_ngay FROM admissions WHERE admission_type = 'EMERGENCY' AND dischtime IS NOT NULL;",
+        "tables": ["admissions"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t034",
+        "question_vi": "Thống kê số lượng đợt nhập viện theo từng tình trạng hôn nhân (marital_status).",
+        "gold_sql": "SELECT marital_status, COUNT(*) AS so_luot FROM admissions WHERE marital_status IS NOT NULL GROUP BY marital_status ORDER BY so_luot DESC;",
+        "tables": ["admissions"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t035",
+        "question_vi": "Liệt kê 5 nơi chuyển đến nhập viện (admission_location) phổ biến nhất.",
+        "gold_sql": "SELECT admission_location, COUNT(*) AS so_luot FROM admissions WHERE admission_location IS NOT NULL GROUP BY admission_location ORDER BY so_luot DESC LIMIT 5;",
+        "tables": ["admissions"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t036",
+        "question_vi": "Có bao nhiêu bệnh nhân vừa có giới tính nam vừa có tuổi tham chiếu trên 70?",
+        "gold_sql": "SELECT COUNT(*) AS so_bn_nam_tren_70 FROM patients WHERE gender = 'M' AND anchor_age > 70;",
+        "tables": ["patients"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t037",
+        "question_vi": "Tính độ tuổi trung bình của các bệnh nhân đã tử vong (có ngày mất dod khác NULL).",
+        "gold_sql": "SELECT ROUND(AVG(anchor_age)::NUMERIC, 2) AS tuoi_tb_tu_vong FROM patients WHERE dod IS NOT NULL;",
+        "tables": ["patients"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t038",
+        "question_vi": "Tìm các đợt nhập viện có thời gian nằm viện kéo dài trên 30 ngày.",
+        "gold_sql": "SELECT hadm_id, subject_id, ROUND((EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400)::NUMERIC, 1) AS los_days FROM admissions WHERE EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400 > 30 ORDER BY los_days DESC;",
+        "tables": ["admissions"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t039",
+        "question_vi": "So sánh tỷ lệ tử vong trong viện giữa bệnh nhân nam và nữ.",
+        "gold_sql": "SELECT p.gender, COUNT(*) AS tong_so_dot, SUM(a.hospital_expire_flag) AS tu_vong, ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(*), 2) AS ty_le_tu_vong_pct FROM patients p JOIN admissions a ON p.subject_id = a.subject_id GROUP BY p.gender;",
+        "tables": ["patients", "admissions"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t040",
+        "question_vi": "Đếm số lượt nhập viện có sử dụng bảo hiểm Medicare hoặc Medicaid.",
+        "gold_sql": "SELECT insurance, COUNT(*) AS so_luot FROM admissions WHERE insurance IN ('Medicare', 'Medicaid') GROUP BY insurance;",
+        "tables": ["admissions"],
+        "difficulty": "easy"
+    },
+
+    # ── DIAGNOSES & PROCEDURES (Medium/Hard) ─────────────────────────
+    {
+        "id": "t041",
+        "question_vi": "Có bao nhiêu đợt nhập viện có chẩn đoán chính (seq_num = 1) là nhiễm khuẩn huyết (mã ICD-10 bắt đầu bằng A41)?",
+        "gold_sql": "SELECT COUNT(*) AS so_dot_nkh FROM diagnoses_icd WHERE seq_num = 1 AND icd_version = 10 AND icd_code LIKE 'A41%';",
+        "tables": ["diagnoses_icd"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t042",
+        "question_vi": "Liệt kê 10 mã chẩn đoán ICD-10 xuất hiện nhiều nhất cùng với tên bệnh đầy đủ của chúng.",
+        "gold_sql": "SELECT d.icd_code, di.long_title, COUNT(*) AS so_lan FROM diagnoses_icd d JOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version WHERE d.icd_version = 10 GROUP BY d.icd_code, di.long_title ORDER BY so_lan DESC LIMIT 10;",
+        "tables": ["diagnoses_icd", "d_icd_diagnoses"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t043",
+        "question_vi": "Tìm trung bình số lượng mã chẩn đoán (ICD codes) được ghi nhận trên mỗi đợt nhập viện.",
+        "gold_sql": "SELECT ROUND(AVG(so_chan_doan)::NUMERIC, 2) AS tb_chan_doan_moi_dot FROM (SELECT hadm_id, COUNT(*) AS so_chan_doan FROM diagnoses_icd GROUP BY hadm_id) sub;",
+        "tables": ["diagnoses_icd"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t044",
+        "question_vi": "Bệnh nhân mắc bệnh suy tim (ICD-10 bắt đầu bằng I50) có tuổi trung bình là bao nhiêu?",
+        "gold_sql": "SELECT ROUND(AVG(p.anchor_age)::NUMERIC, 2) AS tuoi_tb_suy_tim FROM patients p JOIN diagnoses_icd d ON p.subject_id = d.subject_id WHERE d.icd_version = 10 AND d.icd_code LIKE 'I50%';",
+        "tables": ["patients", "diagnoses_icd"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t045",
+        "question_vi": "Liệt kê 5 thủ thuật phẫu thuật (kèm tên) được thực hiện nhiều nhất trên bệnh nhân viêm phổi (ICD-9 = 486 hoặc ICD-10 = J189).",
+        "gold_sql": "SELECT dip.long_title, COUNT(*) AS so_luot FROM procedures_icd p JOIN d_icd_procedures dip ON p.icd_code = dip.icd_code AND p.icd_version = dip.icd_version JOIN diagnoses_icd d ON p.hadm_id = d.hadm_id WHERE (d.icd_code = '486' AND d.icd_version = 9 OR d.icd_code = 'J189' AND d.icd_version = 10) GROUP BY dip.long_title ORDER BY so_luot DESC LIMIT 5;",
+        "tables": ["procedures_icd", "d_icd_procedures", "diagnoses_icd"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t046",
+        "question_vi": "Có bao nhiêu bệnh nhân từng được chẩn đoán mắc bệnh đái tháo đường type 2 (ICD-10 bắt đầu bằng E11)?",
+        "gold_sql": "SELECT COUNT(DISTINCT subject_id) AS so_bn_tieu_duong FROM diagnoses_icd WHERE icd_version = 10 AND icd_code LIKE 'E11%';",
+        "tables": ["diagnoses_icd"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t047",
+        "question_vi": "Thống kê 5 bệnh kèm theo (comorbidities) phổ biến nhất ở các đợt nhập viện bị tử vong (hospital_expire_flag = 1).",
+        "gold_sql": "SELECT di.long_title, COUNT(*) AS so_luot FROM diagnoses_icd d JOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version JOIN admissions a ON d.hadm_id = a.hadm_id WHERE a.hospital_expire_flag = 1 AND d.seq_num > 1 GROUP BY di.long_title ORDER BY so_luot DESC LIMIT 5;",
+        "tables": ["diagnoses_icd", "d_icd_diagnoses", "admissions"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t048",
+        "question_vi": "Đếm số lượt thực hiện thủ thuật theo từng phiên bản ICD (ICD-9 vs ICD-10).",
+        "gold_sql": "SELECT icd_version, COUNT(*) AS so_thu_thuat FROM procedures_icd GROUP BY icd_version;",
+        "tables": ["procedures_icd"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t049",
+        "question_vi": "Tìm các đợt nhập viện có trên 15 mã chẩn đoán ICD khác nhau.",
+        "gold_sql": "SELECT hadm_id, COUNT(*) AS so_ma FROM diagnoses_icd GROUP BY hadm_id HAVING COUNT(*) > 15 ORDER BY so_ma DESC;",
+        "tables": ["diagnoses_icd"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t050",
+        "question_vi": "Liệt kê 5 mã chẩn đoán ICD-9 phổ biến nhất ở bệnh nhân dưới 30 tuổi.",
+        "gold_sql": "SELECT di.long_title, COUNT(*) AS so_luot FROM diagnoses_icd d JOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version JOIN patients p ON d.subject_id = p.subject_id WHERE d.icd_version = 9 AND p.anchor_age < 30 GROUP BY di.long_title ORDER BY so_luot DESC LIMIT 5;",
+        "tables": ["diagnoses_icd", "d_icd_diagnoses", "patients"],
+        "difficulty": "hard"
+    },
+
+    # ── LABEVENTS & D_LABITEMS (Medium/Hard/Complex) ─────────────────
+    {
+        "id": "t051",
+        "question_vi": "Tính nồng độ Kali máu (Potassium, fluid = Blood) trung bình trong toàn bộ database.",
+        "gold_sql": "SELECT ROUND(AVG(le.valuenum)::NUMERIC, 2) AS kali_tb FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid WHERE dl.label ILIKE '%Potassium%' AND dl.fluid = 'Blood' AND le.valuenum IS NOT NULL;",
+        "tables": ["labevents", "d_labitems"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t052",
+        "question_vi": "Có bao nhiêu xét nghiệm máu có cờ bất thường (flag = 'abnormal')?",
+        "gold_sql": "SELECT COUNT(*) AS so_xet_nghiem_bat_thuong FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid WHERE dl.fluid = 'Blood' AND le.flag = 'abnormal';",
+        "tables": ["labevents", "d_labitems"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t053",
+        "question_vi": "Tìm giá trị Glucose máu cao nhất từng được ghi nhận của mỗi bệnh nhân.",
+        "gold_sql": "SELECT le.subject_id, MAX(le.valuenum) AS glucose_max FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid WHERE dl.label ILIKE '%Glucose%' AND dl.fluid = 'Blood' AND le.valuenum IS NOT NULL GROUP BY le.subject_id ORDER BY glucose_max DESC LIMIT 10;",
+        "tables": ["labevents", "d_labitems"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t054",
+        "question_vi": "Liệt kê 10 loại xét nghiệm (label) thuộc nhóm Hóa sinh (category = Chemistry) được thực hiện nhiều nhất.",
+        "gold_sql": "SELECT dl.label, COUNT(*) AS so_luot FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid WHERE dl.category = 'Chemistry' GROUP BY dl.label ORDER BY so_luot DESC LIMIT 10;",
+        "tables": ["labevents", "d_labitems"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t055",
+        "question_vi": "Tính tỷ lệ xét nghiệm có kết quả bất thường (%) trên tổng số xét nghiệm máu đã làm.",
+        "gold_sql": "SELECT ROUND(100.0 * SUM(CASE WHEN le.flag = 'abnormal' THEN 1 ELSE 0 END) / COUNT(*), 2) AS ty_le_bat_thuong_pct FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid WHERE dl.fluid = 'Blood';",
+        "tables": ["labevents", "d_labitems"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t056",
+        "question_vi": "So sánh nồng độ Hemoglobin máu trung bình giữa bệnh nhân nam và nữ.",
+        "gold_sql": "SELECT p.gender, ROUND(AVG(le.valuenum)::NUMERIC, 2) AS hemoglobin_tb FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid JOIN patients p ON le.subject_id = p.subject_id WHERE dl.label ILIKE '%Hemoglobin%' AND dl.fluid = 'Blood' AND le.valuenum IS NOT NULL GROUP BY p.gender;",
+        "tables": ["labevents", "d_labitems", "patients"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t057",
+        "question_vi": "Có bao nhiêu xét nghiệm khẩn (priority = 'STAT') được chỉ định trong phòng cấp cứu?",
+        "gold_sql": "SELECT COUNT(*) AS so_xn_khan FROM labevents WHERE priority = 'STAT';",
+        "tables": ["labevents"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t058",
+        "question_vi": "Tìm các xét nghiệm máu có giá trị vượt quá giới hạn trên bình thường (ref_range_upper).",
+        "gold_sql": "SELECT le.labevent_id, dl.label, le.valuenum, le.ref_range_upper FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid WHERE le.valuenum > le.ref_range_upper AND dl.fluid = 'Blood' LIMIT 10;",
+        "tables": ["labevents", "d_labitems"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t059",
+        "question_vi": "Bệnh nhân có chỉ số Bạch cầu (WBC) máu trên 20 (nghìn/uL) có tỷ lệ tử vong trong viện là bao nhiêu %?",
+        "gold_sql": "SELECT ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(DISTINCT a.hadm_id), 2) AS ty_le_tu_vong_wbc_cao FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid JOIN admissions a ON le.hadm_id = a.hadm_id WHERE dl.label ILIKE '%White Blood Cells%' AND dl.fluid = 'Blood' AND le.valuenum > 20;",
+        "tables": ["labevents", "d_labitems", "admissions"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t060",
+        "question_vi": "Liệt kê 5 xét nghiệm nước tiểu (fluid = Urine) được làm nhiều nhất cho bệnh nhân đái tháo đường.",
+        "gold_sql": "SELECT dl.label, COUNT(*) AS so_luot FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid JOIN diagnoses_icd d ON le.hadm_id = d.hadm_id WHERE dl.fluid = 'Urine' AND d.icd_version = 10 AND d.icd_code LIKE 'E11%' GROUP BY dl.label ORDER BY so_luot DESC LIMIT 5;",
+        "tables": ["labevents", "d_labitems", "diagnoses_icd"],
+        "difficulty": "hard"
+    },
+
+    # ── PRESCRIPTIONS (Medium/Hard) ──────────────────────────────────
+    {
+        "id": "t061",
+        "question_vi": "Liệt kê 10 thuốc được kê đơn nhiều nhất theo đường tiêm tĩnh mạch (route = 'IV').",
+        "gold_sql": "SELECT drug, COUNT(*) AS so_don FROM prescriptions WHERE route = 'IV' GROUP BY drug ORDER BY so_don DESC LIMIT 10;",
+        "tables": ["prescriptions"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t062",
+        "question_vi": "Có bao nhiêu đợt nhập viện có chỉ định tiêm Insulin?",
+        "gold_sql": "SELECT COUNT(DISTINCT hadm_id) AS so_dot_insulin FROM prescriptions WHERE drug ILIKE '%Insulin%';",
+        "tables": ["prescriptions"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t063",
+        "question_vi": "Thống kê 5 thuốc uống (route in 'PO', 'ORAL') phổ biến nhất được kê cho bệnh nhân tăng huyết áp (ICD-10 = I10).",
+        "gold_sql": "SELECT pr.drug, COUNT(*) AS so_don FROM prescriptions pr JOIN diagnoses_icd d ON pr.hadm_id = d.hadm_id WHERE pr.route IN ('PO', 'ORAL') AND d.icd_version = 10 AND d.icd_code = 'I10' GROUP BY pr.drug ORDER BY so_don DESC LIMIT 5;",
+        "tables": ["prescriptions", "diagnoses_icd"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t064",
+        "question_vi": "Tìm trung bình số lượng loại thuốc khác nhau được kê cho mỗi đợt nhập viện.",
+        "gold_sql": "SELECT ROUND(AVG(so_thuoc)::NUMERIC, 2) AS tb_thuoc_moi_dot FROM (SELECT hadm_id, COUNT(DISTINCT drug) AS so_thuoc FROM prescriptions GROUP BY hadm_id) sub;",
+        "tables": ["prescriptions"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t065",
+        "question_vi": "Có bao nhiêu đơn thuốc sử dụng dạng bào chế viên nén (form_rx = 'TAB')?",
+        "gold_sql": "SELECT COUNT(*) AS so_don_vien_nen FROM prescriptions WHERE form_rx = 'TAB';",
+        "tables": ["prescriptions"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t066",
+        "question_vi": "Liệt kê các thuốc kháng sinh nhóm Penicillin (chứa từ 'cillin') được kê đơn trên 20 lần.",
+        "gold_sql": "SELECT drug, COUNT(*) AS so_don FROM prescriptions WHERE drug ILIKE '%cillin%' GROUP BY drug HAVING COUNT(*) > 20 ORDER BY so_don DESC;",
+        "tables": ["prescriptions"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t067",
+        "question_vi": "Bệnh nhân có số ngày dùng thuốc Heparin kéo dài nhất là ai và dùng trong bao nhiêu giờ?",
+        "gold_sql": "SELECT subject_id, hadm_id, ROUND((EXTRACT(EPOCH FROM (stoptime::TIMESTAMP - starttime::TIMESTAMP))/3600)::NUMERIC, 1) AS hours_used FROM prescriptions WHERE drug ILIKE '%Heparin%' AND stoptime IS NOT NULL AND starttime IS NOT NULL ORDER BY hours_used DESC LIMIT 1;",
+        "tables": ["prescriptions"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t068",
+        "question_vi": "Đếm số đơn thuốc được kê theo từng đường dùng thuốc (route).",
+        "gold_sql": "SELECT route, COUNT(*) AS so_don FROM prescriptions WHERE route IS NOT NULL GROUP BY route ORDER BY so_don DESC;",
+        "tables": ["prescriptions"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t069",
+        "question_vi": "Có bao nhiêu đợt nhập viện được kê cả Insulin và Metformin?",
+        "gold_sql": "SELECT COUNT(DISTINCT p1.hadm_id) AS so_dot FROM prescriptions p1 JOIN prescriptions p2 ON p1.hadm_id = p2.hadm_id WHERE p1.drug ILIKE '%Insulin%' AND p2.drug ILIKE '%Metformin%';",
+        "tables": ["prescriptions"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t070",
+        "question_vi": "Tính tỷ lệ đợt nhập viện có sử dụng thuốc giảm đau nhóm Opioid (chứa 'Morphine' hoặc 'Fentanyl').",
+        "gold_sql": "SELECT ROUND(100.0 * COUNT(DISTINCT pr.hadm_id) / (SELECT COUNT(*) FROM admissions), 2) AS ty_le_opioid_pct FROM prescriptions pr WHERE pr.drug ILIKE '%Morphine%' OR pr.drug ILIKE '%Fentanyl%';",
+        "tables": ["prescriptions", "admissions"],
+        "difficulty": "complex"
+    },
+
+    # ── TRANSFERS & SERVICES (Medium/Hard) ───────────────────────────
+    {
+        "id": "t071",
+        "question_vi": "Tính thời gian điều trị trung bình (theo ngày) tại phòng hồi sức tích cực nội khoa (MICU).",
+        "gold_sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (outtime::TIMESTAMP - intime::TIMESTAMP))/86400)::NUMERIC, 2) AS los_micu_days FROM transfers WHERE careunit ILIKE '%Medical Intensive Care Unit (MICU)%' AND outtime IS NOT NULL;",
+        "tables": ["transfers"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t072",
+        "question_vi": "Có bao nhiêu lượt chuyển khoa (eventtype = 'transfer') xảy ra trong toàn bộ hệ thống?",
+        "gold_sql": "SELECT COUNT(*) AS so_luot_chuyen_khoa FROM transfers WHERE eventtype = 'transfer';",
+        "tables": ["transfers"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t073",
+        "question_vi": "Tìm 5 khoa điều trị (careunit) có thời gian nằm khoa trung bình kéo dài nhất.",
+        "gold_sql": "SELECT careunit, ROUND(AVG(EXTRACT(EPOCH FROM (outtime::TIMESTAMP - intime::TIMESTAMP))/86400)::NUMERIC, 2) AS los_tb_days FROM transfers WHERE careunit IS NOT NULL AND outtime IS NOT NULL GROUP BY careunit ORDER BY los_tb_days DESC LIMIT 5;",
+        "tables": ["transfers"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t074",
+        "question_vi": "Có bao nhiêu đợt nhập viện phải vào khoa hồi sức tích cực (ICU - careunit chứa từ 'Intensive Care')?",
+        "gold_sql": "SELECT COUNT(DISTINCT hadm_id) AS so_dot_icu FROM transfers WHERE careunit ILIKE '%Intensive Care%';",
+        "tables": ["transfers"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t075",
+        "question_vi": "Tỷ lệ tử vong của bệnh nhân từng nằm tại khoa Hồi sức tích cực ngoại khoa (SICU) là bao nhiêu %?",
+        "gold_sql": "SELECT ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(DISTINCT a.hadm_id), 2) AS ty_le_tu_vong_sicu FROM transfers t JOIN admissions a ON t.hadm_id = a.hadm_id WHERE t.careunit ILIKE '%Surgical Intensive Care Unit (SICU)%';",
+        "tables": ["transfers", "admissions"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t076",
+        "question_vi": "Thống kê số lượng đợt điều trị theo từng dịch vụ điều trị hiện tại (curr_service).",
+        "gold_sql": "SELECT curr_service, COUNT(*) AS so_luot FROM services WHERE curr_service IS NOT NULL GROUP BY curr_service ORDER BY so_luot DESC;",
+        "tables": ["services"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t077",
+        "question_vi": "Có bao nhiêu lượt bệnh nhân được chuyển từ dịch vụ Nội khoa (prev_service = 'MED') sang Ngoại khoa (curr_service = 'SURG')?",
+        "gold_sql": "SELECT COUNT(*) AS so_luot_med_to_surg FROM services WHERE prev_service = 'MED' AND curr_service = 'SURG';",
+        "tables": ["services"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t078",
+        "question_vi": "Tìm các dịch vụ điều trị (curr_service) có tỷ lệ tử vong cao nhất (chỉ tính dịch vụ có trên 10 bệnh nhân).",
+        "gold_sql": "SELECT s.curr_service, ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(DISTINCT a.hadm_id), 2) AS ty_le_tv_pct FROM services s JOIN admissions a ON s.hadm_id = a.hadm_id WHERE s.curr_service IS NOT NULL GROUP BY s.curr_service HAVING COUNT(DISTINCT a.hadm_id) > 10 ORDER BY ty_le_tv_pct DESC LIMIT 5;",
+        "tables": ["services", "admissions"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t079",
+        "question_vi": "Bệnh nhân nằm khoa Cấp cứu (Emergency Department) có số xét nghiệm máu trung bình mỗi đợt là bao nhiêu?",
+        "gold_sql": "SELECT ROUND(COUNT(le.labevent_id)::NUMERIC / COUNT(DISTINCT t.hadm_id), 2) AS tb_xn_ed FROM transfers t JOIN labevents le ON t.hadm_id = le.hadm_id JOIN d_labitems dl ON le.itemid = dl.itemid WHERE t.careunit = 'Emergency Department' AND dl.fluid = 'Blood';",
+        "tables": ["transfers", "labevents", "d_labitems"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t080",
+        "question_vi": "Đếm số lần chuyển khoa trung bình trên mỗi đợt nhập viện.",
+        "gold_sql": "SELECT ROUND(COUNT(*)::NUMERIC / COUNT(DISTINCT hadm_id), 2) AS tb_chuyen_khoa FROM transfers WHERE eventtype = 'transfer';",
+        "tables": ["transfers"],
+        "difficulty": "medium"
+    },
+
+    # ── MICROBIOLOGYEVENTS (Hard/Complex) ────────────────────────────
+    {
+        "id": "t081",
+        "question_vi": "Có bao nhiêu mẫu cấy máu (BLOOD CULTURE) cho kết quả dương tính (có mọc vi khuẩn org_name khác NULL)?",
+        "gold_sql": "SELECT COUNT(*) AS so_cay_mau_duong_tinh FROM microbiologyevents WHERE spec_type_desc ILIKE '%BLOOD CULTURE%' AND org_name IS NOT NULL;",
+        "tables": ["microbiologyevents"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t082",
+        "question_vi": "Liệt kê 10 loại vi khuẩn (org_name) được phân lập/phát hiện nhiều nhất từ các mẫu cấy vi sinh.",
+        "gold_sql": "SELECT org_name, COUNT(*) AS so_luot FROM microbiologyevents WHERE org_name IS NOT NULL GROUP BY org_name ORDER BY so_luot DESC LIMIT 10;",
+        "tables": ["microbiologyevents"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t083",
+        "question_vi": "Tụ cầu vàng (Staphylococcus aureus) có tỷ lệ kháng thuốc (interpretation = 'R') là bao nhiêu % trên tổng số mẫu cấy?",
+        "gold_sql": "SELECT ROUND(100.0 * SUM(CASE WHEN interpretation = 'R' THEN 1 ELSE 0 END) / COUNT(*), 2) AS ty_le_khang_pct FROM microbiologyevents WHERE org_name ILIKE '%Staphylococcus aureus%' AND interpretation IS NOT NULL;",
+        "tables": ["microbiologyevents"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t084",
+        "question_vi": "Thống kê 5 loại bệnh phẩm (spec_type_desc) được lấy mẫu cấy vi sinh nhiều nhất.",
+        "gold_sql": "SELECT spec_type_desc, COUNT(*) AS so_mau FROM microbiologyevents WHERE spec_type_desc IS NOT NULL GROUP BY spec_type_desc ORDER BY so_mau DESC LIMIT 5;",
+        "tables": ["microbiologyevents"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t085",
+        "question_vi": "Bệnh nhân nhiễm vi khuẩn E. coli (Escherichia coli) trong máu có thời gian nằm viện trung bình là bao nhiêu ngày?",
+        "gold_sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (a.dischtime::TIMESTAMP - a.admittime::TIMESTAMP))/86400)::NUMERIC, 2) AS los_ecoli_days FROM microbiologyevents m JOIN admissions a ON m.hadm_id = a.hadm_id WHERE m.org_name ILIKE '%Escherichia coli%' AND m.spec_type_desc ILIKE '%BLOOD CULTURE%' AND a.dischtime IS NOT NULL;",
+        "tables": ["microbiologyevents", "admissions"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t086",
+        "question_vi": "Đếm số mẫu cấy vi khuẩn có kết quả nhạy cảm với kháng sinh (interpretation = 'S').",
+        "gold_sql": "SELECT COUNT(*) AS so_mau_nhay_cam FROM microbiologyevents WHERE interpretation = 'S';",
+        "tables": ["microbiologyevents"],
+        "difficulty": "easy"
+    },
+    {
+        "id": "t087",
+        "question_vi": "Tìm các vi khuẩn gây nhiễm khuẩn đường tiết niệu (từ mẫu cấy nước tiểu URINE) phổ biến nhất.",
+        "gold_sql": "SELECT org_name, COUNT(*) AS so_ca FROM microbiologyevents WHERE spec_type_desc ILIKE '%URINE%' AND org_name IS NOT NULL GROUP BY org_name ORDER BY so_ca DESC LIMIT 5;",
+        "tables": ["microbiologyevents"],
+        "difficulty": "medium"
+    },
+    {
+        "id": "t088",
+        "question_vi": "Có bao nhiêu bệnh nhân vừa có cấy máu dương tính vừa bị tử vong trong viện?",
+        "gold_sql": "SELECT COUNT(DISTINCT m.subject_id) AS so_bn_nhiem_truc_tv FROM microbiologyevents m JOIN admissions a ON m.hadm_id = a.hadm_id WHERE m.spec_type_desc ILIKE '%BLOOD CULTURE%' AND m.org_name IS NOT NULL AND a.hospital_expire_flag = 1;",
+        "tables": ["microbiologyevents", "admissions"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t089",
+        "question_vi": "Tỷ lệ cấy máu cho kết quả dương tính (có mọc khuẩn) trên tổng số mẫu cấy máu đã thực hiện là bao nhiêu %?",
+        "gold_sql": "SELECT ROUND(100.0 * SUM(CASE WHEN org_name IS NOT NULL THEN 1 ELSE 0 END) / COUNT(*), 2) AS ty_le_duong_tinh_pct FROM microbiologyevents WHERE spec_type_desc ILIKE '%BLOOD CULTURE%';",
+        "tables": ["microbiologyevents"],
+        "difficulty": "hard"
+    },
+    {
+        "id": "t090",
+        "question_vi": "Vi khuẩn Trực khuẩn mủ xanh (Pseudomonas aeruginosa) thường nhạy cảm (interpretation = 'S') với những kháng sinh/xét nghiệm nào nhất?",
+        "gold_sql": "SELECT spec_itemid, COUNT(*) AS so_lan_nhay FROM microbiologyevents WHERE org_name ILIKE '%Pseudomonas aeruginosa%' AND interpretation = 'S' GROUP BY spec_itemid ORDER BY so_lan_nhay DESC LIMIT 5;",
+        "tables": ["microbiologyevents"],
+        "difficulty": "hard"
+    },
+
+    # ── ADVANCED CROSS-TABLE COMPLEX QUERIES ─────────────────────────
+    {
+        "id": "t091",
+        "question_vi": "Tìm các bệnh nhân nam trên 60 tuổi mắc viêm phổi, có cấy đờm (SPUTUM) mọc vi khuẩn và được điều trị tại ICU.",
+        "gold_sql": "SELECT DISTINCT p.subject_id, p.anchor_age FROM patients p JOIN diagnoses_icd d ON p.subject_id = d.subject_id JOIN microbiologyevents m ON p.hadm_id = m.hadm_id JOIN transfers t ON p.hadm_id = t.hadm_id WHERE p.gender = 'M' AND p.anchor_age > 60 AND (d.icd_code = '486' AND d.icd_version = 9 OR d.icd_code = 'J189' AND d.icd_version = 10) AND m.spec_type_desc ILIKE '%SPUTUM%' AND m.org_name IS NOT NULL AND t.careunit ILIKE '%Intensive Care%';",
+        "tables": ["patients", "diagnoses_icd", "microbiologyevents", "transfers"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t092",
+        "question_vi": "So sánh chi tiết chỉ số Bạch cầu (WBC) máu cao nhất giữa nhóm bệnh nhân tử vong và nhóm sống sót khi xuất viện.",
+        "gold_sql": "SELECT a.hospital_expire_flag, ROUND(AVG(wbc_sub.max_wbc)::NUMERIC, 2) AS tb_max_wbc FROM admissions a JOIN (SELECT le.hadm_id, MAX(le.valuenum) AS max_wbc FROM labevents le JOIN d_labitems dl ON le.itemid = dl.itemid WHERE dl.label ILIKE '%White Blood Cells%' AND dl.fluid = 'Blood' AND le.valuenum IS NOT NULL GROUP BY le.hadm_id) wbc_sub ON a.hadm_id = wbc_sub.hadm_id GROUP BY a.hospital_expire_flag;",
+        "tables": ["admissions", "labevents", "d_labitems"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t093",
+        "question_vi": "Những bệnh nhân bị suy thận mạn (ICD-10 N18) có nồng độ Creatinine máu trung bình là bao nhiêu và thường được kê đơn thuốc gì nhiều nhất?",
+        "gold_sql": "SELECT pr.drug, COUNT(*) AS so_don, ROUND(AVG(le.valuenum)::NUMERIC, 2) AS creatinine_tb FROM diagnoses_icd d JOIN prescriptions pr ON d.hadm_id = pr.hadm_id JOIN labevents le ON d.hadm_id = le.hadm_id JOIN d_labitems dl ON le.itemid = dl.itemid WHERE d.icd_version = 10 AND d.icd_code LIKE 'N18%' AND dl.label ILIKE '%Creatinine%' AND dl.fluid = 'Blood' AND le.valuenum IS NOT NULL GROUP BY pr.drug ORDER BY so_don DESC LIMIT 5;",
+        "tables": ["diagnoses_icd", "prescriptions", "labevents", "d_labitems"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t094",
+        "question_vi": "Tính tỷ lệ bệnh nhân bị sốc nhiễm khuẩn (ICD-10 R572) phải sử dụng thuốc vận mạch Norepinephrine theo đường tĩnh mạch (IV).",
+        "gold_sql": "SELECT ROUND(100.0 * COUNT(DISTINCT pr.hadm_id) / COUNT(DISTINCT d.hadm_id), 2) AS ty_le_norepi_pct FROM diagnoses_icd d LEFT JOIN prescriptions pr ON d.hadm_id = pr.hadm_id AND pr.drug ILIKE '%Norepinephrine%' AND pr.route = 'IV' WHERE d.icd_version = 10 AND d.icd_code = 'R572';",
+        "tables": ["diagnoses_icd", "prescriptions"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t095",
+        "question_vi": "Liệt kê 5 khoa điều trị (careunit) có tỷ lệ cấy vi sinh mọc vi khuẩn kháng thuốc (interpretation = 'R') cao nhất.",
+        "gold_sql": "SELECT t.careunit, ROUND(100.0 * SUM(CASE WHEN m.interpretation = 'R' THEN 1 ELSE 0 END) / COUNT(*), 2) AS ty_le_khang_pct FROM transfers t JOIN microbiologyevents m ON t.hadm_id = m.hadm_id WHERE t.careunit IS NOT NULL AND m.interpretation IS NOT NULL GROUP BY t.careunit HAVING COUNT(*) > 20 ORDER BY ty_le_khang_pct DESC LIMIT 5;",
+        "tables": ["transfers", "microbiologyevents"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t096",
+        "question_vi": "Khoảng cách thời gian trung bình (giờ) từ khi nhập viện đến khi có chỉ định cấy máu đầu tiên là bao nhiêu?",
+        "gold_sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (m.charttime::TIMESTAMP - a.admittime::TIMESTAMP))/3600)::NUMERIC, 2) AS tb_gio_cay_mau FROM admissions a JOIN microbiologyevents m ON a.hadm_id = m.hadm_id WHERE m.spec_type_desc ILIKE '%BLOOD CULTURE%' AND m.charttime IS NOT NULL AND a.admittime IS NOT NULL AND m.charttime >= a.admittime;",
+        "tables": ["admissions", "microbiologyevents"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t097",
+        "question_vi": "Thống kê 5 cặp bệnh chẩn đoán đi kèm nhau (co-occurrence) xuất hiện nhiều nhất trong cùng một đợt nhập viện.",
+        "gold_sql": "SELECT di1.long_title AS benh_1, di2.long_title AS benh_2, COUNT(*) AS so_lan_cung_nhau FROM diagnoses_icd d1 JOIN diagnoses_icd d2 ON d1.hadm_id = d2.hadm_id AND d1.seq_num < d2.seq_num JOIN d_icd_diagnoses di1 ON d1.icd_code = di1.icd_code AND d1.icd_version = di1.icd_version JOIN d_icd_diagnoses di2 ON d2.icd_code = di2.icd_code AND d2.icd_version = di2.icd_version GROUP BY di1.long_title, di2.long_title ORDER BY so_lan_cung_nhau DESC LIMIT 5;",
+        "tables": ["diagnoses_icd", "d_icd_diagnoses"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t098",
+        "question_vi": "Những bệnh nhân bị nhồi máu cơ tim cấp (ICD-10 I21) có tỷ lệ được làm thủ thuật chụp mạch vành (ICD procedure) là bao nhiêu %?",
+        "gold_sql": "SELECT ROUND(100.0 * COUNT(DISTINCT p.hadm_id) / COUNT(DISTINCT d.hadm_id), 2) AS ty_le_chup_mach_pct FROM diagnoses_icd d LEFT JOIN procedures_icd p ON d.hadm_id = p.hadm_id WHERE d.icd_version = 10 AND d.icd_code LIKE 'I21%';",
+        "tables": ["diagnoses_icd", "procedures_icd"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t099",
+        "question_vi": "Tính tổng số đơn thuốc và số xét nghiệm trung bình trên mỗi ngày nằm viện của bệnh nhân ICU.",
+        "gold_sql": "SELECT ROUND(AVG(sub.total_orders / sub.los_days)::NUMERIC, 2) AS orders_per_day FROM (SELECT a.hadm_id, (EXTRACT(EPOCH FROM (a.dischtime::TIMESTAMP - a.admittime::TIMESTAMP))/86400) AS los_days, (SELECT COUNT(*) FROM prescriptions pr WHERE pr.hadm_id = a.hadm_id) + (SELECT COUNT(*) FROM labevents le WHERE le.hadm_id = a.hadm_id) AS total_orders FROM admissions a JOIN transfers t ON a.hadm_id = t.hadm_id WHERE t.careunit ILIKE '%Intensive Care%' AND a.dischtime IS NOT NULL AND EXTRACT(EPOCH FROM (a.dischtime::TIMESTAMP - a.admittime::TIMESTAMP))/86400 >= 1) sub;",
+        "tables": ["admissions", "transfers", "prescriptions", "labevents"],
+        "difficulty": "complex"
+    },
+    {
+        "id": "t100",
+        "question_vi": "Kiểm tra sự tương quan giữa số ngày điều trị kháng sinh đường tĩnh mạch (route = 'IV') và tỷ lệ sống sót khi xuất viện ở bệnh nhân viêm phổi nặng.",
+        "gold_sql": "SELECT CASE WHEN pr.days_iv < 3 THEN 'Dưới 3 ngày' WHEN pr.days_iv BETWEEN 3 AND 7 THEN 'Từ 3-7 ngày' ELSE 'Trên 7 ngày' END AS thoi_gian_iv, COUNT(*) AS tong_bn, ROUND(100.0 * SUM(CASE WHEN a.hospital_expire_flag = 0 THEN 1 ELSE 0 END) / COUNT(*), 2) AS ty_le_song_sot_pct FROM admissions a JOIN diagnoses_icd d ON a.hadm_id = d.hadm_id JOIN (SELECT hadm_id, SUM(EXTRACT(EPOCH FROM (stoptime::TIMESTAMP - starttime::TIMESTAMP))/86400) AS days_iv FROM prescriptions WHERE route = 'IV' AND stoptime IS NOT NULL GROUP BY hadm_id) pr ON a.hadm_id = pr.hadm_id WHERE (d.icd_code = '486' AND d.icd_version = 9 OR d.icd_code = 'J189' AND d.icd_version = 10) GROUP BY thoi_gian_iv ORDER BY thoi_gian_iv;",
+        "tables": ["admissions", "diagnoses_icd", "prescriptions"],
+        "difficulty": "complex"
+    }
+]
+
+
+def expand_dataset():
+    with open("test_dataset.json", "r", encoding="utf-8") as f:
+        existing = json.load(f)
+    
+    print(f"Số lượng câu hỏi hiện tại: {len(existing)}")
+    
+    # Kiểm tra xem t031 đã tồn tại chưa để tránh add trùng lặp
+    existing_ids = {q["id"] for q in existing}
+    added_count = 0
+    for q in NEW_QUESTIONS:
+        if q["id"] not in existing_ids:
+            existing.append(q)
+            added_count += 1
+            
+    with open("test_dataset.json", "w", encoding="utf-8") as f:
+        json.dump(existing, f, ensure_ascii=False, indent=2)
+        
+    print(f"Đã thêm mới {added_count} câu hỏi. Tổng số câu hỏi trong test_dataset.json hiện tại: {len(existing)}")
+    
+    # Thống kê phân bố độ khó và bảng
+    diff_counts = {}
+    table_counts = {}
+    for q in existing:
+        d = q.get("difficulty", "unspecified")
+        diff_counts[d] = diff_counts.get(d, 0) + 1
+        for tbl in q.get("tables", []):
+            table_counts[tbl] = table_counts.get(tbl, 0) + 1
+            
+    print("\n── Thống kê phân bố độ khó ──")
+    for d, c in sorted(diff_counts.items()):
+        print(f"  • {d.upper()}: {c} câu ({round(c*100/len(existing), 1)}%)")
+        
+    print("\n── Thống kê phân bố theo Bảng (MIMIC-IV) ──")
+    for tbl, c in sorted(table_counts.items(), key=lambda x: x[1], reverse=True):
+        print(f"  • {tbl}: {c} câu")
+
+
+if __name__ == "__main__":
+    expand_dataset()

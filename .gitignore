@@ -1,0 +1,37 @@
+# ===== MIMIC Database =====
+# Dữ liệu MIMIC-IV gốc (không được phép public theo license)
+mimic-iv-3.1/
+mimic_chroma_db
+
+# ChromaDB vector database (build lại được bằng build_vector_db.py)
+mimic_chroma_db/
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ===== Virtual Environment =====
+venv/
+.venv/
+env/
+
+# ===== Environment Variables =====
+.env
+.env.local
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini

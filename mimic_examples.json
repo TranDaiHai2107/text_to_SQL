@@ -1,0 +1,282 @@
+[
+  {
+    "id": "ex001",
+    "question_vi": "Có bao nhiêu bệnh nhân trong cơ sở dữ liệu?",
+    "tables": ["patients"],
+    "type": "count",
+    "sql": "SELECT COUNT(*) AS tong_so_benh_nhan FROM patients;"
+  },
+  {
+    "id": "ex002",
+    "question_vi": "Liệt kê số lượng bệnh nhân nam và nữ.",
+    "tables": ["patients"],
+    "type": "group_by",
+    "sql": "SELECT gender, COUNT(*) AS so_luong\nFROM patients\nGROUP BY gender\nORDER BY so_luong DESC;"
+  },
+  {
+    "id": "ex003",
+    "question_vi": "Độ tuổi trung bình của bệnh nhân là bao nhiêu?",
+    "tables": ["patients"],
+    "type": "aggregate",
+    "sql": "SELECT ROUND(AVG(anchor_age), 1) AS tuoi_trung_binh FROM patients;"
+  },
+  {
+    "id": "ex004",
+    "question_vi": "Có bao nhiêu bệnh nhân đã tử vong (có ngày mất được ghi nhận)?",
+    "tables": ["patients"],
+    "type": "filter",
+    "sql": "SELECT COUNT(*) AS so_benh_nhan_tu_vong\nFROM patients\nWHERE dod IS NOT NULL;"
+  },
+  {
+    "id": "ex005",
+    "question_vi": "Tìm 10 bệnh nhân cao tuổi nhất trong database.",
+    "tables": ["patients"],
+    "type": "top_n",
+    "sql": "SELECT subject_id, gender, anchor_age\nFROM patients\nORDER BY anchor_age DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex006",
+    "question_vi": "Phân bố bệnh nhân theo nhóm tuổi: dưới 30, từ 30 đến 60, và trên 60 tuổi.",
+    "tables": ["patients"],
+    "type": "case_when",
+    "sql": "SELECT\n  CASE\n    WHEN anchor_age < 30 THEN 'Dưới 30'\n    WHEN anchor_age BETWEEN 30 AND 60 THEN '30-60'\n    ELSE 'Trên 60'\n  END AS nhom_tuoi,\n  COUNT(*) AS so_luong\nFROM patients\nGROUP BY nhom_tuoi\nORDER BY so_luong DESC;"
+  },
+  {
+    "id": "ex007",
+    "question_vi": "Tổng số đợt nhập viện là bao nhiêu?",
+    "tables": ["admissions"],
+    "type": "count",
+    "sql": "SELECT COUNT(*) AS tong_so_dot_nhap_vien FROM admissions;"
+  },
+  {
+    "id": "ex008",
+    "question_vi": "Có bao nhiêu bệnh nhân có nhiều hơn một lần nhập viện?",
+    "tables": ["admissions"],
+    "type": "subquery",
+    "sql": "SELECT COUNT(*) AS so_benh_nhan_nhap_vien_nhieu_lan\nFROM (\n  SELECT subject_id\n  FROM admissions\n  GROUP BY subject_id\n  HAVING COUNT(*) > 1\n) AS sub;"
+  },
+  {
+    "id": "ex009",
+    "question_vi": "Có bao nhiêu đợt nhập viện được chẩn đoán viêm phổi (ICD-9: 486, ICD-10: J189)?",
+    "tables": ["diagnoses_icd"],
+    "type": "icd_filter",
+    "sql": "SELECT COUNT(DISTINCT hadm_id) AS so_ca_viem_phoi\nFROM diagnoses_icd\nWHERE (icd_code = '486' AND icd_version = 9)\n   OR (icd_code = 'J189' AND icd_version = 10);"
+  },
+  {
+    "id": "ex010",
+    "question_vi": "Liệt kê 10 mã bệnh phổ biến nhất trong cơ sở dữ liệu.",
+    "tables": ["diagnoses_icd", "d_icd_diagnoses"],
+    "type": "join_group_top_n",
+    "sql": "SELECT d.icd_code, d.icd_version, di.long_title, COUNT(*) AS so_ca\nFROM diagnoses_icd d\nJOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version\nGROUP BY d.icd_code, d.icd_version, di.long_title\nORDER BY so_ca DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex011",
+    "question_vi": "Tìm tất cả bệnh nhân bị đái tháo đường type 2 (ICD-10 bắt đầu bằng E11).",
+    "tables": ["patients", "diagnoses_icd"],
+    "type": "join_icd_like",
+    "sql": "SELECT DISTINCT p.subject_id, p.gender, p.anchor_age\nFROM patients p\nJOIN diagnoses_icd d ON p.subject_id = d.subject_id\nWHERE d.icd_code LIKE 'E11%' AND d.icd_version = 10;"
+  },
+  {
+    "id": "ex012",
+    "question_vi": "Tính tỷ lệ tử vong trong bệnh viện của bệnh nhân bị suy tim (ICD-10: I50%).",
+    "tables": ["admissions", "diagnoses_icd"],
+    "type": "mortality_rate",
+    "sql": "SELECT\n  COUNT(*) AS tong_ca_suy_tim,\n  SUM(a.hospital_expire_flag) AS so_ca_tu_vong,\n  ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(*), 2) AS ty_le_tu_vong_pct\nFROM admissions a\nJOIN diagnoses_icd d ON a.hadm_id = d.hadm_id\nWHERE d.icd_code LIKE 'I50%' AND d.icd_version = 10;"
+  },
+  {
+    "id": "ex013",
+    "question_vi": "Liệt kê bệnh nhân bị viêm phổi có kết quả tử vong trong bệnh viện, kèm tên chẩn đoán đầy đủ.",
+    "tables": ["patients", "admissions", "diagnoses_icd", "d_icd_diagnoses"],
+    "type": "multi_join_filter",
+    "sql": "SELECT DISTINCT\n  p.subject_id,\n  p.gender,\n  p.anchor_age,\n  di.long_title AS chan_doan,\n  a.hospital_expire_flag AS tu_vong\nFROM patients p\nJOIN admissions a ON p.subject_id = a.subject_id\nJOIN diagnoses_icd d ON a.hadm_id = d.hadm_id\nJOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version\nWHERE ((d.icd_code = '486' AND d.icd_version = 9)\n    OR (d.icd_code = 'J189' AND d.icd_version = 10))\n  AND a.hospital_expire_flag = 1;"
+  },
+  {
+    "id": "ex014",
+    "question_vi": "So sánh số ca tử vong giữa bệnh nhân nam và nữ bị tăng huyết áp (ICD-10: I10).",
+    "tables": ["patients", "admissions", "diagnoses_icd"],
+    "type": "compare_gender_mortality",
+    "sql": "SELECT\n  p.gender,\n  COUNT(*) AS tong_ca,\n  SUM(a.hospital_expire_flag) AS so_ca_tu_vong,\n  ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(*), 2) AS ty_le_tu_vong_pct\nFROM patients p\nJOIN admissions a ON p.subject_id = a.subject_id\nJOIN diagnoses_icd d ON a.hadm_id = d.hadm_id\nWHERE d.icd_code = 'I10' AND d.icd_version = 10\nGROUP BY p.gender;"
+  },
+  {
+    "id": "ex015",
+    "question_vi": "Tìm các đợt nhập viện có chẩn đoán chính (seq_num = 1) là nhiễm khuẩn huyết (ICD-10 bắt đầu bằng A41).",
+    "tables": ["admissions", "diagnoses_icd", "d_icd_diagnoses"],
+    "type": "primary_diagnosis_filter",
+    "sql": "SELECT a.hadm_id, a.subject_id, a.admittime, di.long_title\nFROM admissions a\nJOIN diagnoses_icd d ON a.hadm_id = d.hadm_id\nJOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version\nWHERE d.seq_num = 1\n  AND d.icd_code LIKE 'A41%'\n  AND d.icd_version = 10\nORDER BY a.admittime;"
+  },
+  {
+    "id": "ex016",
+    "question_vi": "Đếm số bệnh nhân bị đồng thời đái tháo đường type 2 (ICD-10: E11%) và tăng huyết áp (ICD-10: I10).",
+    "tables": ["diagnoses_icd"],
+    "type": "comorbidity",
+    "sql": "SELECT COUNT(DISTINCT d1.subject_id) AS so_benh_nhan\nFROM diagnoses_icd d1\nJOIN diagnoses_icd d2 ON d1.hadm_id = d2.hadm_id\nWHERE d1.icd_code LIKE 'E11%' AND d1.icd_version = 10\n  AND d2.icd_code = 'I10' AND d2.icd_version = 10;"
+  },
+  {
+    "id": "ex017",
+    "question_vi": "Tính số chẩn đoán trung bình mỗi đợt nhập viện.",
+    "tables": ["diagnoses_icd"],
+    "type": "avg_per_admission",
+    "sql": "SELECT ROUND(AVG(so_chan_doan), 2) AS trung_binh_chan_doan_moi_dot\nFROM (\n  SELECT hadm_id, COUNT(*) AS so_chan_doan\n  FROM diagnoses_icd\n  GROUP BY hadm_id\n) AS sub;"
+  },
+  {
+    "id": "ex018",
+    "question_vi": "Tìm bệnh nhân bị viêm phổi nhưng không bị đái tháo đường.",
+    "tables": ["diagnoses_icd"],
+    "type": "not_in_subquery",
+    "sql": "SELECT DISTINCT subject_id\nFROM diagnoses_icd\nWHERE (icd_code = '486' AND icd_version = 9\n    OR icd_code = 'J189' AND icd_version = 10)\n  AND subject_id NOT IN (\n    SELECT DISTINCT subject_id FROM diagnoses_icd\n    WHERE icd_code LIKE 'E11%' AND icd_version = 10\n  );"
+  },
+  {
+    "id": "ex019",
+    "question_vi": "Tìm tất cả kết quả xét nghiệm Creatinine trong máu của bệnh nhân.",
+    "tables": ["labevents", "d_labitems"],
+    "type": "lab_filter",
+    "sql": "SELECT le.subject_id, le.hadm_id, le.charttime, le.valuenum, le.valueuom, le.flag\nFROM labevents le\nJOIN d_labitems dl ON le.itemid = dl.itemid\nWHERE dl.label ILIKE '%Creatinine%' AND dl.fluid = 'Blood'\nORDER BY le.charttime;"
+  },
+  {
+    "id": "ex020",
+    "question_vi": "Tính giá trị Glucose trong máu trung bình của tất cả bệnh nhân.",
+    "tables": ["labevents", "d_labitems"],
+    "type": "lab_avg",
+    "sql": "SELECT ROUND(AVG(le.valuenum)::NUMERIC, 2) AS glucose_trung_binh, le.valueuom\nFROM labevents le\nJOIN d_labitems dl ON le.itemid = dl.itemid\nWHERE dl.label ILIKE '%Glucose%'\n  AND dl.fluid = 'Blood'\n  AND le.valuenum IS NOT NULL\nGROUP BY le.valueuom;"
+  },
+  {
+    "id": "ex021",
+    "question_vi": "Liệt kê 50 kết quả xét nghiệm bất thường gần nhất.",
+    "tables": ["labevents", "d_labitems"],
+    "type": "lab_abnormal",
+    "sql": "SELECT le.subject_id, dl.label, le.valuenum, le.valueuom,\n       le.ref_range_lower, le.ref_range_upper, le.charttime\nFROM labevents le\nJOIN d_labitems dl ON le.itemid = dl.itemid\nWHERE le.flag = 'abnormal' AND le.valuenum IS NOT NULL\nORDER BY le.charttime DESC\nLIMIT 50;"
+  },
+  {
+    "id": "ex022",
+    "question_vi": "Đếm số lần xét nghiệm được thực hiện mỗi bệnh nhân trong từng đợt nhập viện.",
+    "tables": ["labevents"],
+    "type": "count_per_admission",
+    "sql": "SELECT subject_id, hadm_id, COUNT(*) AS so_xet_nghiem\nFROM labevents\nGROUP BY subject_id, hadm_id\nORDER BY so_xet_nghiem DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex023",
+    "question_vi": "Tìm bệnh nhân có nồng độ Creatinine máu cao hơn 2 mg/dL (nghi ngờ suy thận).",
+    "tables": ["labevents", "d_labitems"],
+    "type": "lab_threshold",
+    "sql": "SELECT DISTINCT le.subject_id, MAX(le.valuenum) AS creatinine_max, le.valueuom\nFROM labevents le\nJOIN d_labitems dl ON le.itemid = dl.itemid\nWHERE dl.label ILIKE '%Creatinine%'\n  AND dl.fluid = 'Blood'\n  AND le.valuenum > 2\n  AND le.valueuom = 'mg/dL'\nGROUP BY le.subject_id, le.valueuom;"
+  },
+  {
+    "id": "ex024",
+    "question_vi": "Thống kê số loại xét nghiệm khác nhau đã được thực hiện.",
+    "tables": ["labevents"],
+    "type": "count_distinct",
+    "sql": "SELECT COUNT(DISTINCT itemid) AS so_loai_xet_nghiem FROM labevents;"
+  },
+  {
+    "id": "ex025",
+    "question_vi": "Liệt kê các loại thuốc được kê nhiều nhất, sắp xếp theo tần suất.",
+    "tables": ["prescriptions"],
+    "type": "drug_frequency",
+    "sql": "SELECT drug, COUNT(*) AS so_lan_ke\nFROM prescriptions\nWHERE drug IS NOT NULL\nGROUP BY drug\nORDER BY so_lan_ke DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex026",
+    "question_vi": "Tìm tất cả đợt nhập viện có kê đơn thuốc Heparin.",
+    "tables": ["prescriptions"],
+    "type": "drug_filter",
+    "sql": "SELECT DISTINCT hadm_id, subject_id, drug, dose_val_rx, dose_unit_rx, route\nFROM prescriptions\nWHERE drug ILIKE '%Heparin%';"
+  },
+  {
+    "id": "ex027",
+    "question_vi": "Đếm số bệnh nhân được kê thuốc đường tiêm tĩnh mạch (IV).",
+    "tables": ["prescriptions"],
+    "type": "drug_route",
+    "sql": "SELECT COUNT(DISTINCT subject_id) AS so_benh_nhan_tiem_iv\nFROM prescriptions\nWHERE route = 'IV';"
+  },
+  {
+    "id": "ex028",
+    "question_vi": "Tính thời gian dùng thuốc trung bình (ngày) cho các thuốc được kê nhiều nhất.",
+    "tables": ["prescriptions"],
+    "type": "drug_duration",
+    "sql": "SELECT drug,\n  ROUND(AVG(EXTRACT(EPOCH FROM (stoptime - starttime))/86400)::NUMERIC, 1) AS thoi_gian_tb_ngay\nFROM prescriptions\nWHERE starttime IS NOT NULL AND stoptime IS NOT NULL AND drug IS NOT NULL\nGROUP BY drug\nORDER BY thoi_gian_tb_ngay DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex029",
+    "question_vi": "Liệt kê 10 thủ thuật/phẫu thuật được thực hiện nhiều nhất.",
+    "tables": ["procedures_icd", "d_icd_procedures"],
+    "type": "procedure_top_n",
+    "sql": "SELECT pi.icd_code, pi.icd_version, di.long_title, COUNT(*) AS so_ca\nFROM procedures_icd pi\nJOIN d_icd_procedures di ON pi.icd_code = di.icd_code AND pi.icd_version = di.icd_version\nGROUP BY pi.icd_code, pi.icd_version, di.long_title\nORDER BY so_ca DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex030",
+    "question_vi": "Đếm số đợt nhập viện có ít nhất một thủ thuật được thực hiện.",
+    "tables": ["procedures_icd"],
+    "type": "count_distinct",
+    "sql": "SELECT COUNT(DISTINCT hadm_id) AS so_dot_co_thu_thuat FROM procedures_icd;"
+  },
+  {
+    "id": "ex031",
+    "question_vi": "Tìm bệnh nhân được phẫu thuật tim (ICD-10: mã bắt đầu bằng 02).",
+    "tables": ["patients", "procedures_icd", "d_icd_procedures"],
+    "type": "procedure_join",
+    "sql": "SELECT DISTINCT p.subject_id, p.gender, p.anchor_age, di.long_title\nFROM patients p\nJOIN procedures_icd pi ON p.subject_id = pi.subject_id\nJOIN d_icd_procedures di ON pi.icd_code = di.icd_code AND pi.icd_version = di.icd_version\nWHERE pi.icd_code LIKE '02%' AND pi.icd_version = 10;"
+  },
+  {
+    "id": "ex032",
+    "question_vi": "Tính số thủ thuật trung bình mỗi đợt nhập viện.",
+    "tables": ["procedures_icd"],
+    "type": "avg_per_admission",
+    "sql": "SELECT ROUND(AVG(so_thu_thuat)::NUMERIC, 2) AS tb_thu_thuat_moi_dot\nFROM (\n  SELECT hadm_id, COUNT(*) AS so_thu_thuat\n  FROM procedures_icd\n  GROUP BY hadm_id\n) AS sub;"
+  },
+  {
+    "id": "ex033",
+    "question_vi": "Tính thời gian nằm viện trung bình (ngày) của tất cả bệnh nhân.",
+    "tables": ["admissions"],
+    "type": "los_average",
+    "sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (dischtime - admittime))/86400)::NUMERIC, 1) AS los_trung_binh_ngay\nFROM admissions\nWHERE dischtime IS NOT NULL AND admittime IS NOT NULL;"
+  },
+  {
+    "id": "ex034",
+    "question_vi": "Tìm các đợt nhập viện kéo dài hơn 14 ngày.",
+    "tables": ["admissions"],
+    "type": "los_filter",
+    "sql": "SELECT hadm_id, subject_id, admittime, dischtime,\n  ROUND((EXTRACT(EPOCH FROM (dischtime - admittime))/86400)::NUMERIC, 1) AS so_ngay_nam_vien\nFROM admissions\nWHERE EXTRACT(EPOCH FROM (dischtime - admittime))/86400 > 14\nORDER BY so_ngay_nam_vien DESC;"
+  },
+  {
+    "id": "ex035",
+    "question_vi": "Tính thời gian nằm viện trung bình theo từng loại nhập viện (EMERGENCY, ELECTIVE...).",
+    "tables": ["admissions"],
+    "type": "los_by_type",
+    "sql": "SELECT admission_type,\n  COUNT(*) AS so_dot,\n  ROUND(AVG(EXTRACT(EPOCH FROM (dischtime - admittime))/86400)::NUMERIC, 1) AS los_trung_binh_ngay\nFROM admissions\nWHERE dischtime IS NOT NULL AND admittime IS NOT NULL\nGROUP BY admission_type\nORDER BY los_trung_binh_ngay DESC;"
+  },
+  {
+    "id": "ex036",
+    "question_vi": "Tìm các bệnh nhân tái nhập viện trong vòng 30 ngày sau khi xuất viện.",
+    "tables": ["admissions"],
+    "type": "readmission_30d",
+    "sql": "SELECT a1.subject_id,\n  a1.hadm_id AS dot_truoc,\n  a2.hadm_id AS dot_tai_nhap,\n  a1.dischtime AS ngay_xuat_vien,\n  a2.admittime AS ngay_tai_nhap,\n  ROUND((EXTRACT(EPOCH FROM (a2.admittime - a1.dischtime))/86400)::NUMERIC, 1) AS so_ngay_giua\nFROM admissions a1\nJOIN admissions a2\n  ON a1.subject_id = a2.subject_id\n  AND a1.hadm_id <> a2.hadm_id\nWHERE a2.admittime > a1.dischtime\n  AND EXTRACT(EPOCH FROM (a2.admittime - a1.dischtime))/86400 <= 30\nORDER BY so_ngay_giua;"
+  },
+  {
+    "id": "ex037",
+    "question_vi": "Top 5 chẩn đoán chính phổ biến nhất ở bệnh nhân nữ trên 65 tuổi, kèm tỷ lệ tử vong.",
+    "tables": ["patients", "admissions", "diagnoses_icd", "d_icd_diagnoses"],
+    "type": "complex_analytics",
+    "sql": "SELECT\n  di.long_title,\n  COUNT(*) AS so_ca,\n  SUM(a.hospital_expire_flag) AS so_tu_vong,\n  ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(*), 2) AS ty_le_tu_vong_pct\nFROM patients p\nJOIN admissions a ON p.subject_id = a.subject_id\nJOIN diagnoses_icd d ON a.hadm_id = d.hadm_id\nJOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version\nWHERE p.gender = 'F' AND p.anchor_age > 65 AND d.seq_num = 1\nGROUP BY di.long_title\nORDER BY so_ca DESC\nLIMIT 5;"
+  },
+  {
+    "id": "ex038",
+    "question_vi": "Tìm bệnh nhân có kết quả xét nghiệm bất thường và đồng thời bị chẩn đoán suy thận (ICD-10: N17, N18, N19).",
+    "tables": ["labevents", "diagnoses_icd"],
+    "type": "lab_diagnosis_join",
+    "sql": "SELECT DISTINCT le.subject_id\nFROM labevents le\nJOIN diagnoses_icd d ON le.subject_id = d.subject_id\nWHERE le.flag = 'abnormal'\n  AND d.icd_code IN ('N17', 'N18', 'N19')\n  AND d.icd_version = 10;"
+  },
+  {
+    "id": "ex039",
+    "question_vi": "Liệt kê các khoa điều trị (careunit) và số bệnh nhân đã qua mỗi khoa, sắp xếp giảm dần.",
+    "tables": ["transfers"],
+    "type": "careunit_stats",
+    "sql": "SELECT careunit, COUNT(DISTINCT subject_id) AS so_benh_nhan\nFROM transfers\nWHERE careunit IS NOT NULL\nGROUP BY careunit\nORDER BY so_benh_nhan DESC;"
+  },
+  {
+    "id": "ex040",
+    "question_vi": "Thống kê 10 loại vi khuẩn phổ biến nhất được tìm thấy trong cấy máu.",
+    "tables": ["microbiologyevents"],
+    "type": "microbiology",
+    "sql": "SELECT org_name, COUNT(*) AS so_ca\nFROM microbiologyevents\nWHERE spec_type_desc ILIKE '%BLOOD%' AND org_name IS NOT NULL\nGROUP BY org_name\nORDER BY so_ca DESC\nLIMIT 10;"
+  }
+]
