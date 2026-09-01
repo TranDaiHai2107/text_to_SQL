@@ -1,6 +1,8 @@
 """
 RAG Engine – 3-layer Retrieval-Augmented Generation cho MIMIC-IV Text-to-SQL.
 
+Pipeline đầy đủ: NL (tiếng Việt) → SQL → Kết quả → NL (tiếng Việt)
+
 Các hàm chính:
   retrieve_icd_codes(question)              → tìm mã ICD liên quan
   retrieve_schema(question)                 → tìm DDL bảng liên quan
@@ -8,6 +10,7 @@ Các hàm chính:
   build_prompt(question, mode)              → tạo prompt đa tầng
   generate_sql(question, mode)              → gọi LLM sinh SQL (1 lần)
   generate_sql_with_correction(...)         → Agentic: sinh SQL + tự sửa nếu lỗi
+  interpret_result(question, sql, df)       → SQL-to-Text: diễn giải kết quả thành tiếng Việt
   rewrite_question(question, chat_history)  → Multi-turn: viết lại câu hỏi đầy đủ
   run_query(sql)                            → thực thi SQL trên PostgreSQL
 
@@ -358,6 +361,80 @@ def generate_sql_with_correction(
 
 
 # ══════════════════════════════════════════════════════════════
+# DIỄN GIẢI KẾT QUẢ (SQL-to-Text / Result Interpretation)
+# ══════════════════════════════════════════════════════════════
+_INTERPRET_SYSTEM = (
+    "Bạn là trợ lý y tế. Nhiệm vụ: diễn giải kết quả truy vấn SQL thành câu trả lời "
+    "ngôn ngữ tự nhiên bằng TIẾNG VIỆT, dễ hiểu cho bác sĩ/người không biết kỹ thuật.\n"
+    "Quy tắc:\n"
+    "  1. Trả lời ngắn gọn, rõ ràng, đi thẳng vào kết quả.\n"
+    "  2. Nêu con số cụ thể từ dữ liệu (không bịa số liệu).\n"
+    "  3. Nếu dữ liệu là bảng nhiều dòng, tóm tắt xu hướng chính và highlight top kết quả.\n"
+    "  4. Nếu kết quả rỗng (0 dòng), nói rõ 'Không tìm thấy dữ liệu phù hợp'.\n"
+    "  5. Dùng đơn vị phù hợp (ngày, %, ca, lần...).\n"
+    "  6. KHÔNG giải thích SQL, KHÔNG đề cập đến bảng/cột database.\n"
+    "  7. Viết như đang trả lời trực tiếp cho người hỏi.\n"
+)
+
+
+def interpret_result(
+    question: str,
+    sql: str,
+    df: pd.DataFrame,
+    max_rows_in_prompt: int = 20,
+) -> str:
+    """
+    Diễn giải kết quả SQL thành câu trả lời tiếng Việt tự nhiên.
+
+    Args:
+        question: Câu hỏi gốc của người dùng
+        sql: Câu SQL đã sinh
+        df: DataFrame kết quả từ PostgreSQL
+        max_rows_in_prompt: Số dòng tối đa gửi cho LLM (tránh quá dài)
+
+    Returns:
+        Câu trả lời ngôn ngữ tự nhiên bằng tiếng Việt
+    """
+    # Xử lý trường hợp đặc biệt
+    if df is None or df.empty:
+        return "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn trong cơ sở dữ liệu."
+
+    # Chuẩn bị dữ liệu kết quả cho prompt
+    num_rows = len(df)
+    num_cols = len(df.columns)
+
+    if num_rows <= max_rows_in_prompt:
+        data_str = df.to_string(index=False)
+        data_note = f"({num_rows} dòng, {num_cols} cột — toàn bộ kết quả)"
+    else:
+        data_str = df.head(max_rows_in_prompt).to_string(index=False)
+        data_note = (
+            f"({num_rows} dòng tổng cộng, chỉ hiển thị {max_rows_in_prompt} dòng đầu, "
+            f"{num_cols} cột)"
+        )
+
+    prompt = (
+        f"Câu hỏi của người dùng:\n\"{question}\"\n\n"
+        f"SQL đã dùng:\n{sql}\n\n"
+        f"Kết quả truy vấn {data_note}:\n{data_str}\n\n"
+        f"Hãy trả lời câu hỏi trên bằng tiếng Việt dựa trên kết quả truy vấn."
+    )
+
+    try:
+        answer = _call_llm([
+            {"role": "system", "content": _INTERPRET_SYSTEM},
+            {"role": "user",   "content": prompt},
+        ])
+        return answer.strip()
+    except Exception as e:
+        # Fallback nếu LLM lỗi: trả về mô tả cơ bản
+        if num_rows == 1 and num_cols == 1:
+            val = df.iloc[0, 0]
+            return f"Kết quả: {val}"
+        return f"Truy vấn trả về {num_rows} dòng kết quả."
+
+
+# ══════════════════════════════════════════════════════════════
 # MULTI-TURN: QUERY REWRITING
 # ══════════════════════════════════════════════════════════════
 _REWRITE_SYSTEM = (
@@ -441,6 +518,13 @@ def ask_medical_question(question: str, mode: str = "full"):
     if result["success"]:
         print(f"\nKết quả: {len(result['df'])} dòng (sau {result['attempts']} lần thử)")
         print(result["df"].head(20).to_string())
+
+        # SQL-to-Text: diễn giải kết quả thành ngôn ngữ tự nhiên
+        print(f"\n{'─'*55}")
+        print("📝 Trả lời bằng ngôn ngữ tự nhiên:")
+        print("─" * 55)
+        nl_answer = interpret_result(question, result["sql"], result["df"])
+        print(nl_answer)
     else:
         print(f"\nThất bại sau {result['attempts']} lần thử.")
 

@@ -14,6 +14,7 @@ import streamlit as st
 
 from rag_engine import (
     generate_sql_with_correction,
+    interpret_result,
     rewrite_question,
     retrieve_icd_codes,
     retrieve_schema,
@@ -75,35 +76,41 @@ with st.sidebar:
     ```
     Câu hỏi (tiếng Việt)
          │
-         ├─► [Rewrite] Viết lại nếu
+         ├► [Rewrite] Viết lại nếu
          │   thiếu ngữ cảnh multi-turn
          │
-         ├─► [RAG-1] ICD Dictionary
-         ├─► [RAG-2] Schema Dictionary
-         ├─► [RAG-3] SQL Examples
+         ├► [RAG-1] ICD Dictionary
+         ├► [RAG-2] Schema Dictionary
+         ├► [RAG-3] SQL Examples
          │
          ▼
-      LLM (Llama 3.3 70B)
+       LLM (Text-to-SQL)
          │
-         ├─► PostgreSQL
-         │     ├─ OK → Trả kết quả
+         ├► PostgreSQL
+         │     ├─ OK → Kết quả
          │     └─ Error → Self-Correction
-         │              (gửi lỗi cho LLM sửa)
+         │
          ▼
-      Kết quả + Biểu đồ
+       [SQL-to-Text]
+       Diễn giải kết quả → Tiếng Việt
+         │
+         ▼
+       Câu trả lời + SQL + Bảng + Biểu đồ
     ```
     """)
 
     st.divider()
     with st.expander("📊 Thông tin hệ thống"):
-        st.markdown("""
+        from rag_engine import LLM_MODEL
+        st.markdown(f"""
         | Thành phần | Chi tiết |
         |---|---|
         | **Database** | PostgreSQL (MIMIC-IV Subset) |
         | **Vector DB** | ChromaDB – 3 collections |
-        | **LLM** | Llama 3.3 70B (Groq LPU) |
+        | **LLM** | {LLM_MODEL} (Groq LPU) |
         | **Self-Correction** | Tối đa 2 lần retry |
         | **Multi-turn** | Query Rewriting via LLM |
+        | **SQL-to-Text** | Natural Language Generation |
         """)
 
     st.divider()
@@ -142,7 +149,24 @@ def _try_auto_chart(df: pd.DataFrame):
 # ── Hiển thị lịch sử chat ────────────────────────────────────
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar="🧑‍⚕️" if msg["role"] == "user" else "🤖"):
-        st.markdown(msg["display"])
+        # Hiển thị câu hỏi (user) hoặc NL answer (assistant)
+        if msg["role"] == "assistant" and msg.get("nl_answer"):
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 16px 20px;
+                border-radius: 12px;
+                margin: 8px 0 16px 0;
+                font-size: 1.05rem;
+                line-height: 1.6;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            ">
+                💬 {msg["nl_answer"]}
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(msg["display"])
 
         if msg.get("rewritten_q"):
             st.markdown(
@@ -159,7 +183,8 @@ for msg in st.session_state.messages:
             st.markdown(msg["correction_info"], unsafe_allow_html=True)
 
         if msg.get("sql"):
-            st.code(msg["sql"], language="sql")
+            with st.expander("🔍 Xem câu SQL đã sinh"):
+                st.code(msg["sql"], language="sql")
 
         if msg.get("df") is not None:
             df_display = msg["df"]
@@ -300,14 +325,39 @@ def process_question(question: str):
         # Hiển thị SQL + kết quả
         sql = result["sql"]
         df = result.get("df")
-        st.code(sql, language="sql")
+        nl_answer = None
 
         display_text = ""
         if result["success"] and df is not None:
             if df.empty:
-                display_text = "Truy vấn thành công nhưng không có dữ liệu phù hợp."
+                nl_answer = "Truy vấn thành công nhưng không có dữ liệu phù hợp."
+                display_text = nl_answer
                 st.warning(display_text)
             else:
+                # SQL-to-Text: diễn giải kết quả thành ngôn ngữ tự nhiên
+                with st.spinner("📝 Đang diễn giải kết quả..."):
+                    nl_answer = interpret_result(effective_q, sql, df)
+
+                # Hiển thị câu trả lời tự nhiên NỔI BẬT nhất
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 16px 20px;
+                    border-radius: 12px;
+                    margin: 8px 0 16px 0;
+                    font-size: 1.05rem;
+                    line-height: 1.6;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                ">
+                    💬 {nl_answer}
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Hiển thị SQL (co lại trong expander)
+                with st.expander("🔍 Xem câu SQL đã sinh", expanded=False):
+                    st.code(sql, language="sql")
+
                 elapsed = round(time.time() - t_start, 2)
                 c1, c2, c3 = st.columns(3)
                 c1.metric("Số dòng", f"{len(df):,}")
@@ -326,16 +376,18 @@ def process_question(question: str):
                     key=f"dl_new_{time.time()}",
                 )
 
-                display_text = f"Đã trả về {len(df)} dòng kết quả."
+                display_text = nl_answer
         else:
             last_err = result["history"][-1]["error"] if result["history"] else "Unknown"
             display_text = f"Lỗi sau {result['attempts']} lần thử: {last_err[:200]}"
+            st.code(sql, language="sql")
             st.error(display_text)
 
         # Lưu assistant message
         st.session_state.messages.append({
             "role": "assistant",
             "display": display_text,
+            "nl_answer": nl_answer,
             "sql": sql,
             "df": df,
             "rag_info": rag_info_str,
