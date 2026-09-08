@@ -208,14 +208,33 @@ for msg in st.session_state.messages:
 
 # ── Xử lý câu hỏi mới ───────────────────────────────────────
 def _build_chat_history_for_rewrite() -> list[dict]:
-    """Chuyển session messages thành format cho rewrite_question (chỉ text ngắn)."""
+    """Chuyển session messages thành format cho rewrite_question.
+    
+    Bao gồm SQL đã sinh và tóm tắt kết quả để rewriter hiểu ngữ cảnh
+    chính xác (VD: câu trước hỏi về nữ → 'trong đó' = trong nhóm nữ).
+    """
     out = []
     for m in st.session_state.messages:
         if m["role"] == "user":
-            out.append({"role": "user", "content": m["display"]})
+            entry = {"role": "user", "content": m["display"]}
         else:
-            summary = m["display"][:200]
-            out.append({"role": "assistant", "content": summary})
+            entry = {"role": "assistant", "content": m["display"][:200]}
+            # Thêm SQL đã sinh (quan trọng cho ngữ cảnh)
+            if m.get("sql"):
+                entry["sql"] = m["sql"]
+            # Tạo tóm tắt kết quả (số dòng, giá trị chính)
+            df = m.get("df")
+            if df is not None and not df.empty:
+                if len(df) == 1 and len(df.columns) == 1:
+                    entry["result_summary"] = f"Kết quả: {df.iloc[0, 0]}"
+                else:
+                    entry["result_summary"] = (
+                        f"{len(df)} dòng, {len(df.columns)} cột. "
+                        f"Cột: {', '.join(df.columns[:5].tolist())}"
+                    )
+            elif m.get("nl_answer"):
+                entry["result_summary"] = m["nl_answer"][:150]
+        out.append(entry)
     return out
 
 

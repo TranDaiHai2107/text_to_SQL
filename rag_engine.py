@@ -191,7 +191,14 @@ SYSTEM_PROMPT = (
     "  5. Tính thời gian nằm viện bằng: EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400.\n"
     "  6. Các cột thời gian (admittime, dischtime, charttime, starttime, stoptime) lưu dạng TEXT, "
     "luôn CAST sang TIMESTAMP trước khi dùng: cột::TIMESTAMP.\n"
-    "  7. Dùng ILIKE thay cho LIKE khi so sánh chuỗi (không phân biệt hoa thường)."
+    "  7. Dùng ILIKE thay cho LIKE khi so sánh chuỗi (không phân biệt hoa thường).\n"
+    "  8. QUAN TRỌNG – Câu hỏi multi-turn: nếu câu hỏi đề cập đến một nhóm kết quả trước "
+    "(VD: 'trong số N bệnh nhân nữ', 'trong nhóm bệnh nhân trên 60 tuổi', "
+    "'trong đó có bao nhiêu...'), PHẢI dùng subquery hoặc CTE để lọc đúng nhóm đó TRƯỚC, "
+    "rồi mới áp thêm điều kiện. "
+    "Ví dụ: 'Trong số bệnh nhân nữ, có bao nhiêu nam?' → "
+    "SELECT COUNT(*) FROM patients WHERE gender = 'M' AND subject_id IN "
+    "(SELECT subject_id FROM patients WHERE gender = 'F') — kết quả đúng phải là 0."
 )
 
 
@@ -241,13 +248,17 @@ def build_prompt(question: str, mode: str = "full") -> tuple[str, dict]:
 # ══════════════════════════════════════════════════════════════
 # LLM CALL + SQL CLEAN (helper nội bộ)
 # ══════════════════════════════════════════════════════════════
-def _call_llm(messages: list[dict]) -> str:
-    """Gọi Groq LLM, trả về raw content."""
+def _call_llm(messages: list[dict], max_tokens: int = 900) -> str:
+    """Gọi Groq LLM, trả về raw content.
+    
+    max_tokens mặc định 900 để tránh vượt OTPM limit 1000 tokens/phút
+    trên Groq free tier.
+    """
     response = client.chat.completions.create(
         model=LLM_MODEL,
         messages=messages,
         temperature=0,
-        max_tokens=1024,
+        max_tokens=max_tokens,
     )
     return response.choices[0].message.content.strip()
 
@@ -439,11 +450,19 @@ def interpret_result(
 # ══════════════════════════════════════════════════════════════
 _REWRITE_SYSTEM = (
     "Bạn là trợ lý viết lại câu hỏi. "
-    "Nhiệm vụ: nếu câu hỏi mới bị thiếu ngữ cảnh (dùng đại từ 'đó', 'trong số đó', "
-    "'họ', 'bệnh nhân đó', 'kết quả trên'...), hãy viết lại thành câu hoàn chỉnh, "
-    "độc lập, dựa trên lịch sử hội thoại. "
-    "Nếu câu đã đủ ý, trả về nguyên văn câu hỏi đó. "
-    "CHỈ trả về câu hỏi đã viết lại, không giải thích gì thêm."
+    "Nhiệm vụ: dựa vào lịch sử hội thoại (bao gồm câu hỏi trước, SQL đã chạy, "
+    "và kết quả trả về), viết lại câu hỏi mới thành câu ĐẦY ĐỦ, ĐỘC LẬP.\n"
+    "Quy tắc BẮT BUỘC:\n"
+    "  1. Nếu câu hỏi dùng đại từ/ngữ cảnh ẩn ('đó', 'trong số đó', 'họ', 'những người đó', "
+    "'kết quả trên', 'bao nhiêu nam/nữ trong đó'...), hãy thay thế bằng ngữ cảnh cụ thể "
+    "từ câu hỏi và KẾT QUẢ trước đó.\n"
+    "  2. QUAN TRỌNG: 'trong đó', 'trong số đó' nghĩa là trong TẬP KẾT QUẢ của câu hỏi trước. "
+    "Ví dụ: nếu câu trước hỏi 'bệnh nhân nữ' → 'trong đó có bao nhiêu nam?' phải được hiểu là "
+    "'trong nhóm bệnh nhân nữ, có bao nhiêu nam?' (câu trả lời logic phải là 0).\n"
+    "  3. Nếu câu hỏi mâu thuẫn logic (VD: tìm nam trong nhóm nữ), VẪN viết lại đúng ngữ cảnh "
+    "để hệ thống SQL có thể cho kết quả chính xác (0 kết quả).\n"
+    "  4. Nếu câu đã đủ ý và không cần ngữ cảnh, trả về nguyên văn.\n"
+    "  5. CHỈ trả về câu hỏi đã viết lại, KHÔNG giải thích.\n"
 )
 
 
@@ -451,30 +470,52 @@ def rewrite_question(question: str, chat_history: list[dict]) -> str:
     """
     Viết lại câu hỏi để giải quyết coreference / ellipsis trong multi-turn.
 
-    chat_history: list[dict] với keys "role" ("user"/"assistant") và "content".
-                  Chỉ dùng 6 message gần nhất (3 lượt) để tiết kiệm token.
+    chat_history: list[dict] với keys:
+      - "role" ("user"/"assistant")
+      - "content" (text)
+      - "sql" (optional) – câu SQL đã sinh ở lượt trước
+      - "result_summary" (optional) – tóm tắt kết quả trước đó
+
+    Chỉ dùng 8 message gần nhất (4 lượt) để vừa đủ ngữ cảnh.
 
     Trả về câu hỏi đã viết lại (hoặc nguyên văn nếu đã đầy đủ).
     """
     if not chat_history:
         return question
 
-    recent = chat_history[-6:]
-    history_str = "\n".join(
-        f"{'Người dùng' if m['role'] == 'user' else 'Hệ thống'}: {m['content'][:200]}"
-        for m in recent
-    )
+    recent = chat_history[-8:]
+    history_parts = []
+    for m in recent:
+        role_label = 'Người dùng' if m['role'] == 'user' else 'Hệ thống'
+        content = m['content'][:200]
+        line = f"{role_label}: {content}"
+
+        # Thêm thông tin SQL và kết quả nếu có (rất quan trọng cho ngữ cảnh)
+        if m.get('sql'):
+            line += f"\n  [SQL đã chạy: {m['sql'][:150]}]"
+        if m.get('result_summary'):
+            line += f"\n  [Kết quả: {m['result_summary'][:150]}]"
+
+        history_parts.append(line)
+
+    history_str = "\n".join(history_parts)
 
     prompt = (
         f"Lịch sử hội thoại:\n{history_str}\n\n"
         f"Câu hỏi mới của người dùng: \"{question}\"\n\n"
+        f"Hãy viết lại câu hỏi thành câu đầy đủ, độc lập, giữ đúng ý định của người dùng "
+        f"dựa trên ngữ cảnh hội thoại. Nếu câu hỏi liên quan đến kết quả trước, "
+        f"hãy chỉ rõ điều kiện lọc cụ thể.\n\n"
         f"Câu hỏi đã viết lại:"
     )
 
-    rewritten = _call_llm([
-        {"role": "system", "content": _REWRITE_SYSTEM},
-        {"role": "user",   "content": prompt},
-    ])
+    rewritten = _call_llm(
+        [
+            {"role": "system", "content": _REWRITE_SYSTEM},
+            {"role": "user",   "content": prompt},
+        ],
+        max_tokens=256,  # Chỉ cần sinh 1 câu hỏi ngắn
+    )
 
     # Xóa dấu ngoặc kép bao quanh nếu LLM thêm vào
     if rewritten.startswith('"') and rewritten.endswith('"'):
