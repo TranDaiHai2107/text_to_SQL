@@ -94,5 +94,157 @@
     "description_en": "Microbiology culture results. Contains specimen type (blood, urine), organism name and antibiotic susceptibility.",
     "document": "Bảng microbiologyevents: kết quả cấy vi khuẩn (spec_type_desc loại bệnh phẩm BLOOD CULTURE/URINE, org_name tên vi khuẩn, interpretation S nhạy cảm/R kháng thuốc/I trung gian). Microbiology culture bacteria infection.",
     "ddl": "CREATE TABLE microbiologyevents (\n  microevent_id   BIGINT PRIMARY KEY,\n  subject_id      INT,\n  hadm_id         INT,\n  chartdate       DATE,\n  charttime       TIMESTAMP,\n  spec_itemid     INT,\n  spec_type_desc  VARCHAR(100),  -- loại bệnh phẩm: 'BLOOD CULTURE', 'URINE', 'SPUTUM', 'WOUND CULTURE'\n  test_seq        INT,\n  storedate       DATE,\n  storetime       TIMESTAMP,\n  org_itemid      INT,\n  org_name        VARCHAR(100),  -- tên vi khuẩn (NULL nếu không mọc khuẩn)\n  isolate_num     INT,\n  interpretation  VARCHAR(5),    -- kháng sinh đồ: 'S'=nhạy cảm, 'R'=kháng thuốc, 'I'=trung gian\n  comments        TEXT\n);"
+  },
+  {
+    "id": "drgcodes",
+    "table": "drgcodes",
+    "description_vi": "Bảng nhóm chẩn đoán liên quan (DRG) dùng trong thanh toán bảo hiểm y tế. Phân loại bệnh nhân vào nhóm bệnh tương đồng về chi phí điều trị.",
+    "description_en": "Diagnosis Related Groups (DRG) codes for billing. Classifies admissions into cost-similar groups for insurance reimbursement.",
+    "document": "Bảng drgcodes: mã nhóm chẩn đoán DRG thanh toán bảo hiểm viện phí (drg_type, drg_code, description, drg_severity mức độ nặng, drg_mortality tỷ lệ tử vong). DRG billing insurance reimbursement.",
+    "ddl": "CREATE TABLE drgcodes (\n  subject_id      INT,\n  hadm_id         INT,           -- mã đợt nhập viện (FK → admissions)\n  drg_type        VARCHAR(4),    -- loại DRG: 'HCFA' (Medicare), 'APR' (All Patient Refined)\n  drg_code        VARCHAR(10),   -- mã DRG\n  description     VARCHAR(300),  -- mô tả nhóm chẩn đoán\n  drg_severity    INT,           -- mức độ nặng (1-4, APR only)\n  drg_mortality   INT            -- nguy cơ tử vong (1-4, APR only)\n);"
+  },
+  {
+    "id": "hcpcsevents",
+    "table": "hcpcsevents",
+    "description_vi": "Bảng sự kiện dịch vụ y tế theo mã HCPCS/CPT. Ghi nhận các dịch vụ xét nghiệm, chẩn đoán hình ảnh, thủ thuật ngoại trú được mã hóa theo hệ thống tính phí bảo hiểm.",
+    "description_en": "HCPCS/CPT coded events for outpatient services, imaging, and procedures used for insurance billing.",
+    "document": "Bảng hcpcsevents: dịch vụ y tế ngoại trú mã HCPCS/CPT (hcpcs_cd mã dịch vụ, short_description mô tả, seq_num thứ tự). HCPCS CPT billing outpatient services.",
+    "ddl": "CREATE TABLE hcpcsevents (\n  subject_id          INT,\n  hadm_id             INT,           -- mã đợt nhập viện\n  chartdate           DATE,          -- ngày ghi nhận\n  hcpcs_cd            VARCHAR(10),   -- mã HCPCS/CPT\n  seq_num             INT,           -- thứ tự\n  short_description   VARCHAR(200)   -- mô tả ngắn dịch vụ\n);\n-- JOIN: hcpcsevents h JOIN d_hcpcs dh ON h.hcpcs_cd = dh.code"
+  },
+  {
+    "id": "d_hcpcs",
+    "table": "d_hcpcs",
+    "description_vi": "Từ điển mã HCPCS. Tra cứu tên đầy đủ và phân loại của các dịch vụ y tế tính phí.",
+    "description_en": "HCPCS dictionary. Look up full description and category of billed medical services.",
+    "document": "Bảng d_hcpcs: từ điển mã dịch vụ HCPCS/CPT (code mã dịch vụ, category phân loại, long_description mô tả chi tiết, short_description mô tả ngắn). HCPCS dictionary lookup.",
+    "ddl": "CREATE TABLE d_hcpcs (\n  code                VARCHAR(10) PRIMARY KEY,  -- mã HCPCS/CPT\n  category            INT,                      -- phân loại dịch vụ\n  long_description    VARCHAR(500),              -- mô tả chi tiết\n  short_description   VARCHAR(200)               -- mô tả ngắn\n);"
+  },
+  {
+    "id": "omr",
+    "table": "omr",
+    "description_vi": "Bảng hồ sơ y tế ngoại trú (Online Medical Record). Ghi nhận các chỉ số thể chất theo dõi qua nhiều năm: BMI, chiều cao, cân nặng, huyết áp.",
+    "description_en": "Online Medical Record (OMR). Outpatient measurements over time: BMI, height, weight, blood pressure.",
+    "document": "Bảng omr: hồ sơ y tế ngoại trú đo chỉ số thể chất (result_name loại chỉ số BMI/Blood Pressure/Weight/Height, result_value giá trị đo, chartdate ngày đo). Outpatient vital signs BMI weight blood pressure.",
+    "ddl": "CREATE TABLE omr (\n  subject_id      INT,           -- mã bệnh nhân\n  chartdate       DATE,          -- ngày ghi nhận\n  seq_num         INT,           -- thứ tự\n  result_name     VARCHAR(50),   -- tên chỉ số: 'BMI (kg/m2)', 'Blood Pressure', 'Weight (Lbs)', 'Height (Inches)'\n  result_value    VARCHAR(50)    -- giá trị đo (dạng text, ví dụ: '120/80', '25.3')\n);"
+  },
+  {
+    "id": "pharmacy",
+    "table": "pharmacy",
+    "description_vi": "Bảng hồ sơ khoa Dược. Theo dõi chi tiết chu trình một đơn thuốc từ kê đơn, duyệt, đến cấp phát: tên thuốc, tần suất, liều truyền, trạng thái duyệt.",
+    "description_en": "Pharmacy records. Tracks medication lifecycle from order to dispensing: drug name, frequency, infusion details, approval status.",
+    "document": "Bảng pharmacy: hồ sơ khoa dược (medication tên thuốc, proc_type loại xử lý, status trạng thái Active/Inactive, route đường dùng IV/PO, frequency tần suất dùng, doses_per_24_hrs số liều/ngày, infusion_type loại truyền). Pharmacy medication dispensing.",
+    "ddl": "CREATE TABLE pharmacy (\n  subject_id          INT,\n  hadm_id             INT,\n  pharmacy_id         INT PRIMARY KEY,   -- mã đơn dược\n  poe_id              VARCHAR(20),       -- liên kết y lệnh\n  starttime           TIMESTAMP,\n  stoptime            TIMESTAMP,\n  medication          VARCHAR(200),      -- tên thuốc\n  proc_type           VARCHAR(20),       -- loại: 'IV', 'Non IV', 'TPN'\n  status              VARCHAR(20),       -- 'Active', 'Inactive', 'Discontinued'\n  entertime           TIMESTAMP,\n  verifiedtime        TIMESTAMP,\n  route               VARCHAR(50),       -- đường dùng\n  frequency           VARCHAR(50),       -- tần suất: 'Q6H', 'ONCE', 'CONTINUOUS'\n  disp_sched          VARCHAR(50),\n  infusion_type       VARCHAR(20),\n  sliding_scale       VARCHAR(5),\n  lockout_interval    VARCHAR(20),\n  basal_rate          FLOAT,\n  one_hr_max          FLOAT,\n  doses_per_24_hrs    FLOAT,\n  duration            FLOAT,\n  duration_interval   VARCHAR(20),\n  expiration_value    INT,\n  expiration_unit     VARCHAR(20),\n  expirationdate      TIMESTAMP,\n  dispensation        VARCHAR(50),\n  fill_quantity       FLOAT\n);"
+  },
+  {
+    "id": "poe",
+    "table": "poe",
+    "description_vi": "Bảng y lệnh điện tử (Provider Order Entry). Ghi nhận các lệnh bác sĩ ban hành trên hệ thống: lệnh lấy máu, truyền dịch, đo ECG, hội chẩn.",
+    "description_en": "Provider Order Entry (POE). Records all electronic physician orders: lab draws, infusions, ECG, consultations.",
+    "document": "Bảng poe: y lệnh điện tử của bác sĩ (order_type loại lệnh Medications/Lab/Consult, order_subtype chi tiết, transaction_type New/Discontinue, order_status Active). Provider orders physician.",
+    "ddl": "CREATE TABLE poe (\n  poe_id                    VARCHAR(20) PRIMARY KEY,  -- mã y lệnh\n  poe_seq                   INT,\n  subject_id                INT,\n  hadm_id                   INT,\n  ordertime                 TIMESTAMP,         -- thời điểm ra lệnh\n  order_type                VARCHAR(30),        -- loại: 'Medications', 'Lab', 'Imaging', 'Consults'\n  order_subtype             VARCHAR(50),        -- chi tiết phụ\n  transaction_type          VARCHAR(20),        -- 'New', 'Discontinue', 'Change'\n  discontinue_of_poe_id     VARCHAR(20),\n  discontinued_by_poe_id    VARCHAR(20),\n  order_provider_id         VARCHAR(10),\n  order_status              VARCHAR(20)         -- 'Active', 'Inactive'\n);\n-- JOIN: poe p JOIN poe_detail pd ON p.poe_id = pd.poe_id AND p.poe_seq = pd.poe_seq"
+  },
+  {
+    "id": "poe_detail",
+    "table": "poe_detail",
+    "description_vi": "Bảng chi tiết y lệnh. Chứa các tham số kèm theo y lệnh: tần suất thực hiện, mức ưu tiên, chỉ định cụ thể.",
+    "description_en": "POE detail records. Contains additional parameters for orders: frequency, priority, specific instructions.",
+    "document": "Bảng poe_detail: chi tiết y lệnh (field_name tên tham số, field_value giá trị tham số). POE order detail parameters.",
+    "ddl": "CREATE TABLE poe_detail (\n  poe_id        VARCHAR(20),   -- mã y lệnh (FK → poe)\n  poe_seq       INT,\n  subject_id    INT,\n  field_name    VARCHAR(50),   -- tên tham số: 'Frequency', 'Priority', 'Indication'\n  field_value   VARCHAR(200)   -- giá trị tham số\n);"
+  },
+  {
+    "id": "emar",
+    "table": "emar",
+    "description_vi": "Bảng nhật ký quản lý cấp thuốc điện tử (eMAR). Ghi nhận hành vi quét mã vạch của điều dưỡng trước khi tiêm/cho uống thuốc tại giường bệnh.",
+    "description_en": "Electronic Medication Administration Record (eMAR). Records barcode scanning by nurses at bedside before administering medications.",
+    "document": "Bảng emar: nhật ký cấp thuốc quét mã vạch (poe_id liên kết y lệnh, medication tên thuốc, event_txt trạng thái Administered/Not Given, scheduletime giờ lên lịch, charttime giờ thực hiện). eMAR barcode medication administration nursing.",
+    "ddl": "CREATE TABLE emar (\n  emar_id         VARCHAR(25) PRIMARY KEY,  -- mã sự kiện cấp thuốc\n  subject_id      INT,\n  hadm_id         INT,\n  emar_seq        INT,\n  poe_id          VARCHAR(20),       -- liên kết y lệnh gốc\n  pharmacy_id     INT,               -- liên kết khoa dược\n  enter_provider_id VARCHAR(10),\n  charttime       TIMESTAMP,         -- thời điểm thực hiện\n  medication      VARCHAR(200),      -- tên thuốc\n  event_txt       VARCHAR(50),       -- trạng thái: 'Administered', 'Applied', 'Not Given'\n  scheduletime    TIMESTAMP,         -- giờ lên lịch\n  storetime       TIMESTAMP\n);\n-- JOIN: emar e JOIN emar_detail ed ON e.emar_id = ed.emar_id AND e.emar_seq = ed.emar_seq"
+  },
+  {
+    "id": "emar_detail",
+    "table": "emar_detail",
+    "description_vi": "Bảng chi tiết thực hiện thuốc. Ghi nhận liều lượng thực tế đưa vào bệnh nhân, vị trí tiêm hoặc lý do không thực hiện.",
+    "description_en": "eMAR detail. Records actual dose administered, injection site, or reason for non-administration.",
+    "document": "Bảng emar_detail: chi tiết thực hiện thuốc (dose_due liều kế hoạch, dose_given liều thực tế, dose_given_unit đơn vị, route đường dùng, site vị trí tiêm, reason lý do không cho thuốc). eMAR detail dose given.",
+    "ddl": "CREATE TABLE emar_detail (\n  emar_id         VARCHAR(25),   -- FK → emar\n  emar_seq        INT,\n  parent_field_ordinal VARCHAR(10),\n  administration_type VARCHAR(20),\n  pharmacy_id     INT,\n  barcode_type    VARCHAR(10),\n  reason_for_no_barcode VARCHAR(50),\n  complete_dose_not_given VARCHAR(5),\n  dose_due        VARCHAR(20),   -- liều kế hoạch\n  dose_due_unit   VARCHAR(20),\n  dose_given      VARCHAR(20),   -- liều thực tế đã dùng\n  dose_given_unit VARCHAR(20),\n  will_remainder_of_dose_be_given VARCHAR(5),\n  product_amount_given VARCHAR(20),\n  product_unit    VARCHAR(20),\n  product_code    VARCHAR(20),\n  product_description VARCHAR(200),\n  product_description_other VARCHAR(200),\n  prior_infusion_rate VARCHAR(20),\n  infusion_rate   VARCHAR(20),\n  infusion_rate_adjustment VARCHAR(20),\n  infusion_rate_adjustment_amount VARCHAR(20),\n  infusion_rate_unit VARCHAR(20),\n  route           VARCHAR(20),\n  infusion_complete VARCHAR(5),\n  completion_interval VARCHAR(50),\n  new_iv_bag_hung VARCHAR(5),\n  continued_infusion_in_other_location VARCHAR(5),\n  restart_interval VARCHAR(50),\n  side            VARCHAR(10),\n  site            VARCHAR(50),   -- vị trí tiêm\n  non_formulary_visual_verification VARCHAR(5)\n);"
+  },
+  {
+    "id": "provider",
+    "table": "provider",
+    "description_vi": "Bảng danh mục nhân viên y tế. Chứa mã ẩn danh của bác sĩ, điều dưỡng, chuyên gia tham gia điều trị.",
+    "description_en": "Provider registry. Contains de-identified provider IDs for physicians, nurses, and specialists.",
+    "document": "Bảng provider: danh mục mã ẩn danh nhân viên y tế bác sĩ điều dưỡng (provider_id mã nhân viên). Provider physician nurse registry.",
+    "ddl": "CREATE TABLE provider (\n  provider_id   VARCHAR(10) PRIMARY KEY   -- mã ẩn danh nhân viên y tế\n);"
+  },
+  {
+    "id": "icustays",
+    "table": "icustays",
+    "description_vi": "Bảng đợt nằm ICU (khoa Hồi sức tích cực). Mỗi hàng là một lần bệnh nhân vào phòng ICU, chứa khoa vào, khoa ra, thời gian nằm ICU.",
+    "description_en": "ICU stays table. Each row represents one ICU admission with first/last care unit, in/out time, and length of stay.",
+    "document": "Bảng icustays: đợt nằm khoa hồi sức tích cực ICU (stay_id mã đợt ICU, first_careunit khoa vào MICU/SICU/CCU, last_careunit khoa cuối, intime/outtime thời gian vào ra, los thời gian nằm ICU tính bằng ngày). ICU stays intensive care unit admission.",
+    "ddl": "CREATE TABLE icustays (\n  subject_id      INT,\n  hadm_id         INT,           -- mã đợt nhập viện (FK → admissions)\n  stay_id         INT PRIMARY KEY,  -- mã đợt nằm ICU duy nhất\n  first_careunit  VARCHAR(60),   -- khoa ICU đầu tiên: 'Medical Intensive Care Unit (MICU)', 'SICU', 'CCU'\n  last_careunit   VARCHAR(60),   -- khoa ICU cuối cùng trước khi ra\n  intime          TIMESTAMP,     -- thời điểm vào ICU\n  outtime         TIMESTAMP,     -- thời điểm ra ICU\n  los             FLOAT          -- thời gian nằm ICU (ngày, tính sẵn)\n);\n-- JOIN: admissions a JOIN icustays icu ON a.hadm_id = icu.hadm_id\n-- JOIN: icustays icu JOIN chartevents ce ON icu.stay_id = ce.stay_id"
+  },
+  {
+    "id": "chartevents",
+    "table": "chartevents",
+    "description_vi": "Bảng dữ liệu monitor và phiếu theo dõi sinh tồn tại giường ICU. Lưu trữ nhịp tim, huyết áp, SpO2, nhịp thở, điểm GCS... đo liên tục hàng giờ.",
+    "description_en": "ICU charted events (vital signs, ventilator settings, scores). Records heart rate, blood pressure, SpO2, respiratory rate, GCS from bedside monitors.",
+    "document": "Bảng chartevents: dữ liệu monitor sinh tồn ICU (itemid mã chỉ số FK→d_items, value/valuenum giá trị đo nhịp tim huyết áp SpO2 nhịp thở điểm hôn mê Glasgow GCS, charttime thời gian đo, valueuom đơn vị). ICU vital signs heart rate blood pressure ventilator.",
+    "ddl": "CREATE TABLE chartevents (\n  subject_id      INT,\n  hadm_id         INT,\n  stay_id         INT,           -- mã đợt ICU (FK → icustays)\n  caregiver_id    INT,           -- mã điều dưỡng ghi nhận\n  charttime       TIMESTAMP,     -- thời điểm đo\n  storetime       TIMESTAMP,\n  itemid          INT,           -- mã chỉ số (FK → d_items)\n  value           VARCHAR(200),  -- giá trị dạng text\n  valuenum        FLOAT,         -- giá trị dạng số\n  valueuom        VARCHAR(20),   -- đơn vị: 'bpm', 'mmHg', '%'\n  warning         INT            -- 1 nếu giá trị cảnh báo\n);\n-- JOIN: chartevents ce JOIN d_items di ON ce.itemid = di.itemid\n-- Bảng rất lớn, cần lọc theo stay_id và itemid cụ thể"
+  },
+  {
+    "id": "d_items",
+    "table": "d_items",
+    "description_vi": "Từ điển danh mục chỉ số ICU. Tra cứu hàng nghìn mã số trong các bảng ICU thành tên tham số đo đạc cụ thể.",
+    "description_en": "ICU items dictionary. Look up item IDs to parameter names (Heart Rate, SpO2, etc.) with units, categories, and normal ranges.",
+    "document": "Bảng d_items: từ điển chỉ số ICU (itemid mã chỉ số, label tên như Heart Rate/Arterial Blood Pressure/SpO2/Respiratory Rate/GCS, abbreviation viết tắt, category phân loại, unitname đơn vị, linksto bảng liên kết chartevents/inputevents/outputevents). ICU items dictionary vital signs.",
+    "ddl": "CREATE TABLE d_items (\n  itemid          INT PRIMARY KEY,   -- mã chỉ số ICU\n  label           VARCHAR(200),      -- tên: 'Heart Rate', 'Arterial Blood Pressure systolic', 'SpO2'\n  abbreviation    VARCHAR(100),      -- viết tắt: 'HR', 'ABPs', 'SpO2'\n  linksto         VARCHAR(30),       -- bảng liên kết: 'chartevents', 'inputevents', 'outputevents', 'procedureevents'\n  category        VARCHAR(50),       -- phân loại: 'Routine Vital Signs', 'Hemodynamics', 'Respiratory'\n  unitname        VARCHAR(50),       -- đơn vị mặc định\n  param_type      VARCHAR(30),       -- kiểu: 'Numeric', 'Text'\n  lownormalvalue  FLOAT,             -- giới hạn dưới bình thường\n  highnormalvalue FLOAT              -- giới hạn trên bình thường\n);\n-- JOIN: chartevents/inputevents/outputevents ON itemid = d_items.itemid"
+  },
+  {
+    "id": "inputevents",
+    "table": "inputevents",
+    "description_vi": "Bảng lượng dịch và thuốc truyền vào bệnh nhân ICU. Đo lường truyền máu, dịch truyền tĩnh mạch, thuốc vận mạch bơm tiêm điện, dinh dưỡng qua sonde.",
+    "description_en": "ICU input events. Records all fluids and medications administered: blood products, IV fluids, vasopressors, TPN/tube feeds.",
+    "document": "Bảng inputevents: lượng dịch thuốc truyền vào ICU (itemid mã thuốc/dịch FK→d_items, amount lượng truyền, amountuom đơn vị mL, rate tốc độ truyền, rateuom đơn vị mL/hour, ordercategoryname loại Continuous IV/Bolus, patientweight cân nặng BN). ICU input fluids vasopressors blood transfusion IV.",
+    "ddl": "CREATE TABLE inputevents (\n  subject_id                      INT,\n  hadm_id                         INT,\n  stay_id                         INT,           -- FK → icustays\n  caregiver_id                    INT,\n  starttime                       TIMESTAMP,     -- bắt đầu truyền\n  endtime                         TIMESTAMP,     -- kết thúc truyền\n  storetime                       TIMESTAMP,\n  itemid                          INT,           -- FK → d_items\n  amount                          FLOAT,         -- lượng truyền\n  amountuom                       VARCHAR(20),   -- đơn vị: 'ml', 'dose', 'mg'\n  rate                            FLOAT,         -- tốc độ truyền\n  rateuom                         VARCHAR(20),   -- đơn vị: 'mL/hour', 'mcg/kg/min'\n  orderid                         INT,\n  linkorderid                     INT,\n  ordercategoryname               VARCHAR(50),   -- 'Continuous IV', '01-Bolus', 'TPN'\n  secondaryordercategoryname      VARCHAR(50),\n  ordercomponenttypedescription   VARCHAR(100),\n  ordercategorydescription        VARCHAR(50),\n  patientweight                   FLOAT,         -- cân nặng bệnh nhân (kg)\n  totalamount                     FLOAT,\n  totalamountuom                  VARCHAR(20),\n  isopenbag                       INT,\n  continueinnextdept              INT,\n  statusdescription               VARCHAR(30),   -- 'FinishedRunning', 'Paused', 'Stopped'\n  originalamount                  FLOAT,\n  originalrate                    FLOAT\n);\n-- JOIN: inputevents ie JOIN d_items di ON ie.itemid = di.itemid"
+  },
+  {
+    "id": "outputevents",
+    "table": "outputevents",
+    "description_vi": "Bảng lượng dịch bài tiết ra ngoài tại ICU. Theo dõi lượng nước tiểu qua ống thông Foley, dịch dẫn lưu màng phổi, dịch hút dạ dày.",
+    "description_en": "ICU output events. Tracks urine output via Foley catheter, chest tube drainage, nasogastric suction.",
+    "document": "Bảng outputevents: lượng dịch bài tiết ra ICU (itemid mã loại dịch FK→d_items, value lượng dịch mL, valueuom đơn vị, charttime thời gian đo). Urine output drainage ICU fluid balance.",
+    "ddl": "CREATE TABLE outputevents (\n  subject_id      INT,\n  hadm_id         INT,\n  stay_id         INT,           -- FK → icustays\n  caregiver_id    INT,\n  charttime       TIMESTAMP,     -- thời điểm ghi nhận\n  storetime       TIMESTAMP,\n  itemid          INT,           -- FK → d_items\n  value           FLOAT,         -- lượng dịch (mL)\n  valueuom        VARCHAR(20)    -- đơn vị: 'mL'\n);\n-- JOIN: outputevents oe JOIN d_items di ON oe.itemid = di.itemid"
+  },
+  {
+    "id": "datetimeevents",
+    "table": "datetimeevents",
+    "description_vi": "Bảng các mốc thời gian can thiệp ICU. Ghi nhận thời điểm đặt ống nội khí quản, rút ống, sốc điện, và các mốc can thiệp cấp cứu.",
+    "description_en": "ICU datetime events. Records timestamps for clinical interventions: intubation, extubation, line placement.",
+    "document": "Bảng datetimeevents: mốc thời gian can thiệp ICU (itemid mã sự kiện FK→d_items, value thời điểm can thiệp, charttime thời gian ghi). ICU intubation extubation intervention timestamps.",
+    "ddl": "CREATE TABLE datetimeevents (\n  subject_id      INT,\n  hadm_id         INT,\n  stay_id         INT,           -- FK → icustays\n  caregiver_id    INT,\n  charttime       TIMESTAMP,\n  storetime       TIMESTAMP,\n  itemid          INT,           -- FK → d_items\n  value           TIMESTAMP,     -- mốc thời gian can thiệp\n  valueuom        VARCHAR(20),\n  warning         INT\n);\n-- JOIN: datetimeevents de JOIN d_items di ON de.itemid = di.itemid"
+  },
+  {
+    "id": "procedureevents",
+    "table": "procedureevents",
+    "description_vi": "Bảng thủ thuật can thiệp tại ICU. Ghi nhận thở máy xâm nhập, đặt catheter tĩnh mạch trung tâm, lọc máu liên tục CRRT, đặt ống thông động mạch.",
+    "description_en": "ICU procedure events. Records mechanical ventilation, central venous catheter placement, CRRT, arterial line placement.",
+    "document": "Bảng procedureevents: thủ thuật can thiệp ICU (itemid mã thủ thuật FK→d_items, starttime/endtime thời gian, value thời lượng, location vị trí đặt, ordercategoryname loại Communication/Ventilation/Line). ICU ventilation catheter CRRT arterial line procedures.",
+    "ddl": "CREATE TABLE procedureevents (\n  subject_id                  INT,\n  hadm_id                     INT,\n  stay_id                     INT,           -- FK → icustays\n  caregiver_id                INT,\n  starttime                   TIMESTAMP,     -- bắt đầu thủ thuật\n  endtime                     TIMESTAMP,     -- kết thúc thủ thuật\n  storetime                   TIMESTAMP,\n  itemid                      INT,           -- FK → d_items\n  value                       FLOAT,         -- giá trị (thường là thời lượng)\n  valueuom                    VARCHAR(20),\n  location                    VARCHAR(50),   -- vị trí: 'Right Subclavian', 'Left Radial'\n  locationcategory            VARCHAR(50),\n  orderid                     INT,\n  linkorderid                 INT,\n  ordercategoryname           VARCHAR(50),\n  ordercategorydescription    VARCHAR(50),\n  patientweight               FLOAT,\n  isopenbag                   INT,\n  continueinnextdept          INT,\n  statusdescription           VARCHAR(30),\n  originalamount              FLOAT,\n  originalrate                FLOAT\n);\n-- JOIN: procedureevents pe JOIN d_items di ON pe.itemid = di.itemid"
+  },
+  {
+    "id": "ingredientevents",
+    "table": "ingredientevents",
+    "description_vi": "Bảng thành phần hoạt chất trong dịch truyền ICU. Bóc tách nồng độ từng hoạt chất đơn lẻ có trong các chai dịch truyền phức hợp.",
+    "description_en": "ICU ingredient events. Decomposes complex IV admixtures into individual active ingredients with amounts and rates.",
+    "document": "Bảng ingredientevents: thành phần hoạt chất dịch truyền ICU (itemid mã hoạt chất FK→d_items, amount lượng, amountuom đơn vị, rate tốc độ, rateuom đơn vị tốc độ). ICU IV ingredient decomposition.",
+    "ddl": "CREATE TABLE ingredientevents (\n  subject_id          INT,\n  hadm_id             INT,\n  stay_id             INT,           -- FK → icustays\n  caregiver_id        INT,\n  starttime           TIMESTAMP,\n  endtime             TIMESTAMP,\n  storetime           TIMESTAMP,\n  itemid              INT,           -- FK → d_items\n  amount              FLOAT,         -- lượng hoạt chất\n  amountuom           VARCHAR(20),   -- đơn vị: 'mg', 'mL', 'mEq'\n  rate                FLOAT,         -- tốc độ truyền\n  rateuom             VARCHAR(20),   -- đơn vị: 'mL/hour'\n  orderid             INT,\n  linkorderid         INT,\n  statusdescription   VARCHAR(30),\n  originalamount      FLOAT,\n  originalrate        FLOAT\n);\n-- JOIN: ingredientevents ig JOIN d_items di ON ig.itemid = di.itemid"
+  },
+  {
+    "id": "caregiver",
+    "table": "caregiver",
+    "description_vi": "Bảng danh mục điều dưỡng và bác sĩ trực ICU. Chứa mã ẩn danh của nhân viên trực tiếp thực hiện can thiệp tại giường.",
+    "description_en": "ICU caregiver registry. De-identified IDs for nurses and physicians performing bedside interventions.",
+    "document": "Bảng caregiver: mã ẩn danh điều dưỡng bác sĩ trực ICU (caregiver_id mã nhân viên). ICU nurse physician caregiver registry.",
+    "ddl": "CREATE TABLE caregiver (\n  caregiver_id    INT PRIMARY KEY   -- mã ẩn danh nhân viên ICU\n);"
   }
 ]

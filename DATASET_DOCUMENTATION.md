@@ -1,305 +1,207 @@
-# TÀI LIỆU DỮ LIỆU LÂM SÀNG MIMIC-IV (DATASET DOCUMENTATION)
+# TOÀN CẢNH DỮ LIỆU LÂM SÀNG MIMIC-IV (DATASET DOCUMENTATION)
 
-> 📅 **Cập nhật:** Tháng 09/2026  
-> 🏥 **Cơ sở dữ liệu:** MIMIC-IV (Medical Information Mart for Intensive Care, Phiên bản 3.1)  
-> 🎯 **Mục đích:** Đặc tả mô hình dữ liệu (Data Model / ERD), chi tiết 12 bảng thực thể, quan hệ nghiệp vụ lâm sàng và tổng kết các công trình khoa học khai thác dữ liệu này.
+> 🏥 **Cơ sở dữ liệu:** MIMIC-IV (Medical Information Mart for Intensive Care — Phiên bản 3.1)  
+> 📁 **Tổng số bảng thực tế:** **31 bảng** (chia thành 2 module chính: `hosp` gồm **22 bảng** và `icu` gồm **9 bảng**)  
+> 🎯 **Mục đích tài liệu:** Trình bày Data Model tổng thể, giải thích súc tích ý nghĩa thực tế lâm sàng của **toàn bộ 31 bảng** và tổng hợp các hướng nghiên cứu của các bài báo khoa học hàng đầu trên bộ dữ liệu này.
 
 ---
 
 ## MỤC LỤC
-1. [Tổng quan về Bộ dữ liệu MIMIC-IV](#1-tổng-quan-về-bộ-dữ-liệu-mimic-iv)
-2. [Mô hình Dữ liệu Quan hệ (Data Model / ERD)](#2-mô-hình-dữ-liệu-quan-hệ-data-model--erd)
-3. [Đặc tả Chi tiết 12 Bảng Cốt lõi](#3-đặc-tả-chi-tiết-12-bảng-cốt-lõi)
-   - [3.1. Nhóm Bệnh nhân & Nhập viện (Core Demographics & Admissions)](#31-nhóm-bệnh-nhân--nhập-viện-core-demographics--admissions)
-   - [3.2. Nhóm Chẩn đoán & Thủ thuật (Diagnoses & Procedures)](#32-nhóm-chẩn-đoán--thủ-thuật-diagnoses--procedures)
-   - [3.3. Nhóm Cận lâm sàng & Điều trị (Lab, Medication & Microbiology)](#33-nhóm-cận-lâm-sàng--điều-trị-lab-medication--microbiology)
-   - [3.4. Nhóm Luồng di chuyển & Khoa phòng (Tracking & Movement)](#34-nhóm-luồng-di-chuyển--khoa-phòng-tracking--movement)
-4. [Các Quy tắc Nghiệp vụ & Cạm bẫy Viết SQL Cần Lưu ý](#4-các-quy-tắc-nghiệp-vụ--cạm-bẫy-viết-sql-cần-lưu-ý)
-5. [Tổng quan Nghiên cứu Khoa học (Literature Review): Các Bài báo Đã Làm Gì trên Dữ liệu Này?](#5-tổng-quan-nghiên-cứu-khoa-học-literature-review-các-bài-báo-đã-làm-gì-trên-dữ-liệu-này)
-   - [5.1. Nhánh Clinical Text-to-SQL & QA (Trực diện với Đồ án)](#51-nhánh-clinical-text-to-sql--qa-trực-diện-với-đồ-án)
-   - [5.2. Nhánh Máy học Dự đoán Lâm sàng (Predictive Healthcare)](#52-nhánh-máy-học-dự-đoán-lâm-sàng-predictive-healthcare)
-   - [5.3. Nhánh Xử lý Ngôn ngữ Tự nhiên Y sinh & LLM (Clinical NLP)](#53-nhánh-xử-lý-ngôn-ngữ-tự-nhiên-y-sinh--llm-clinical-nlp)
-   - [5.4. Định vị Tính mới Khoa học của Đồ án này](#54-định-vị-tính-mới-khoa-học-của-đồ-án-này)
+1. [Cấu trúc Tổng quan: Phân chia 2 Module hosp & icu](#1-cấu-trúc-tổng-quan-phân-chia-2-module-hosp--icu)
+2. [Sơ đồ Data Model Toàn cảnh (Architectural ERD)](#2-sơ-đồ-data-model-toàn-cảnh-architectural-erd)
+3. [Ý nghĩa Lâm sàng của 22 Bảng trong Module Bệnh viện Chung (`hosp`)](#3-ý-nghĩa-lâm-sàng-của-22-bảng-trong-module-bệnh-viện-chung-hosp)
+   - [3.1. Nhóm Nhân khẩu học & Quản lý Lưu chuyển Bệnh nhân (5 bảng)](#31-nhóm-nhân-khẩu-học--quản-lý-lưu-chuyển-bệnh-nhân-5-bảng)
+   - [3.2. Nhóm Mã hóa Bệnh tật, Phẫu thuật & Chi phí (7 bảng)](#32-nhóm-mã-hóa-bệnh-tật-phẫu-thuật--chi-phí-7-bảng)
+   - [3.3. Nhóm Cận lâm sàng, Sinh hóa & Vi sinh (3 bảng)](#33-nhóm-cận-lâm-sàng-sinh-hóa--vi-sinh-3-bảng)
+   - [3.4. Nhóm Y lệnh, Dược & Quản lý Cấp phát Thuốc (6 bảng)](#34-nhóm-y-lệnh-dược--quản-lý-cấp-phát-thuốc-6-bảng)
+   - [3.5. Nhóm Thể chất & Hồ sơ Ngoại trú (1 bảng)](#35-nhóm-thể-chất--hồ-sơ-ngoại-trú-1-bảng)
+4. [Ý nghĩa Lâm sàng của 9 Bảng trong Module Chăm sóc Tích cực (`icu`)](#4-ý-nghĩa-lâm-sàng-của-9-bảng-trong-module-chăm-sóc-tích-cực-icu)
+5. [Tóm tắt Mối quan hệ Khóa Liên kết Trọng yếu](#5-tóm-tắt-mối-quan-hệ-khóa-liên-kết-trọng-yếu)
+6. [Các Bài báo Khoa học Đã Làm Gì trên Dữ liệu MIMIC? (Literature Review)](#6-các-bài-báo-khoa-học-đã-làm-gì-trên-dữ-liệu-mimic-literature-review)
+   - [6.1. Nhánh Clinical Text-to-SQL & Hỏi đáp Y tế (Sát nhất với Đề tài)](#61-nhánh-clinical-text-to-sql--hỏi-đáp-y-tế-sát-nhất-với-đề-tài)
+   - [6.2. Nhánh Máy học Dự đoán Lâm sàng (Predictive Healthcare)](#62-nhánh-máy-học-dự-đoán-lâm-sàng-predictive-healthcare)
+   - [6.3. Nhánh Xử lý Ngôn ngữ Tự nhiên Y sinh & LLM (Clinical NLP)](#63-nhánh-xử-lý-ngôn-ngữ-tự-nhiên-y-sinh--llm-clinical-nlp)
+   - [6.4. Vị trí & Tính mới Khoa học của Đồ án này](#64-vị-trí--tính-mới-khoa-học-của-đồ-án-này)
 
 ---
 
-## 1. Tổng quan về Bộ dữ liệu MIMIC-IV
+## 1. Cấu trúc Tổng quan: Phân chia 2 Module hosp & icu
 
-### 1.1. Nguồn gốc & Tính chuẩn mực
-- **MIMIC-IV** (*Medical Information Mart for Intensive Care*) là cơ sở dữ liệu y tế công khai chuẩn mực quốc tế (de-facto gold standard) được quản lý bởi **Viện Công nghệ Massachusetts (MIT)** phối hợp cùng **Trung tâm Y tế Beth Israel Deaconess (BIDMC, Boston, Hoa Kỳ)**.
-- Dữ liệu ghi lại toàn bộ quá trình nhập viện, chăm sóc tích cực (ICU), cấp cứu (ED), kết quả xét nghiệm, đơn thuốc và hồ sơ bệnh án của hàng chục nghìn bệnh nhân thực tế từ năm 2008 đến 2019.
-- Dữ liệu đã được **ẩn danh hóa nghiêm ngặt (de-identified)** theo chuẩn HIPAA:
-  - Tên tuổi bệnh nhân được mã hóa thành `subject_id`.
-  - Mốc thời gian được dịch chuyển ngẫu nhiên cho từng bệnh nhân nhưng giữ nguyên khoảng cách thời gian tương đối (relative intervals) giữa các sự kiện lâm sàng.
-  - Người trên 89 tuổi được gom nhóm mốc tuổi (`anchor_age = 91`) để bảo mật danh tính.
+Cơ sở dữ liệu **MIMIC-IV v3.1** trong thư mục gốc của dự án được tách biệt thành hai thư mục nghiệp vụ:
 
-### 1.2. Tập con Triển khai trong Dự án (MIMIC-IV Mini)
-Để tối ưu hóa tốc độ thực thi, khả năng lập chỉ mục vector và đánh giá thực nghiệm:
-- **Quy mô:** 500 bệnh nhân đại diện toàn diện các mặt bệnh phổ biến.
-- **Số bảng tích hợp:** 12 bảng trọng yếu nhất.
-- **Số dòng dữ liệu:** Hơn 236,000 bản ghi thực tế được nạp trực tiếp vào hệ quản trị cơ sở dữ liệu PostgreSQL.
+```
+mimic-iv-3.1/
+├── hosp/  (22 bảng) ── Toàn bộ dữ liệu bệnh viện tổng quát (Ngoại trú, Nội trú thông thường, Cấp cứu)
+└── icu/   (9 bảng)  ── Dữ liệu theo dõi chuyên sâu theo từng phút/giờ tại các khoa Hồi sức cấp cứu tích cực
+```
+
+- **Module `hosp` (Hospital-wide - 22 bảng):** Ghi nhận dữ liệu toàn viện: hồ sơ nhân khẩu học bệnh nhân, lịch sử nhập/xuất viện, các mã chẩn đoán ICD, đơn thuốc kê tại khoa dược, xét nghiệm máu/nước tiểu gửi về phòng lab, y lệnh của bác sĩ, hồ sơ chuyển khoa, chi phí bảo hiểm.
+- **Module `icu` (Intensive Care Unit - 9 bảng):** Dành riêng cho các bệnh nhân có vào phòng Hồi sức tích cực. Chứa dữ liệu đo liên tục tại giường: monitor theo dõi sinh tồn từng giờ (nhịp tim, huyết áp, SpO2), lượng dịch truyền vào (input), lượng dịch bài tiết (output), cài đặt máy thở, thủ thuật can thiệp hồi sức.
 
 ---
 
-## 2. Mô hình Dữ liệu Quan hệ (Data Model / ERD)
+## 2. Sơ đồ Data Model Toàn cảnh (Architectural ERD)
 
-Toàn bộ hệ thống dữ liệu xoay quanh hai thực thể cốt lõi:
-- **`patients` (bệnh nhân):** Đại diện cho một cá nhân duy nhất qua trường khóa chính `subject_id`.
-- **`admissions` (đợt nhập viện):** Mỗi bệnh nhân có thể có một hoặc nhiều đợt nhập viện, xác định bởi khóa chính `hadm_id`.
+Dưới đây là sơ đồ kiến trúc thể hiện luồng liên kết của toàn bộ 31 bảng trong MIMIC-IV:
 
 ```mermaid
-erDiagram
-    PATIENTS ||--o{ ADMISSIONS : "1 bệnh nhân có N đợt nhập viện (subject_id)"
-    PATIENTS ||--o{ LABEVENTS : "subject_id"
-    PATIENTS ||--o{ TRANSFERS : "subject_id"
-    
-    ADMISSIONS ||--o{ DIAGNOSES_ICD : "1 đợt có N mã chẩn đoán (hadm_id)"
-    ADMISSIONS ||--o{ PROCEDURES_ICD : "1 đợt có N thủ thuật (hadm_id)"
-    ADMISSIONS ||--o{ LABEVENTS : "1 đợt có N xét nghiệm lab (hadm_id)"
-    ADMISSIONS ||--o{ PRESCRIPTIONS : "1 đợt có N đơn thuốc (hadm_id)"
-    ADMISSIONS ||--o{ TRANSFERS : "1 đợt có N lần đổi khoa (hadm_id)"
-    ADMISSIONS ||--o{ SERVICES : "1 đợt chuyển N dịch vụ y tế (hadm_id)"
-    ADMISSIONS ||--o{ MICROBIOLOGYEVENTS : "1 đợt cấy N mẫu vi sinh (hadm_id)"
+graph TD
+    classDef core fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#fff;
+    classDef hosp fill:#065f46,stroke:#10b981,stroke-width:1px,color:#fff;
+    classDef icu fill:#7c2d12,stroke:#f97316,stroke-width:1px,color:#fff;
+    classDef dict fill:#475569,stroke:#94a3b8,stroke-width:1px,color:#fff;
 
-    DIAGNOSES_ICD }o--|| D_ICD_DIAGNOSES : "tra tên bệnh (icd_code, icd_version)"
-    PROCEDURES_ICD }o--|| D_ICD_PROCEDURES : "tra tên thủ thuật (icd_code, icd_version)"
-    LABEVENTS }o--|| D_LABITEMS : "tra tên xét nghiệm (itemid)"
+    %% CORE DEMOGRAPHICS
+    P[patients]:::core --> A[admissions]:::core
+    P --> TR[transfers]:::hosp
+    P --> OM[omr: BMI/Huyết áp]:::hosp
 
-    PATIENTS {
-        int subject_id PK "Mã bệnh nhân duy nhất"
-        varchar gender "M: Nam, F: Nữ"
-        int anchor_age "Tuổi tại năm mốc tham chiếu"
-        int anchor_year "Năm mốc đã dịch chuyển bảo mật"
-        varchar anchor_year_group "Nhóm năm (VD: 2011 - 2013)"
-        date dod "Ngày mất (NULL nếu còn sống)"
-    }
+    %% HOSP MODULE (LINK VIA admissions / hadm_id)
+    A --> SE[services]:::hosp
+    A --> PR[provider]:::hosp
 
-    ADMISSIONS {
-        int hadm_id PK "Mã đợt nhập viện duy nhất"
-        int subject_id FK "Mã bệnh nhân liên kết"
-        timestamp admittime "Thời điểm nhập viện"
-        timestamp dischtime "Thời điểm xuất viện"
-        timestamp deathtime "Thời điểm tử vong tại viện"
-        varchar admission_type "Loại nhập viện (EMERGENCY, ELECTIVE...)"
-        varchar admission_location "Nguồn nhập viện (EMERGENCY ROOM, CLINIC...)"
-        varchar discharge_location "Nơi chuyển đến khi ra viện"
-        varchar insurance "Bảo hiểm y tế"
-        varchar race "Chủng tộc / dân tộc"
-        int hospital_expire_flag "1: Tử vong trong viện, 0: Xuất viện sống"
-    }
+    %% Diagnoses & Procedures
+    A --> DIA[diagnoses_icd]:::hosp
+    DIA --- DDIA[d_icd_diagnoses]:::dict
+    A --> PRO[procedures_icd]:::hosp
+    PRO --- DPRO[d_icd_procedures]:::dict
+    A --> HCP[hcpcsevents]:::hosp
+    HCP --- DHCP[d_hcpcs]:::dict
+    A --> DRG[drgcodes: Phí BHYT]:::hosp
 
-    DIAGNOSES_ICD {
-        int subject_id FK "Mã bệnh nhân"
-        int hadm_id FK "Mã đợt nhập viện"
-        int seq_num "1: Chẩn đoán chính (Primary), >1: Chẩn đoán phụ"
-        varchar icd_code "Mã bệnh theo chuẩn ICD"
-        int icd_version "Phiên bản ICD: 9 hoặc 10"
-    }
+    %% Labs & Microbiology
+    A --> LAB[labevents]:::hosp
+    LAB --- DLAB[d_labitems]:::dict
+    A --> MIC[microbiologyevents]:::hosp
 
-    D_ICD_DIAGNOSES {
-        varchar icd_code PK "Mã bệnh ICD"
-        int icd_version PK "Phiên bản: 9 hoặc 10"
-        varchar long_title "Tên tiếng Anh chi tiết của bệnh"
-    }
+    %% Prescriptions & Orders
+    A --> PRE[prescriptions]:::hosp
+    A --> PHA[pharmacy]:::hosp
+    A --> POE[poe: Y lệnh BS]:::hosp
+    POE --> POED[poe_detail]:::hosp
+    A --> EMAR[emar: Quét mã vạch thuốc]:::hosp
+    EMAR --> EMARD[emar_detail]:::hosp
 
-    PROCEDURES_ICD {
-        int subject_id FK "Mã bệnh nhân"
-        int hadm_id FK "Mã đợt nhập viện"
-        int seq_num "Thứ tự ưu tiên thủ thuật"
-        date chartdate "Ngày thực hiện thủ thuật"
-        varchar icd_code "Mã thủ thuật ICD"
-        int icd_version "Phiên bản: 9 hoặc 10"
-    }
-
-    D_ICD_PROCEDURES {
-        varchar icd_code PK "Mã thủ thuật ICD"
-        int icd_version PK "Phiên bản: 9 hoặc 10"
-        varchar long_title "Tên đầy đủ của thủ thuật"
-    }
-
-    LABEVENTS {
-        bigint labevent_id PK "Mã xét nghiệm duy nhất"
-        int subject_id FK "Mã bệnh nhân"
-        int hadm_id FK "Mã đợt nhập viện"
-        int itemid FK "Mã chỉ số xét nghiệm"
-        timestamp charttime "Thời gian lấy/ghi nhận mẫu"
-        float valuenum "Kết quả định lượng dạng số"
-        varchar valueuom "Đơn vị đo (mg/dL, mmol/L...)"
-        float ref_range_lower "Ngưỡng bình thường dưới"
-        float ref_range_upper "Ngưỡng bình thường trên"
-        varchar flag "'abnormal' nếu ngoài khoảng tham chiếu"
-        varchar priority "Mức ưu tiên: STAT (khẩn), ROUTINE"
-    }
-
-    D_LABITEMS {
-        int itemid PK "Mã chỉ số xét nghiệm"
-        varchar label "Tên xét nghiệm (Creatinine, Glucose...)"
-        varchar fluid "Bệnh phẩm dịch: Blood, Urine, CSF..."
-        varchar category "Nhóm sinh hóa: Chemistry, Hematology..."
-    }
-
-    PRESCRIPTIONS {
-        int subject_id FK "Mã bệnh nhân"
-        int hadm_id FK "Mã đợt nhập viện"
-        timestamp starttime "Thời điểm bắt đầu cấp/dùng thuốc"
-        timestamp stoptime "Thời điểm kết thúc/dừng thuốc"
-        varchar drug "Tên hoạt chất/biệt dược thuốc"
-        varchar dose_val_rx "Liều lượng quy định"
-        varchar dose_unit_rx "Đơn vị liều (mg, mL, UI...)"
-        varchar route "Đường dùng: IV, PO, SQ, ORAL..."
-    }
-
-    TRANSFERS {
-        int transfer_id PK "Mã lần chuyển khoa duy nhất"
-        int subject_id FK "Mã bệnh nhân"
-        int hadm_id FK "Mã đợt nhập viện"
-        varchar careunit "Tên khoa: MICU, SICU, Emergency Dept..."
-        varchar eventtype "Sự kiện: admit, transfer, discharge"
-        timestamp intime "Thời điểm vào khoa"
-        timestamp outtime "Thời điểm rời khoa"
-    }
-
-    SERVICES {
-        int subject_id FK "Mã bệnh nhân"
-        int hadm_id FK "Mã đợt nhập viện"
-        timestamp transfertime "Thời gian chuyển dịch vụ điều trị"
-        varchar prev_service "Dịch vụ y tế trước đó"
-        varchar curr_service "Dịch vụ y tế hiện tại (MED, SURG, CMED...)"
-    }
-
-    MICROBIOLOGYEVENTS {
-        bigint microevent_id PK "Mã xét nghiệm vi sinh"
-        int subject_id FK "Mã bệnh nhân"
-        int hadm_id FK "Mã đợt nhập viện"
-        timestamp charttime "Thời gian lấy mẫu"
-        varchar spec_type_desc "Mẫu cấy: BLOOD CULTURE, URINE..."
-        varchar org_name "Tên vi khuẩn phát hiện"
-        varchar interpretation "Kháng sinh đồ: S (nhạy), R (kháng), I (trung gian)"
-    }
+    %% ICU MODULE (LINK VIA admissions & icustays)
+    A --> ICU[icustays]:::core
+    ICU --> CE[chartevents: Sinh tồn monitor]:::icu
+    CE --- DITM[d_items: Danh mục ICU]:::dict
+    ICU --> INP[inputevents: Truyền dịch/thuốc]:::icu
+    ICU --> OUT[outputevents: Nước tiểu/dẫn lưu]:::icu
+    ICU --> DT[datetimeevents: Mốc giờ can thiệp]:::icu
+    ICU --> PRCE[procedureevents: Thở máy/Catheter]:::icu
+    ICU --> ING[ingredientevents: Thành phần dịch]:::icu
+    ICU --> CG[caregiver: Điều dưỡng trực]:::icu
 ```
 
 ---
 
-## 3. Đặc tả Chi tiết 12 Bảng Cốt lõi
+## 3. Ý nghĩa Lâm sàng của 22 Bảng trong Module Bệnh viện Chung (`hosp`)
 
-### 3.1. Nhóm Bệnh nhân & Nhập viện (Core Demographics & Admissions)
+Không cần đi sâu vào từng trường dữ liệu kỹ thuật, dưới đây là ý nghĩa thực tế và vai trò của từng bảng:
 
-#### Bảng `patients`
-- **Ý nghĩa:** Chứa dữ liệu nhân khẩu học cố định của bệnh nhân trong toàn bộ lịch sử bệnh viện.
-- **Các trường chính:**
-  - `subject_id` *(INT, PK)*: Định danh duy nhất của từng bệnh nhân.
-  - `gender` *(VARCHAR)*: Giới tính (`'M'` - Nam, `'F'` - Nữ).
-  - `anchor_age` *(INT)*: Tuổi của bệnh nhân tại năm mốc `anchor_year`.
-  - `anchor_year` *(INT)*: Năm mốc giả định phục vụ bảo mật thông tin.
-  - `anchor_year_group` *(VARCHAR)*: Khung năm tương đối (ví dụ: `'2008 - 2010'`, `'2014 - 2016'`).
-  - `dod` *(DATE)*: Ngày tử vong (*Date of Death*). Có giá trị `NULL` nếu bệnh nhân còn sống sau khi xuất viện.
-
-#### Bảng `admissions`
-- **Ý nghĩa:** Chứa thông tin về các đợt bệnh nhân đến điều trị tại bệnh viện (nội trú hoặc cấp cứu).
-- **Các trường chính:**
-  - `hadm_id` *(INT, PK)*: Mã đợt nhập viện duy nhất (*Hospital Admission ID*).
-  - `subject_id` *(INT, FK)*: Liên kết tới `patients.subject_id`.
-  - `admittime` *(TIMESTAMP)*: Ngày giờ nhập viện.
-  - `dischtime` *(TIMESTAMP)*: Ngày giờ xuất viện.
-  - `deathtime` *(TIMESTAMP)*: Ngày giờ tử vong trong đợt nằm viện (nếu có).
-  - `admission_type` *(VARCHAR)*: Phân loại tiếp nhận (`'EMERGENCY'`, `'ELECTIVE'`, `'URGENT'`, `'OBSERVATION ADMIT'`).
-  - `admission_location` *(VARCHAR)*: Nơi chuyển đến (`'EMERGENCY ROOM'`, `'PHYSICIAN REFERRAL'`...).
-  - `discharge_location` *(VARCHAR)*: Nơi đến sau xuất viện (`'HOME'`, `'SKILLED NURSING FACILITY'`, `'DIED'`).
-  - `insurance` *(VARCHAR)*: Chế độ bảo hiểm (`'Medicare'`, `'Medicaid'`, `'Other'`).
-  - `race` *(VARCHAR)*: Chủng tộc / sắc tộc của bệnh nhân.
-  - `hospital_expire_flag` *(INT)*: Cờ tử vong nội viện: `1` = tử vong trong đợt nằm viện, `0` = sống sót xuất viện.
+### 3.1. Nhóm Nhân khẩu học & Quản lý Lưu chuyển Bệnh nhân (5 bảng)
+1. **`patients` (Hồ sơ nhân khẩu học bệnh nhân):**
+   - *Ý nghĩa:* Bảng danh tính cốt lõi của từng cá nhân. Chứa giới tính, tuổi mốc tham chiếu, và ngày mất (nếu bệnh nhân đã qua đời ngoài đời thực).
+2. **`admissions` (Lịch sử các đợt nhập viện):**
+   - *Ý nghĩa:* Quản lý từng đợt bệnh nhân tới bệnh viện. Lưu ngày giờ vào viện, ra viện, phân loại nhập viện (cấp cứu hay mổ phiên), bảo hiểm, chủng tộc và đặc biệt là **tình trạng tử vong trong viện** (`hospital_expire_flag`).
+3. **`transfers` (Nhật ký chuyển khoa phòng):**
+   - *Ý nghĩa:* Ghi lại hành trình di chuyển thực tế của người bệnh qua các khoa: phòng cấp cứu (ED), khoa khám bệnh, các khoa điều trị nội trú, và các buồng hồi sức (ICU).
+4. **`services` (Chuyên khoa điều trị phụ trách):**
+   - *Ý nghĩa:* Ghi nhận khoa y tế chuyên môn đang nhận phụ trách ca bệnh tại từng thời điểm (ví dụ: `MED` - Khoa Nội, `SURG` - Khoa Ngoại, `CMED` - Khoa Tim mạch, `TRAUM` - Khoa Chấn thương).
+5. **`provider` (Danh mục y bác sĩ & nhân viên y tế):**
+   - *Ý nghĩa:* Mã hóa ẩn danh danh tính của các bác sĩ, điều dưỡng, chuyên gia thực hiện khám và điều trị cho bệnh nhân.
 
 ---
 
-### 3.2. Nhóm Chẩn đoán & Thủ thuật (Diagnoses & Procedures)
-
-#### Bảng `diagnoses_icd`
-- **Ý nghĩa:** Danh sách các mã bệnh chẩn đoán được gán cho bệnh nhân trong đợt nhập viện theo chuẩn ICD (International Classification of Diseases).
-- **Các trường chính:**
-  - `subject_id`, `hadm_id` *(INT)*: Định danh bệnh nhân và đợt nhập viện.
-  - `seq_num` *(INT)*: Thứ tự ưu tiên chẩn đoán. **`seq_num = 1` là chẩn đoán chính (Primary Diagnosis)** dẫn đến việc nhập viện; các số tiếp theo là bệnh kèm theo hoặc biến chứng.
-  - `icd_code` *(VARCHAR)*: Mã bệnh chuẩn không có dấu chấm (ví dụ: `'I10'`, `'J189'`, `'486'`).
-  - `icd_version` *(INT)*: Phiên bản phân loại (`9` cho ICD-9-CM, `10` cho ICD-10-CM).
-
-#### Bảng `d_icd_diagnoses` (Từ điển tra cứu chẩn đoán)
-- **Ý nghĩa:** Bảng tham chiếu danh mục tên bệnh quốc tế.
-- **Các trường chính:**
-  - `icd_code` *(VARCHAR)* & `icd_version` *(INT)*: Cặp khóa chính phức hợp.
-  - `long_title` *(VARCHAR)*: Tên bệnh mô tả chi tiết bằng tiếng Anh (ví dụ: *"Pneumonia, unspecified organism"*).
-
-#### Bảng `procedures_icd` & `d_icd_procedures`
-- **Ý nghĩa:** Ghi nhận các thủ thuật y khoa hoặc phẫu thuật can thiệp trong đợt điều trị.
-- **Cấu trúc:** Tương tự như bảng chẩn đoán ICD, gồm mã thủ thuật `icd_code`, phiên bản `icd_version`, thứ tự `seq_num` và ngày tiến hành `chartdate`. Bảng danh mục `d_icd_procedures` cung cấp mô tả chi tiết tên thủ thuật `long_title`.
+### 3.2. Nhóm Mã hóa Bệnh tật, Phẫu thuật & Chi phí (7 bảng)
+6. **`diagnoses_icd` (Danh sách chẩn đoán bệnh):**
+   - *Ý nghĩa:* Toàn bộ các bệnh mà bệnh nhân được bác sĩ kết luận trong đợt nhập viện theo chuẩn quốc tế ICD-9 hoặc ICD-10. Đánh dấu được đâu là **chẩn đoán chính** (`seq_num = 1`) và các bệnh lý nền/biến chứng kèm theo.
+7. **`d_icd_diagnoses` (Từ điển tên bệnh ICD):**
+   - *Ý nghĩa:* Bảng tra cứu để dịch mã ICD (như `I10`, `J189`) thành tên bệnh đầy đủ tiếng Anh (như *"Essential hypertension"*, *"Pneumonia"*).
+8. **`procedures_icd` (Thủ thuật & phẫu thuật can thiệp):**
+   - *Ý nghĩa:* Danh sách các can thiệp phẫu thuật hoặc thủ thuật chuyên khoa mà bệnh nhân phải trải qua trong đợt điều trị (mã hóa theo chuẩn ICD).
+9. **`d_icd_procedures` (Từ điển tên thủ thuật ICD):**
+   - *Ý nghĩa:* Bảng dịch mã thủ thuật ICD thành tên mô tả phẫu thuật cụ thể.
+10. **`hcpcsevents` (Mã dịch vụ y tế HCPCS/CPT):**
+    - *Ý nghĩa:* Ghi nhận các dịch vụ xét nghiệm, chẩn đoán hình ảnh, thủ thuật ngoại trú được mã hóa theo hệ thống tính phí bảo hiểm y tế HCPCS của Mỹ.
+11. **`d_hcpcs` (Từ điển dịch vụ HCPCS):**
+    - *Ý nghĩa:* Tra cứu tên đầy đủ của các gói dịch vụ tính phí y tế.
+12. **`drgcodes` (Nhóm chẩn đoán tính viện phí - Diagnosis Related Groups):**
+    - *Ý nghĩa:* Phân loại bệnh nhân vào các nhóm bệnh tương đồng về chi phí để thanh toán bảo hiểm y tế (bảo hiểm chi trả trọn gói theo mã DRG).
 
 ---
 
-### 3.3. Nhóm Cận lâm sàng & Điều trị (Lab, Medication & Microbiology)
-
-#### Bảng `labevents` & `d_labitems`
-- **Ý nghĩa:** Lưu trữ toàn bộ các kết quả xét nghiệm sinh hóa, huyết học, khí máu, nước tiểu...
-- **Các trường chính của `labevents`:**
-  - `labevent_id` *(BIGINT, PK)*: Mã kết quả xét nghiệm duy nhất.
-  - `itemid` *(INT, FK)*: Mã chỉ số xét nghiệm, liên kết tới `d_labitems.itemid`.
-  - `charttime` *(TIMESTAMP)*: Thời điểm mẫu được xét nghiệm.
-  - `valuenum` *(FLOAT)*: Kết quả xét nghiệm dạng số (dùng để so sánh ngưỡng `>`, `<`).
-  - `valueuom` *(VARCHAR)*: Đơn vị đo (`'mg/dL'`, `'mmol/L'`, `'g/dL'`).
-  - `ref_range_lower`, `ref_range_upper` *(FLOAT)*: Khoảng tham chiếu bình thường.
-  - `flag` *(VARCHAR)*: Đánh dấu bất thường (`'abnormal'` nếu vượt ngoài khoảng tham chiếu).
-- **Bảng `d_labitems`:**
-  - `label` *(VARCHAR)*: Tên xét nghiệm thông dụng (ví dụ: `'Creatinine'`, `'Glucose'`, `'Hemoglobin'`, `'Platelet Count'`).
-  - `fluid` *(VARCHAR)*: Loại dịch xét nghiệm (`'Blood'`, `'Urine'`, `'CSF'`).
-  - `category` *(VARCHAR)*: Phân ngành xét nghiệm (`'Chemistry'`, `'Hematology'`, `'Blood Gas'`).
-
-#### Bảng `prescriptions`
-- **Ý nghĩa:** Nhật ký cấp phát thuốc và phác đồ điều trị dược lâm sàng.
-- **Các trường chính:**
-  - `drug` *(VARCHAR)*: Tên hoạt chất hoặc tên thuốc (ví dụ: `'Heparin'`, `'Insulin'`, `'Aspirin'`, `'Vancomycin'`).
-  - `dose_val_rx` *(VARCHAR)* & `dose_unit_rx` *(VARCHAR)*: Liều dùng và đơn vị.
-  - `route` *(VARCHAR)*: Đường đưa thuốc (`'IV'` - tiêm truyền tĩnh mạch, `'PO'` - uống, `'SQ'` - tiêm dưới da, `'ORAL'`).
-  - `starttime`, `stoptime` *(TIMESTAMP)*: Thời gian bắt đầu và kết thúc dùng thuốc.
-
-#### Bảng `microbiologyevents`
-- **Ý nghĩa:** Kết quả nuôi cấy vi sinh vật và làm kháng sinh đồ.
-- **Các trường chính:**
-  - `spec_type_desc` *(VARCHAR)*: Loại bệnh phẩm cấy (`'BLOOD CULTURE'`, `'URINE'`, `'SPUTUM'`).
-  - `org_name` *(VARCHAR)*: Tên chủng vi sinh vật phân lập được (ví dụ: `'STAPHYLOCOCCUS AUREUS'`).
-  - `interpretation` *(VARCHAR)*: Kết quả kháng sinh đồ (`'S'` = Sensitive/Nhạy cảm, `'R'` = Resistant/Kháng thuốc, `'I'` = Intermediate/Trung gian).
+### 3.3. Nhóm Cận lâm sàng, Sinh hóa & Vi sinh (3 bảng)
+13. **`labevents` (Kết quả xét nghiệm cận lâm sàng):**
+    - *Ý nghĩa:* Bảng kết quả lab khổng lồ lưu trữ hàng triệu xét nghiệm sinh hóa, huyết học, nước tiểu, khí máu (như men gan, Creatinine, Glucose, Hemoglobin), giá trị đo được, đơn vị và cờ đánh dấu kết quả **bất thường** (`abnormal`).
+14. **`d_labitems` (Từ điển chỉ số xét nghiệm):**
+    - *Ý nghĩa:* Tra cứu mã xét nghiệm thành tên chỉ số dễ hiểu (như *"Creatinine"*, *"Potassium"*, *"WBC"*), phân loại theo dịch xét nghiệm (máu, nước tiểu, dịch não tủy) và bộ môn sinh hóa.
+15. **`microbiologyevents` (Kết quả nuôi cấy vi sinh & kháng sinh đồ):**
+    - *Ý nghĩa:* Ghi nhận việc cấy máu, cấy nước tiểu hoặc dịch mủ xem có mọc vi khuẩn hay nấm không, tên vi khuẩn tìm thấy (như tụ cầu vàng, E. coli) và kết quả thử nghiệm thuốc kháng sinh (nhạy cảm, kháng thuốc hay trung gian).
 
 ---
 
-### 3.4. Nhóm Luồng di chuyển & Khoa phòng (Tracking & Movement)
-
-#### Bảng `transfers`
-- **Ý nghĩa:** Theo dõi hành trình di chuyển thực tế của bệnh nhân qua các khoa phòng điều trị (đặc biệt là khoa Hồi sức tích cực - ICU).
-- **Các trường chính:**
-  - `transfer_id` *(INT, PK)*: Mã lần chuyển khoa.
-  - `careunit` *(VARCHAR)*: Tên khoa điều trị (ví dụ: `'Medical Intensive Care Unit (MICU)'`, `'Surgical Intensive Care Unit (SICU)'`, `'Emergency Department'`).
-  - `eventtype` *(VARCHAR)*: Loại sự kiện (`'admit'`, `'transfer'`, `'discharge'`).
-  - `intime`, `outtime` *(TIMESTAMP)*: Thời điểm vào và ra khỏi khoa.
-
-#### Bảng `services`
-- **Ý nghĩa:** Ghi nhận sự chuyển giao giữa các khối dịch vụ lâm sàng chuyên khoa.
-- **Các trường chính:**
-  - `curr_service` *(VARCHAR)*: Chuyên khoa phụ trách hiện tại (`'MED'` - Nội khoa, `'SURG'` - Ngoại khoa, `'CMED'` - Tim mạch can thiệp, `'TRAUM'` - Chấn thương chỉnh hình).
-
----
-
-## 4. Các Quy tắc Nghiệp vụ & Cạm bẫy Viết SQL Cần Lưu ý
-
-Khi viết câu lệnh SQL hoặc xây dựng màng lọc `SQL Validator` cho mô hình, bắt buộc phải tuân thủ các nguyên tắc sau:
-
-| # | Vấn đề nghiệp vụ | Cạm bẫy thường gặp | Giải pháp chuẩn mực |
-|---|---|---|---|
-| **1** | **Bệnh nhân vs. Đợt nhập viện** | Hỏi *"Có bao nhiêu bệnh nhân..."* nhưng lại dùng `COUNT(hadm_id)` hoặc `COUNT(*)` dẫn đến trùng lặp số người khi một người nhập viện nhiều lần. | • Hỏi người/bệnh nhân: `COUNT(DISTINCT p.subject_id)`<br>• Hỏi số ca/đợt nhập viện: `COUNT(DISTINCT a.hadm_id)` |
-| **2** | **Phiên bản mã ICD kép** | Mã `'486'` ở ICD-9 là viêm phổi, nhưng ở ICD-10 lại là mã khác. Nếu chỉ JOIN theo `icd_code` sẽ ghép sai bệnh hoàn toàn. | Bắt buộc JOIN trên cả hai cột:<br>`ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version` |
-| **3** | **Chẩn đoán chính vs. Chẩn đoán phụ** | Bác sĩ hỏi *"nhập viện do bệnh X"* nhưng query không lọc `seq_num`, lấy cả những bệnh nhân bị bệnh nền từ trước. | Thêm điều kiện `seq_num = 1` nếu muốn tìm lý do nhập viện chính. |
-| **4** | **Tính thời gian nằm viện (LOS - Length of Stay)** | Các cột thời gian trong database nếu lưu dạng TEXT thì phép trừ `dischtime - admittime` sẽ gây lỗi kiểu dữ liệu. | Ép kiểu TIMESTAMP trước khi tính:<br>`EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400` |
-| **5** | **Xác định tỷ lệ tử vong nội viện** | Nhầm lẫn giữa tử vong sau xuất viện (`dod IS NOT NULL`) và tử vong ngay tại bệnh viện. | Tử vong tại viện bắt buộc dùng:<br>`hospital_expire_flag = 1` hoặc `deathtime IS NOT NULL` trong bảng `admissions`. |
-| **6** | **Xét nghiệm bất thường** | Cố gắng so sánh `valuenum` với `ref_range` thủ công trong khi bảng đã có cờ chuẩn hóa. | Sử dụng trực tiếp điều kiện `flag = 'abnormal'` trong bảng `labevents`. |
+### 3.4. Nhóm Y lệnh, Dược & Quản lý Cấp phát Thuốc (6 bảng)
+16. **`prescriptions` (Đơn thuốc lâm sàng):**
+    - *Ý nghĩa:* Danh sách thuốc bác sĩ kê cho bệnh nhân, bao gồm tên hoạt chất, liều lượng, đơn vị tính, đường dùng (tiêm tĩnh mạch, uống, bôi ngoài da) và thời gian dùng.
+17. **`pharmacy` (Hồ sơ quản lý tại khoa Dược):**
+    - *Ý nghĩa:* Theo dõi chi tiết chu trình của một đơn thuốc từ lúc bác sĩ gửi yêu cầu, dược sĩ duyệt, đến khi xuất kho giao về khoa lâm sàng.
+18. **`poe` (Provider Order Entry - Y lệnh điện tử của bác sĩ):**
+    - *Ý nghĩa:* Ghi nhận các lệnh điện tử mà bác sĩ ban hành trên hệ thống (lệnh lấy máu, lệnh truyền dịch, lệnh đo điện tim, hội chẩn).
+19. **`poe_detail` (Chi tiết y lệnh):**
+    - *Ý nghĩa:* Các tham số chi tiết đi kèm của y lệnh (ví dụ: tần suất thực hiện, chỉ định khẩn hay thường quy).
+20. **`emar` (Electronic Medication Administration Record - Quét mã vạch dùng thuốc):**
+    - *Ý nghĩa:* Nhật ký quét mã vạch thực tế của điều dưỡng tại giường bệnh ngay trước khi tiêm/cho bệnh nhân uống thuốc (đảm bảo nguyên tắc 5 đúng trong điều dưỡng).
+21. **`emar_detail` (Chi tiết thực hiện thuốc):**
+    - *Ý nghĩa:* Liều lượng thực tế đã đưa vào người bệnh nhân, vị trí tiêm hoặc lý do nếu bệnh nhân từ chối uống thuốc.
 
 ---
 
-## 5. Tổng quan Nghiên cứu Khoa học (Literature Review): Các Bài báo Đã Làm Gì trên Dữ liệu Này?
+### 3.5. Nhóm Thể chất & Hồ sơ Ngoại trú (1 bảng)
+22. **`omr` (Online Medical Record - Chỉ số thể chất & Khám sức khỏe):**
+    - *Ý nghĩa:* Ghi nhận các chỉ số cơ bản của bệnh nhân được đo lường ngoại trú qua các năm: chỉ số khối cơ thể (BMI), chiều cao, cân nặng, và huyết áp đo lúc nghỉ.
+
+---
+
+## 4. Ý nghĩa Lâm sàng của 9 Bảng trong Module Chăm sóc Tích cực (`icu`)
+
+Khi bệnh nhân rơi vào tình trạng nguy kịch chuyển vào phòng ICU, toàn bộ dữ liệu theo dõi theo thời gian thực được thu thập vào 9 bảng này:
+
+23. **`icustays` (Đợt điều trị tại ICU):**
+    - *Ý nghĩa:* Bảng cầu nối trung tâm của toàn bộ module ICU. Một đợt nhập viện (`hadm_id`) có thể có 1 hoặc nhiều lần chuyển vào ICU (`stay_id`). Lưu ngày giờ vào và ra khỏi phòng ICU.
+24. **`chartevents` (Dữ liệu Monitor & Phiếu theo dõi sinh tồn tại giường):**
+    - *Ý nghĩa:* Bảng có dung lượng lớn nhất trong toàn bộ cơ sở dữ liệu. Lưu trữ toàn bộ các chỉ số sinh tồn đo tự động từ máy monitor hoặc điều dưỡng ghi chép định kỳ hàng giờ: nhịp tim, nhịp thở, huyết áp động mạch xâm lấn, SpO2, điểm hôn mê Glasgow (GCS)...
+25. **`d_items` (Từ điển danh mục chỉ số ICU):**
+    - *Ý nghĩa:* Tra cứu hàng nghìn mã số trong các bảng ICU thành tên tham số đo đạc cụ thể (như *"Heart Rate"*, *"Invasive Blood Pressure"*).
+26. **`inputevents` (Lượng dịch và thuốc truyền vào):**
+    - *Ý nghĩa:* Đo lường lượng chất lỏng đưa vào người bệnh nhân nguy kịch: truyền máu, dịch truyền tĩnh mạch (NaCl, Ringer Lactate), các loại thuốc vận mạch truyền bơm tiêm điện liên tục (Noradrenaline, Vasopressin), và dinh dưỡng qua ống sonde.
+27. **`outputevents` (Lượng dịch bài tiết ra ngoài):**
+    - *Ý nghĩa:* Theo dõi sát sao lượng dịch cơ thể thải ra theo từng giờ: lượng nước tiểu qua ống thông foley (chỉ số vàng đánh giá suy thận cấp), dịch dẫn lưu màng phổi, dịch hút dạ dày, chất nôn.
+28. **`datetimeevents` (Các mốc thời gian can thiệp quan trọng):**
+    - *Ý nghĩa:* Lưu lại chính xác thời điểm xảy ra các can thiệp cấp cứu: giờ đặt ống nội khí quản, giờ rút ống, thời điểm sốc điện khử rung tim.
+29. **`procedureevents` (Thủ thuật can thiệp tại ICU):**
+    - *Ý nghĩa:* Ghi nhận quá trình thực hiện các thủ thuật hồi sức chuyên sâu: thời gian thở máy xâm nhập, đặt đường truyền tĩnh mạch trung tâm (CVC), lọc máu liên tục (CRRT), đặt ống thông động mạch.
+30. **`ingredientevents` (Thành phần hoạt chất pha chế):**
+    - *Ý nghĩa:* Bóc tách nồng độ từng hoạt chất đơn lẻ có trong các chai dịch truyền phức hợp đưa vào cơ thể bệnh nhân.
+31. **`caregiver` (Mã điều dưỡng phụ trách):**
+    - *Ý nghĩa:* Ghi nhận mã ẩn danh của điều dưỡng hoặc bác sĩ trực tiếp thực hiện y lệnh can thiệp tại giường ICU.
+
+---
+
+## 5. Tóm tắt Mối quan hệ Khóa Liên kết Trọng yếu
+
+| Cặp bảng | Khóa liên kết | Bản chất quan hệ |
+|---|---|---|
+| `patients` ➔ `admissions` | `subject_id` | **1 Bệnh nhân có N đợt nhập viện** |
+| `admissions` ➔ `icustays` | `hadm_id` | **1 Đợt nằm viện có thể có N đợt nằm ICU** |
+| `admissions` ➔ (`diagnoses_icd`, `labevents`, `prescriptions`...) | `hadm_id` | **1 Đợt nằm viện phát sinh N chẩn đoán, xét nghiệm, đơn thuốc** |
+| `icustays` ➔ (`chartevents`, `inputevents`, `outputevents`...) | `stay_id` | **1 Đợt nằm ICU phát sinh hàng nghìn bản ghi theo dõi sinh tồn** |
+| Bảng sự kiện ➔ Bảng từ điển (`d_*`) | `icd_code`, `itemid` | **Ánh xạ mã kỹ thuật thành tên bệnh/tên xét nghiệm người đọc được** |
+
+---
+
+## 6. Các Bài báo Khoa học Đã Làm Gì trên Dữ liệu MIMIC? (Literature Review)
 
 Cơ sở dữ liệu MIMIC là dữ liệu nền tảng cho hàng nghìn công trình nghiên cứu y sinh và trí tuệ nhân tạo trên thế giới. Dưới đây là phân loại các hướng nghiên cứu lớn nhất:
 
@@ -315,54 +217,54 @@ Cơ sở dữ liệu MIMIC là dữ liệu nền tảng cho hàng nghìn công t
  - ViText2SQL Clinical (Đồ án)   - Dự đoán tái nhập viện 30 ngày   - Mô hình Clinical-BERT
 ```
 
-### 5.1. Nhánh Clinical Text-to-SQL & QA (Trực diện với Đồ án)
+### 6.1. Nhánh Clinical Text-to-SQL & Hỏi đáp Y tế (Sát nhất với Đề tài)
 
 Các bài báo hướng này chuyển đổi câu hỏi ngôn ngữ tự nhiên thành câu lệnh SQL truy vấn trực tiếp kho dữ liệu hồ sơ bệnh án điện tử (EHR):
 
-1. **EHRSQL: A Practical Text-to-SQL Benchmark on Electronic Health Records (KAIST - NeurIPS 2022 / NAACL 2024)**
+1. **EHRSQL: A Practical Text-to-SQL Benchmark on Electronic Health Records (KAIST — NeurIPS 2022 / NAACL 2024)**
    - *Tác giả:* Gyubok Lee, Hyeonji Hwang, Baehoon Choi, Edward Choi.
-   - *Nội dung:* Bộ benchmark lớn nhất thế giới xây dựng trên MIMIC-III và MIMIC-IV với hơn 222 nhân viên y tế đóng góp các câu hỏi thực tế. Đưa ra chuẩn đánh giá độ chính xác thực thi (*Execution Accuracy - EX*) và cơ chế xử lý câu hỏi không thể trả lời (*Unanswerable Questions*).
-   - *Hạn chế:* **Chỉ xử lý đơn ngữ tiếng Anh**, chưa hỗ trợ cơ chế giải thích ngược kết quả cho bác sĩ (SQL-to-Text) và chưa xử lý hội thoại đa lượt phụ thuộc ngữ cảnh sâu.
+   - *Họ đã làm gì:* Xây dựng benchmark chuẩn mực đầu tiên thế giới trên MIMIC-III và MIMIC-IV với sự tham gia của 222 y bác sĩ. Đưa ra chuẩn đánh giá độ chính xác thực thi (*Execution Accuracy - EX*) và cơ chế từ chối câu hỏi không thể trả lời (*Unanswerable Questions*).
+   - *Hạn chế:* **Chỉ giải bài toán tiếng Anh đơn ngữ**, chưa hỗ trợ giải thích ngược kết quả cho bác sĩ (SQL-to-Text) và chưa xử lý hội thoại đa lượt tỉnh lược phức tạp.
 
-2. **SMART-SLIC: Schema-Aware RAG with Large Language Models for Clinical Text-to-SQL (2024 - 2025)**
-   - *Nội dung:* Tập trung giải quyết vấn đề Schema Linking khổng lồ của MIMIC bằng cách kết hợp màng lọc RAG vector để chỉ chọn lọc 2-3 bảng có liên quan đưa vào prompt của LLM, giảm 70% hiện tượng hallucination tên cột/bảng.
+2. **SMART-SLIC & M3-SQL: Multi-task Clinical Text-to-SQL (2024 - 2025)**
+   - *Họ đã làm gì:* Xây dựng màng lọc RAG vector để chọn lọc động schema và từ điển ICD đưa vào prompt của LLM, giúp mô hình không bị quá tải ngữ cảnh và giảm 70% lỗi bịa tên cột/tên bảng (hallucination).
 
 3. **BiomedSQL & Gen-SQL (MIT / Stanford)**
-   - *Nội dung:* Các nghiên cứu kết hợp mô hình xác suất và LLM để sinh SQL cho dữ liệu sinh học và bệnh án, tập trung vào độ an toàn truy vấn (chỉ cho phép lệnh SELECT, không cho phép mutate dữ liệu).
+   - *Họ đã làm gì:* Nghiên cứu việc sinh SQL có kiểm soát an toàn (chỉ sinh lệnh `SELECT`, cấm tuyệt đối các thao tác thay đổi dữ liệu `UPDATE`/`DROP`) trên dữ liệu sinh học bệnh án.
 
 ---
 
-### 5.2. Nhánh Máy học Dự đoán Lâm sàng (Predictive Healthcare)
+### 6.2. Nhánh Máy học Dự đoán Lâm sàng (Predictive Healthcare)
 
-Sử dụng chuỗi thời gian của bảng `admissions`, `labevents`, `transfers` và `prescriptions` làm đầu vào cho các mô hình học máy (XGBoost, LSTM, Transformer):
+Sử dụng dữ liệu chuỗi thời gian của các bảng `admissions`, `labevents`, `transfers`, `chartevents` để huấn luyện các mô hình Machine Learning/Deep Learning (XGBoost, LSTM, Transformer):
 
 1. **Dự đoán Nguy cơ Tử vong Nội viện (In-Hospital Mortality Prediction):**
-   - Sử dụng các chỉ số xét nghiệm và sinh hiệu trong 24 giờ đầu khi bệnh nhân vào khoa ICU để dự đoán xác suất tử vong (`hospital_expire_flag`).
+   - Sử dụng các chỉ số xét nghiệm và dấu hiệu sinh tồn trong 24 giờ đầu khi bệnh nhân vào ICU để dự đoán xác suất tử vong (`hospital_expire_flag`).
    - *Công trình tiêu biểu:* MIMIC-Extract (Wang et al., 2020), Purushotham et al. (2018).
 2. **Dự đoán Thời gian Nằm viện (Length of Stay - LOS):**
    - Phân loại xem bệnh nhân có nằm lại viện trên 7 ngày hay không để hỗ trợ lãnh đạo bệnh viện điều phối giường bệnh và máy thở.
-3. **Phát hiện Sớm Nhiễm khuẩn huyết (Sepsis-3 Detection) & Thang điểm Suy Đa tạng (SOFA Score):**
-   - Dùng dữ liệu xét nghiệm creatinine, bilirubin, tiểu cầu, khí máu để tự động tính điểm SOFA theo từng giờ, phát hiện sốc nhiễm khuẩn trước 4-6 tiếng.
-4. **Dự đoán Tái nhập viện trong 30 ngày (30-Day Readmission):**
-   - Dự đoán bệnh nhân sau khi xuất viện có nguy cơ tái nhập viện cấp cứu trong vòng 30 ngày hay không.
+3. **Phát hiện Sớm Nhiễm khuẩn huyết (Sepsis-3 Detection) & Điểm Suy Đa tạng (SOFA Score):**
+   - Tự động tính toán thang điểm SOFA dựa trên bảng xét nghiệm máu (Creatinine, Bilirubin, Tiểu cầu) và bảng thuốc vận mạch trong `inputevents` để cảnh báo sốc nhiễm khuẩn trước 4-6 giờ.
+4. **Dự đoán Tái nhập viện Cấp cứu trong 30 ngày (30-Day Readmission):**
+   - Đánh giá nguy cơ bệnh nhân phải quay lại viện khẩn cấp sau khi xuất viện để có phác đồ chăm sóc tại nhà phù hợp.
 
 ---
 
-### 5.3. Nhánh Xử lý Ngôn ngữ Tự nhiên Y sinh & LLM (Clinical NLP)
+### 6.3. Nhánh Xử lý Ngôn ngữ Tự nhiên Y sinh & LLM (Clinical NLP)
 
-Khai thác các trường văn bản phi cấu trúc (discharge summaries, radiology reports) kết hợp với các bảng mã hóa:
+Khai thác các trường văn bản lâm sàng kết hợp với các bảng mã hóa chuẩn quốc tế:
 
 1. **Gán mã bệnh tự động (Automated ICD Coding from Clinical Notes):**
    - *Bài báo tiêu biểu:* CAML (Mullenbach et al., NAACL 2018), PLM-ICD (2022).
-   - Mô hình đọc toàn bộ bệnh án xuất viện và tự động dự đoán các mã ICD-9/10 để nạp vào bảng `diagnoses_icd`, giải phóng thời gian nhập liệu thủ công của điều dưỡng.
+   - Mô hình đọc hồ sơ xuất viện (Discharge Summaries) và tự động gán mã ICD-9/10 vào bảng `diagnoses_icd`, giúp tự động hóa khâu thanh toán bảo hiểm y tế.
 2. **Các Mô hình Ngôn ngữ Chuyên ngành Lâm sàng:**
-   - *Clinical-BERT, Med-PaLM, BioMistral:* Được tiếp tục tiền huấn luyện (pre-train) trên kho dữ liệu văn bản của MIMIC để hiểu sâu thuật ngữ y khoa, thuốc và từ viết tắt lâm sàng.
+   - *Clinical-BERT, Med-PaLM, BioMistral:* Được tiếp tục huấn luyện nâng cao trên dữ liệu văn bản bệnh viện để hiểu sâu các từ viết tắt chuyên môn, tên thuốc và triệu chứng lâm sàng.
 
 ---
 
-### 5.4. Định vị Tính mới Khoa học của Đồ án này
+### 6.4. Vị trí & Tính mới Khoa học của Đồ án này
 
-So sánh với bức tranh nghiên cứu toàn cầu, đồ án tốt nghiệp của bạn giải quyết trực diện **khoảng trống lớn chưa từng có công trình nào giải quyết đồng thời**:
+So sánh với các nghiên cứu lớn trên thế giới, đồ án tốt nghiệp của bạn giải quyết trực diện **khoảng trống lớn chưa từng có công trình nào giải quyết đồng thời**:
 
 | Tiêu chí | EHRSQL (2022, 2024) | ViText2SQL (2020) | ĐỒ ÁN NÀY (Hệ thống MIMIC Text-to-SQL) |
 |---|---|---|---|
@@ -372,8 +274,3 @@ So sánh với bức tranh nghiên cứu toàn cầu, đồ án tốt nghiệp c
 | **Kiểm tra an toàn truy vấn** | Chỉ chạy thử (Try-catch) | Chạy thử | **Màng lọc tĩnh Schema-Aware Validator + Agentic Self-Correction** |
 | **Hội thoại Đa lượt** | Độc lập từng câu | Hạn chế | **Context-Aware Rewriter (viết lại câu hỏi tỉnh lược)** |
 | **Chu trình hệ thống** | Một chiều (Text ➔ SQL) | Một chiều (Text ➔ SQL) | **Hai chiều khép kín (Text ➔ SQL ➔ Diễn giải lâm sàng tiếng Việt)** |
-
----
-
-## 6. Kết luận
-Tài liệu này cung cấp nền tảng tri thức hoàn chỉnh về cấu trúc 12 bảng của cơ sở dữ liệu **MIMIC-IV**, các mối quan hệ khóa ngoại then chốt, cũng như các lưu ý nghiệp vụ khi truy vấn. Đồng thời, phần tổng kết các công trình khoa học khẳng định vị trí và tính mới học thuật của hệ thống trong lĩnh vực tin học y tế và Text-to-SQL đa ngôn ngữ.

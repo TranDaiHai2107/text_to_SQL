@@ -63,25 +63,52 @@ def _get_collection(name: str):
 
 # Schema tĩnh dự phòng (dùng khi mode='base' hoặc schema_col chưa sẵn sàng)
 _STATIC_SCHEMA = """
+-- ═══ HOSP MODULE (22 bảng) ═══
 CREATE TABLE patients (subject_id INT, gender VARCHAR(1), anchor_age INT, anchor_year INT, anchor_year_group VARCHAR(20), dod DATE);
 CREATE TABLE admissions (subject_id INT, hadm_id INT, admittime TIMESTAMP, dischtime TIMESTAMP, deathtime TIMESTAMP, admission_type VARCHAR(50), admission_location VARCHAR(60), discharge_location VARCHAR(60), insurance VARCHAR(50), language VARCHAR(10), marital_status VARCHAR(30), race VARCHAR(80), edregtime TIMESTAMP, edouttime TIMESTAMP, hospital_expire_flag INT);
+CREATE TABLE transfers (subject_id INT, hadm_id INT, transfer_id INT, eventtype VARCHAR(20), careunit VARCHAR(60), intime TIMESTAMP, outtime TIMESTAMP);
+CREATE TABLE services (subject_id INT, hadm_id INT, transfertime TIMESTAMP, prev_service VARCHAR(20), curr_service VARCHAR(20));
+CREATE TABLE provider (provider_id VARCHAR(10));
 CREATE TABLE diagnoses_icd (subject_id INT, hadm_id INT, seq_num INT, icd_code VARCHAR(10), icd_version INT);
 CREATE TABLE d_icd_diagnoses (icd_code VARCHAR(10), icd_version INT, long_title VARCHAR(300));
 CREATE TABLE procedures_icd (subject_id INT, hadm_id INT, seq_num INT, chartdate DATE, icd_code VARCHAR(10), icd_version INT);
 CREATE TABLE d_icd_procedures (icd_code VARCHAR(10), icd_version INT, long_title VARCHAR(300));
+CREATE TABLE hcpcsevents (subject_id INT, hadm_id INT, chartdate DATE, hcpcs_cd VARCHAR(10), seq_num INT, short_description VARCHAR(200));
+CREATE TABLE d_hcpcs (code VARCHAR(10), category INT, long_description VARCHAR(500), short_description VARCHAR(200));
+CREATE TABLE drgcodes (subject_id INT, hadm_id INT, drg_type VARCHAR(4), drg_code VARCHAR(10), description VARCHAR(300), drg_severity INT, drg_mortality INT);
 CREATE TABLE labevents (labevent_id BIGINT, subject_id INT, hadm_id INT, itemid INT, charttime TIMESTAMP, value VARCHAR(200), valuenum FLOAT, valueuom VARCHAR(20), ref_range_lower FLOAT, ref_range_upper FLOAT, flag VARCHAR(10), priority VARCHAR(20));
 CREATE TABLE d_labitems (itemid INT, label VARCHAR(100), fluid VARCHAR(50), category VARCHAR(50));
-CREATE TABLE prescriptions (subject_id INT, hadm_id INT, starttime TIMESTAMP, stoptime TIMESTAMP, drug_type VARCHAR(20), drug VARCHAR(200), dose_val_rx VARCHAR(50), dose_unit_rx VARCHAR(50), route VARCHAR(50));
-CREATE TABLE transfers (subject_id INT, hadm_id INT, transfer_id INT, eventtype VARCHAR(20), careunit VARCHAR(60), intime TIMESTAMP, outtime TIMESTAMP);
-CREATE TABLE services (subject_id INT, hadm_id INT, transfertime TIMESTAMP, prev_service VARCHAR(20), curr_service VARCHAR(20));
 CREATE TABLE microbiologyevents (microevent_id BIGINT, subject_id INT, hadm_id INT, chartdate DATE, spec_type_desc VARCHAR(100), org_name VARCHAR(100), interpretation VARCHAR(5));
+CREATE TABLE prescriptions (subject_id INT, hadm_id INT, starttime TIMESTAMP, stoptime TIMESTAMP, drug_type VARCHAR(20), drug VARCHAR(200), dose_val_rx VARCHAR(50), dose_unit_rx VARCHAR(50), route VARCHAR(50));
+CREATE TABLE pharmacy (subject_id INT, hadm_id INT, pharmacy_id INT, medication VARCHAR(200), proc_type VARCHAR(20), status VARCHAR(20), route VARCHAR(50), frequency VARCHAR(50), doses_per_24_hrs FLOAT);
+CREATE TABLE poe (poe_id VARCHAR(20), poe_seq INT, subject_id INT, hadm_id INT, ordertime TIMESTAMP, order_type VARCHAR(30), order_subtype VARCHAR(50), transaction_type VARCHAR(20), order_status VARCHAR(20));
+CREATE TABLE poe_detail (poe_id VARCHAR(20), poe_seq INT, subject_id INT, field_name VARCHAR(50), field_value VARCHAR(200));
+CREATE TABLE emar (emar_id VARCHAR(25), subject_id INT, hadm_id INT, emar_seq INT, poe_id VARCHAR(20), pharmacy_id INT, charttime TIMESTAMP, medication VARCHAR(200), event_txt VARCHAR(50), scheduletime TIMESTAMP);
+CREATE TABLE emar_detail (emar_id VARCHAR(25), emar_seq INT, dose_due VARCHAR(20), dose_given VARCHAR(20), dose_given_unit VARCHAR(20), route VARCHAR(20), site VARCHAR(50));
+CREATE TABLE omr (subject_id INT, chartdate DATE, seq_num INT, result_name VARCHAR(50), result_value VARCHAR(50));
+-- ═══ ICU MODULE (9 bảng) ═══
+CREATE TABLE icustays (subject_id INT, hadm_id INT, stay_id INT, first_careunit VARCHAR(60), last_careunit VARCHAR(60), intime TIMESTAMP, outtime TIMESTAMP, los FLOAT);
+CREATE TABLE chartevents (subject_id INT, hadm_id INT, stay_id INT, caregiver_id INT, charttime TIMESTAMP, itemid INT, value VARCHAR(200), valuenum FLOAT, valueuom VARCHAR(20), warning INT);
+CREATE TABLE d_items (itemid INT, label VARCHAR(200), abbreviation VARCHAR(100), linksto VARCHAR(30), category VARCHAR(50), unitname VARCHAR(50), param_type VARCHAR(30), lownormalvalue FLOAT, highnormalvalue FLOAT);
+CREATE TABLE inputevents (subject_id INT, hadm_id INT, stay_id INT, starttime TIMESTAMP, endtime TIMESTAMP, itemid INT, amount FLOAT, amountuom VARCHAR(20), rate FLOAT, rateuom VARCHAR(20), ordercategoryname VARCHAR(50), patientweight FLOAT, statusdescription VARCHAR(30));
+CREATE TABLE outputevents (subject_id INT, hadm_id INT, stay_id INT, charttime TIMESTAMP, itemid INT, value FLOAT, valueuom VARCHAR(20));
+CREATE TABLE datetimeevents (subject_id INT, hadm_id INT, stay_id INT, charttime TIMESTAMP, itemid INT, value TIMESTAMP, valueuom VARCHAR(20));
+CREATE TABLE procedureevents (subject_id INT, hadm_id INT, stay_id INT, starttime TIMESTAMP, endtime TIMESTAMP, itemid INT, value FLOAT, valueuom VARCHAR(20), location VARCHAR(50), ordercategoryname VARCHAR(50), statusdescription VARCHAR(30));
+CREATE TABLE ingredientevents (subject_id INT, hadm_id INT, stay_id INT, starttime TIMESTAMP, endtime TIMESTAMP, itemid INT, amount FLOAT, amountuom VARCHAR(20), rate FLOAT, rateuom VARCHAR(20));
+CREATE TABLE caregiver (caregiver_id INT);
+-- ═══ JOIN RULES ═══
 -- JOIN patients ↔ admissions: ON subject_id
 -- JOIN admissions ↔ diagnoses_icd: ON hadm_id
 -- JOIN diagnoses_icd ↔ d_icd_diagnoses: ON icd_code AND icd_version
 -- JOIN labevents ↔ d_labitems: ON itemid
 -- JOIN procedures_icd ↔ d_icd_procedures: ON icd_code AND icd_version
+-- JOIN hcpcsevents ↔ d_hcpcs: ON hcpcs_cd = code
+-- JOIN admissions ↔ icustays: ON hadm_id
+-- JOIN icustays ↔ chartevents/inputevents/outputevents: ON stay_id
+-- JOIN chartevents/inputevents/outputevents/procedureevents ↔ d_items: ON itemid
 -- Tính LOS (ngày): EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400
 """
+
 
 
 # ══════════════════════════════════════════════════════════════

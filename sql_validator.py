@@ -10,15 +10,24 @@ from typing import Dict, List, Tuple, Set
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# Danh sách 12 bảng hợp lệ trong subset MIMIC-IV
+# Danh sách 31 bảng hợp lệ trong MIMIC-IV (22 hosp + 9 icu)
 VALID_TABLES: Set[str] = {
-    "patients", "admissions", "diagnoses_icd", "d_icd_diagnoses",
-    "procedures_icd", "d_icd_procedures", "labevents", "d_labitems",
-    "prescriptions", "transfers", "services", "microbiologyevents"
+    # ── hosp module (22 bảng) ──
+    "patients", "admissions", "transfers", "services", "provider",
+    "diagnoses_icd", "d_icd_diagnoses", "procedures_icd", "d_icd_procedures",
+    "hcpcsevents", "d_hcpcs", "drgcodes",
+    "labevents", "d_labitems", "microbiologyevents",
+    "prescriptions", "pharmacy", "poe", "poe_detail",
+    "emar", "emar_detail", "omr",
+    # ── icu module (9 bảng) ──
+    "icustays", "chartevents", "d_items",
+    "inputevents", "outputevents", "datetimeevents",
+    "procedureevents", "ingredientevents", "caregiver",
 }
 
 # Chi tiết cột của từng bảng để kiểm tra column hallucination
 VALID_COLUMNS: Dict[str, Set[str]] = {
+    # ── hosp module ──
     "patients": {"subject_id", "gender", "anchor_age", "anchor_year", "anchor_year_group", "dod"},
     "admissions": {
         "subject_id", "hadm_id", "admittime", "dischtime", "deathtime",
@@ -26,30 +35,113 @@ VALID_COLUMNS: Dict[str, Set[str]] = {
         "insurance", "language", "marital_status", "race",
         "edregtime", "edouttime", "hospital_expire_flag"
     },
+    "transfers": {"subject_id", "hadm_id", "transfer_id", "eventtype", "careunit", "intime", "outtime"},
+    "services": {"subject_id", "hadm_id", "transfertime", "prev_service", "curr_service"},
+    "provider": {"provider_id"},
     "diagnoses_icd": {"subject_id", "hadm_id", "seq_num", "icd_code", "icd_version"},
     "d_icd_diagnoses": {"icd_code", "icd_version", "long_title"},
     "procedures_icd": {"subject_id", "hadm_id", "seq_num", "chartdate", "icd_code", "icd_version"},
     "d_icd_procedures": {"icd_code", "icd_version", "long_title"},
+    "hcpcsevents": {"subject_id", "hadm_id", "chartdate", "hcpcs_cd", "seq_num", "short_description"},
+    "d_hcpcs": {"code", "category", "long_description", "short_description"},
+    "drgcodes": {"subject_id", "hadm_id", "drg_type", "drg_code", "description", "drg_severity", "drg_mortality"},
     "labevents": {
         "labevent_id", "subject_id", "hadm_id", "specimen_id", "itemid",
         "charttime", "storetime", "value", "valuenum", "valueuom",
         "ref_range_lower", "ref_range_upper", "flag", "priority", "comments"
     },
     "d_labitems": {"itemid", "label", "fluid", "category"},
+    "microbiologyevents": {
+        "microevent_id", "subject_id", "hadm_id", "chartdate", "charttime",
+        "spec_itemid", "spec_type_desc", "test_seq", "storedate", "storetime",
+        "org_itemid", "org_name", "isolate_num", "interpretation", "comments"
+    },
     "prescriptions": {
         "subject_id", "hadm_id", "pharmacy_id", "poe_id", "poe_seq",
         "starttime", "stoptime", "drug_type", "drug", "formulary_drug_cd",
         "gsn", "ndc", "prod_strength", "form_rx", "dose_val_rx",
         "dose_unit_rx", "form_val_disp", "form_unit_disp", "doses_per_24_hrs", "route"
     },
-    "transfers": {"subject_id", "hadm_id", "transfer_id", "eventtype", "careunit", "intime", "outtime"},
-    "services": {"subject_id", "hadm_id", "transfertime", "prev_service", "curr_service"},
-    "microbiologyevents": {
-        "microevent_id", "subject_id", "hadm_id", "chartdate", "charttime",
-        "spec_itemid", "spec_type_desc", "test_seq", "storedate", "storetime",
-        "org_itemid", "org_name", "isolate_num", "interpretation", "comments"
-    }
+    "pharmacy": {
+        "subject_id", "hadm_id", "pharmacy_id", "poe_id", "starttime", "stoptime",
+        "medication", "proc_type", "status", "entertime", "verifiedtime",
+        "route", "frequency", "disp_sched", "infusion_type", "sliding_scale",
+        "lockout_interval", "basal_rate", "one_hr_max", "doses_per_24_hrs",
+        "duration", "duration_interval", "expiration_value", "expiration_unit",
+        "expirationdate", "dispensation", "fill_quantity"
+    },
+    "poe": {
+        "poe_id", "poe_seq", "subject_id", "hadm_id", "ordertime",
+        "order_type", "order_subtype", "transaction_type",
+        "discontinue_of_poe_id", "discontinued_by_poe_id",
+        "order_provider_id", "order_status"
+    },
+    "poe_detail": {"poe_id", "poe_seq", "subject_id", "field_name", "field_value"},
+    "emar": {
+        "emar_id", "subject_id", "hadm_id", "emar_seq", "poe_id", "pharmacy_id",
+        "enter_provider_id", "charttime", "medication", "event_txt",
+        "scheduletime", "storetime"
+    },
+    "emar_detail": {
+        "emar_id", "emar_seq", "parent_field_ordinal", "administration_type",
+        "pharmacy_id", "barcode_type", "reason_for_no_barcode",
+        "complete_dose_not_given", "dose_due", "dose_due_unit",
+        "dose_given", "dose_given_unit", "will_remainder_of_dose_be_given",
+        "product_amount_given", "product_unit", "product_code",
+        "product_description", "product_description_other",
+        "prior_infusion_rate", "infusion_rate", "infusion_rate_adjustment",
+        "infusion_rate_adjustment_amount", "infusion_rate_unit",
+        "route", "infusion_complete", "completion_interval",
+        "new_iv_bag_hung", "continued_infusion_in_other_location",
+        "restart_interval", "side", "site", "non_formulary_visual_verification"
+    },
+    "omr": {"subject_id", "chartdate", "seq_num", "result_name", "result_value"},
+    # ── icu module ──
+    "icustays": {"subject_id", "hadm_id", "stay_id", "first_careunit", "last_careunit", "intime", "outtime", "los"},
+    "chartevents": {
+        "subject_id", "hadm_id", "stay_id", "caregiver_id",
+        "charttime", "storetime", "itemid", "value", "valuenum", "valueuom", "warning"
+    },
+    "d_items": {
+        "itemid", "label", "abbreviation", "linksto", "category",
+        "unitname", "param_type", "lownormalvalue", "highnormalvalue"
+    },
+    "inputevents": {
+        "subject_id", "hadm_id", "stay_id", "caregiver_id",
+        "starttime", "endtime", "storetime", "itemid",
+        "amount", "amountuom", "rate", "rateuom",
+        "orderid", "linkorderid", "ordercategoryname",
+        "secondaryordercategoryname", "ordercomponenttypedescription",
+        "ordercategorydescription", "patientweight",
+        "totalamount", "totalamountuom", "isopenbag",
+        "continueinnextdept", "statusdescription", "originalamount", "originalrate"
+    },
+    "outputevents": {
+        "subject_id", "hadm_id", "stay_id", "caregiver_id",
+        "charttime", "storetime", "itemid", "value", "valueuom"
+    },
+    "datetimeevents": {
+        "subject_id", "hadm_id", "stay_id", "caregiver_id",
+        "charttime", "storetime", "itemid", "value", "valueuom", "warning"
+    },
+    "procedureevents": {
+        "subject_id", "hadm_id", "stay_id", "caregiver_id",
+        "starttime", "endtime", "storetime", "itemid", "value", "valueuom",
+        "location", "locationcategory", "orderid", "linkorderid",
+        "ordercategoryname", "ordercategorydescription", "patientweight",
+        "isopenbag", "continueinnextdept", "statusdescription",
+        "originalamount", "originalrate"
+    },
+    "ingredientevents": {
+        "subject_id", "hadm_id", "stay_id", "caregiver_id",
+        "starttime", "endtime", "storetime", "itemid",
+        "amount", "amountuom", "rate", "rateuom",
+        "orderid", "linkorderid", "statusdescription",
+        "originalamount", "originalrate"
+    },
+    "caregiver": {"caregiver_id"},
 }
+
 
 # Tập hợp tất cả các cột tồn tại trong database để kiểm tra nhanh
 ALL_KNOWN_COLUMNS: Set[str] = set()
