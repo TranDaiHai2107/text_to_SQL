@@ -1,26 +1,30 @@
 """
 Xây dựng Vector Database (ChromaDB) với 3 collections:
   1. icd_dictionary   – từ điển mã ICD chẩn đoán (tra cứu bệnh → mã ICD)
-  2. schema_dictionary – DDL + mô tả 12 bảng MIMIC-IV (tra cứu bảng liên quan)
-  3. sql_examples     – 40 cặp (câu hỏi tiếng Việt, SQL gold) (few-shot retrieval)
+  2. schema_dictionary – DDL + mô tả 31 bảng MIMIC-IV (tra cứu bảng liên quan)
+  3. sql_examples     – 101 cặp (câu hỏi tiếng Việt, SQL gold) (few-shot retrieval)
 
 Chạy một lần sau khi đã chạy build_mimic_mini.py.
 """
 
 import sys
+import os
 import json
 import pandas as pd
 import chromadb
 from sqlalchemy import create_engine
 from embedding_config import get_embedding_function
+from dotenv import load_dotenv
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-DB_USER = "postgres"
-DB_PASS = "password123"
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "mimiciv"
+load_dotenv()
+
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASS = os.getenv("DB_PASS", "password123")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "mimiciv")
 
 engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 chroma_client = chromadb.PersistentClient(path="./mimic_chroma_db")

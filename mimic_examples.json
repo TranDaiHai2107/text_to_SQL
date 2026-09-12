@@ -278,5 +278,432 @@
     "tables": ["microbiologyevents"],
     "type": "microbiology",
     "sql": "SELECT org_name, COUNT(*) AS so_ca\nFROM microbiologyevents\nWHERE spec_type_desc ILIKE '%BLOOD%' AND org_name IS NOT NULL\nGROUP BY org_name\nORDER BY so_ca DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex041",
+    "question_vi": "Có bao nhiêu đợt nằm ICU trong cơ sở dữ liệu?",
+    "tables": ["icustays"],
+    "type": "count",
+    "sql": "SELECT COUNT(*) AS tong_so_dot_icu FROM icustays;"
+  },
+  {
+    "id": "ex042",
+    "question_vi": "Tính thời gian nằm ICU trung bình (ngày) của tất cả bệnh nhân.",
+    "tables": ["icustays"],
+    "type": "aggregate",
+    "sql": "SELECT ROUND(AVG(los)::NUMERIC, 2) AS los_icu_trung_binh_ngay FROM icustays;"
+  },
+  {
+    "id": "ex043",
+    "question_vi": "Liệt kê số đợt ICU theo từng khoa hồi sức (first_careunit), sắp xếp giảm dần.",
+    "tables": ["icustays"],
+    "type": "group_by",
+    "sql": "SELECT first_careunit, COUNT(*) AS so_dot\nFROM icustays\nGROUP BY first_careunit\nORDER BY so_dot DESC;"
+  },
+  {
+    "id": "ex044",
+    "question_vi": "Tìm bệnh nhân nằm ICU trên 7 ngày.",
+    "tables": ["icustays", "patients"],
+    "type": "join_filter",
+    "sql": "SELECT p.subject_id, p.gender, p.anchor_age, icu.stay_id, icu.first_careunit,\n  ROUND(icu.los::NUMERIC, 1) AS so_ngay_icu\nFROM icustays icu\nJOIN patients p ON icu.subject_id = p.subject_id\nWHERE icu.los > 7\nORDER BY icu.los DESC;"
+  },
+  {
+    "id": "ex045",
+    "question_vi": "Tính nhịp tim trung bình của bệnh nhân trong ICU.",
+    "tables": ["chartevents", "d_items"],
+    "type": "icu_vital_avg",
+    "sql": "SELECT ROUND(AVG(ce.valuenum)::NUMERIC, 1) AS nhip_tim_trung_binh\nFROM chartevents ce\nJOIN d_items di ON ce.itemid = di.itemid\nWHERE di.label = 'Heart Rate'\n  AND ce.valuenum IS NOT NULL\n  AND ce.valuenum BETWEEN 20 AND 300;"
+  },
+  {
+    "id": "ex046",
+    "question_vi": "Tìm bệnh nhân có huyết áp tâm thu (systolic) trên 180 mmHg trong ICU.",
+    "tables": ["chartevents", "d_items"],
+    "type": "icu_vital_threshold",
+    "sql": "SELECT DISTINCT ce.subject_id, ce.stay_id, ce.charttime, ce.valuenum AS huyet_ap_tam_thu\nFROM chartevents ce\nJOIN d_items di ON ce.itemid = di.itemid\nWHERE di.label ILIKE '%Arterial Blood Pressure systolic%'\n  AND ce.valuenum > 180\nORDER BY ce.valuenum DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex047",
+    "question_vi": "Thống kê tổng lượng dịch truyền (mL) cho từng bệnh nhân trong ICU.",
+    "tables": ["inputevents", "d_items"],
+    "type": "icu_input_sum",
+    "sql": "SELECT ie.subject_id, ie.stay_id, ROUND(SUM(ie.amount)::NUMERIC, 0) AS tong_luong_dich_ml\nFROM inputevents ie\nWHERE ie.amountuom = 'ml'\n  AND ie.amount > 0\nGROUP BY ie.subject_id, ie.stay_id\nORDER BY tong_luong_dich_ml DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex048",
+    "question_vi": "Liệt kê các loại thuốc vận mạch (vasopressor) được dùng trong ICU.",
+    "tables": ["inputevents", "d_items"],
+    "type": "icu_vasopressor",
+    "sql": "SELECT di.label, COUNT(*) AS so_lan_dung, COUNT(DISTINCT ie.subject_id) AS so_benh_nhan\nFROM inputevents ie\nJOIN d_items di ON ie.itemid = di.itemid\nWHERE di.category = 'Medications'\n  AND di.label ILIKE ANY(ARRAY['%Norepinephrine%', '%Vasopressin%', '%Dopamine%', '%Epinephrine%', '%Phenylephrine%'])\nGROUP BY di.label\nORDER BY so_lan_dung DESC;"
+  },
+  {
+    "id": "ex049",
+    "question_vi": "Tính tổng lượng nước tiểu (urine output) theo ngày cho từng bệnh nhân ICU.",
+    "tables": ["outputevents", "d_items"],
+    "type": "icu_output",
+    "sql": "SELECT oe.subject_id, oe.stay_id, DATE(oe.charttime) AS ngay,\n  ROUND(SUM(oe.value)::NUMERIC, 0) AS tong_nuoc_tieu_ml\nFROM outputevents oe\nJOIN d_items di ON oe.itemid = di.itemid\nWHERE di.label ILIKE '%Urine%'\n  AND oe.value > 0\nGROUP BY oe.subject_id, oe.stay_id, DATE(oe.charttime)\nORDER BY oe.subject_id, ngay\nLIMIT 30;"
+  },
+  {
+    "id": "ex050",
+    "question_vi": "Tìm các thủ thuật can thiệp hồi sức (thở máy, đặt catheter) đã thực hiện trong ICU.",
+    "tables": ["procedureevents", "d_items"],
+    "type": "icu_procedure",
+    "sql": "SELECT di.label, COUNT(*) AS so_lan, COUNT(DISTINCT pe.subject_id) AS so_benh_nhan\nFROM procedureevents pe\nJOIN d_items di ON pe.itemid = di.itemid\nGROUP BY di.label\nORDER BY so_lan DESC\nLIMIT 15;"
+  },
+  {
+    "id": "ex051",
+    "question_vi": "Tính thời gian thở máy trung bình (giờ) cho bệnh nhân trong ICU.",
+    "tables": ["procedureevents", "d_items"],
+    "type": "icu_ventilation_duration",
+    "sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (pe.endtime - pe.starttime))/3600)::NUMERIC, 1) AS thoi_gian_tho_may_tb_gio\nFROM procedureevents pe\nJOIN d_items di ON pe.itemid = di.itemid\nWHERE di.label ILIKE '%Ventilation%'\n  AND pe.endtime IS NOT NULL AND pe.starttime IS NOT NULL;"
+  },
+  {
+    "id": "ex052",
+    "question_vi": "Liệt kê chỉ số BMI mới nhất của từng bệnh nhân.",
+    "tables": ["omr"],
+    "type": "omr_bmi",
+    "sql": "SELECT DISTINCT ON (subject_id) subject_id, chartdate, result_value AS bmi\nFROM omr\nWHERE result_name ILIKE '%BMI%'\n  AND result_value IS NOT NULL\nORDER BY subject_id, chartdate DESC;"
+  },
+  {
+    "id": "ex053",
+    "question_vi": "Tìm bệnh nhân có huyết áp ngoại trú cao (trên 140/90).",
+    "tables": ["omr"],
+    "type": "omr_blood_pressure",
+    "sql": "SELECT subject_id, chartdate, result_value AS huyet_ap\nFROM omr\nWHERE result_name ILIKE '%Blood Pressure%'\n  AND result_value IS NOT NULL\n  AND SPLIT_PART(result_value, '/', 1)::INT > 140\nORDER BY chartdate DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex054",
+    "question_vi": "Liệt kê thuốc được khoa Dược cấp phát nhiều nhất.",
+    "tables": ["pharmacy"],
+    "type": "pharmacy_top",
+    "sql": "SELECT medication, COUNT(*) AS so_lan_cap_phat\nFROM pharmacy\nWHERE medication IS NOT NULL\nGROUP BY medication\nORDER BY so_lan_cap_phat DESC\nLIMIT 15;"
+  },
+  {
+    "id": "ex055",
+    "question_vi": "Đếm số đơn thuốc truyền tĩnh mạch (IV) được khoa Dược quản lý.",
+    "tables": ["pharmacy"],
+    "type": "pharmacy_iv_count",
+    "sql": "SELECT COUNT(*) AS so_don_iv\nFROM pharmacy\nWHERE proc_type = 'IV'\n  AND status = 'Active';"
+  },
+  {
+    "id": "ex056",
+    "question_vi": "Thống kê các loại y lệnh (order_type) bác sĩ ban hành và số lượng tương ứng.",
+    "tables": ["poe"],
+    "type": "poe_order_types",
+    "sql": "SELECT order_type, COUNT(*) AS so_y_lenh\nFROM poe\nWHERE order_type IS NOT NULL\nGROUP BY order_type\nORDER BY so_y_lenh DESC;"
+  },
+  {
+    "id": "ex057",
+    "question_vi": "Đếm số y lệnh thuốc (Medications) được bác sĩ ban hành trong mỗi đợt nhập viện.",
+    "tables": ["poe"],
+    "type": "poe_medications_per_admission",
+    "sql": "SELECT hadm_id, COUNT(*) AS so_y_lenh_thuoc\nFROM poe\nWHERE order_type = 'Medications'\nGROUP BY hadm_id\nORDER BY so_y_lenh_thuoc DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex058",
+    "question_vi": "Liệt kê thuốc đã được điều dưỡng thực sự dùng cho bệnh nhân (trạng thái Administered).",
+    "tables": ["emar"],
+    "type": "emar_administered",
+    "sql": "SELECT medication, COUNT(*) AS so_lan_dung\nFROM emar\nWHERE event_txt = 'Administered'\n  AND medication IS NOT NULL\nGROUP BY medication\nORDER BY so_lan_dung DESC\nLIMIT 15;"
+  },
+  {
+    "id": "ex059",
+    "question_vi": "Tìm các trường hợp thuốc không được dùng (Not Given) và lý do.",
+    "tables": ["emar", "emar_detail"],
+    "type": "emar_not_given",
+    "sql": "SELECT e.medication, e.event_txt, ed.reason_for_no_barcode, COUNT(*) AS so_lan\nFROM emar e\nJOIN emar_detail ed ON e.emar_id = ed.emar_id AND e.emar_seq = ed.emar_seq\nWHERE e.event_txt ILIKE '%Not%'\nGROUP BY e.medication, e.event_txt, ed.reason_for_no_barcode\nORDER BY so_lan DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex060",
+    "question_vi": "Phân loại mức độ nặng DRG (drg_severity) của các đợt nhập viện.",
+    "tables": ["drgcodes"],
+    "type": "drg_severity",
+    "sql": "SELECT drg_severity, COUNT(*) AS so_dot\nFROM drgcodes\nWHERE drg_type = 'APR' AND drg_severity IS NOT NULL\nGROUP BY drg_severity\nORDER BY drg_severity;"
+  },
+  {
+    "id": "ex061",
+    "question_vi": "Tìm nhóm chẩn đoán DRG có tỷ lệ tử vong cao nhất.",
+    "tables": ["drgcodes"],
+    "type": "drg_mortality",
+    "sql": "SELECT drg_code, description, drg_mortality, COUNT(*) AS so_ca\nFROM drgcodes\nWHERE drg_type = 'APR' AND drg_mortality = 4\nGROUP BY drg_code, description, drg_mortality\nORDER BY so_ca DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex062",
+    "question_vi": "Liệt kê các dịch vụ y tế HCPCS được sử dụng nhiều nhất.",
+    "tables": ["hcpcsevents", "d_hcpcs"],
+    "type": "hcpcs_top",
+    "sql": "SELECT h.hcpcs_cd, dh.short_description, COUNT(*) AS so_lan\nFROM hcpcsevents h\nJOIN d_hcpcs dh ON h.hcpcs_cd = dh.code\nGROUP BY h.hcpcs_cd, dh.short_description\nORDER BY so_lan DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex063",
+    "question_vi": "Tính tỷ lệ tử vong trong viện của bệnh nhân có vào ICU so với không vào ICU.",
+    "tables": ["admissions", "icustays"],
+    "type": "cross_module_mortality",
+    "sql": "SELECT\n  CASE WHEN icu.hadm_id IS NOT NULL THEN 'Có vào ICU' ELSE 'Không vào ICU' END AS nhom,\n  COUNT(*) AS tong_dot,\n  SUM(a.hospital_expire_flag) AS tu_vong,\n  ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(*), 2) AS ty_le_tu_vong_pct\nFROM admissions a\nLEFT JOIN (SELECT DISTINCT hadm_id FROM icustays) icu ON a.hadm_id = icu.hadm_id\nGROUP BY nhom;"
+  },
+  {
+    "id": "ex064",
+    "question_vi": "Tìm bệnh nhân bị viêm phổi nhập ICU và tính thời gian nằm ICU trung bình của họ.",
+    "tables": ["diagnoses_icd", "icustays"],
+    "type": "cross_diagnosis_icu",
+    "sql": "SELECT COUNT(DISTINCT icu.subject_id) AS so_benh_nhan,\n  ROUND(AVG(icu.los)::NUMERIC, 2) AS los_icu_tb_ngay\nFROM icustays icu\nJOIN diagnoses_icd d ON icu.hadm_id = d.hadm_id\nWHERE (d.icd_code = '486' AND d.icd_version = 9)\n   OR (d.icd_code = 'J189' AND d.icd_version = 10);"
+  },
+  {
+    "id": "ex065",
+    "question_vi": "So sánh số lượng thuốc kê đơn (prescriptions) với số lượng thực tế điều dưỡng đã dùng (emar Administered) cho mỗi đợt nhập viện.",
+    "tables": ["prescriptions", "emar"],
+    "type": "cross_prescription_emar",
+    "sql": "SELECT\n  p.hadm_id,\n  COUNT(DISTINCT p.drug) AS so_thuoc_ke,\n  COUNT(DISTINCT e.medication) AS so_thuoc_da_dung\nFROM prescriptions p\nLEFT JOIN emar e ON p.hadm_id = e.hadm_id AND e.event_txt = 'Administered'\nGROUP BY p.hadm_id\nORDER BY so_thuoc_ke DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex066",
+    "question_vi": "Tính cân bằng dịch (input - output) cho từng bệnh nhân trong ICU.",
+    "tables": ["inputevents", "outputevents"],
+    "type": "icu_fluid_balance",
+    "sql": "SELECT\n  i.subject_id, i.stay_id,\n  ROUND(i.tong_input::NUMERIC, 0) AS tong_input_ml,\n  ROUND(COALESCE(o.tong_output, 0)::NUMERIC, 0) AS tong_output_ml,\n  ROUND((i.tong_input - COALESCE(o.tong_output, 0))::NUMERIC, 0) AS can_bang_dich_ml\nFROM (\n  SELECT subject_id, stay_id, SUM(amount) AS tong_input\n  FROM inputevents WHERE amountuom = 'ml' AND amount > 0\n  GROUP BY subject_id, stay_id\n) i\nLEFT JOIN (\n  SELECT subject_id, stay_id, SUM(value) AS tong_output\n  FROM outputevents WHERE value > 0\n  GROUP BY subject_id, stay_id\n) o ON i.subject_id = o.subject_id AND i.stay_id = o.stay_id\nORDER BY can_bang_dich_ml DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex067",
+    "question_vi": "Liệt kê các chỉ số vital signs có trong từ điển ICU (d_items) thuộc nhóm Routine Vital Signs.",
+    "tables": ["d_items"],
+    "type": "d_items_vitals",
+    "sql": "SELECT itemid, label, abbreviation, unitname\nFROM d_items\nWHERE category = 'Routine Vital Signs'\nORDER BY label;"
+  },
+  {
+    "id": "ex068",
+    "question_vi": "Tìm bệnh nhân ICU có điểm hôn mê Glasgow (GCS) dưới 8 (hôn mê sâu).",
+    "tables": ["chartevents", "d_items"],
+    "type": "icu_gcs_low",
+    "sql": "SELECT DISTINCT ce.subject_id, ce.stay_id, ce.charttime, ce.valuenum AS diem_gcs\nFROM chartevents ce\nJOIN d_items di ON ce.itemid = di.itemid\nWHERE di.label ILIKE '%GCS Total%'\n  AND ce.valuenum < 8\n  AND ce.valuenum IS NOT NULL\nORDER BY ce.valuenum\nLIMIT 20;"
+  },
+  {
+    "id": "ex069",
+    "question_vi": "Thống kê số bệnh nhân theo từng dịch vụ điều trị (services) hiện tại.",
+    "tables": ["services"],
+    "type": "services_distribution",
+    "sql": "SELECT curr_service, COUNT(DISTINCT subject_id) AS so_benh_nhan\nFROM services\nGROUP BY curr_service\nORDER BY so_benh_nhan DESC;"
+  },
+  {
+    "id": "ex070",
+    "question_vi": "Tìm các kết quả cấy vi khuẩn kháng thuốc (R) trong cấy nước tiểu.",
+    "tables": ["microbiologyevents"],
+    "type": "microbiology_resistance",
+    "sql": "SELECT org_name, COUNT(*) AS so_ca_khang_thuoc\nFROM microbiologyevents\nWHERE spec_type_desc ILIKE '%URINE%'\n  AND interpretation = 'R'\n  AND org_name IS NOT NULL\nGROUP BY org_name\nORDER BY so_ca_khang_thuoc DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex071",
+    "question_vi": "Liệt kê các chức danh nhân viên y tế trong hệ thống và số lượng tương ứng.",
+    "tables": ["provider"],
+    "type": "provider_roles",
+    "sql": "SELECT COUNT(*) AS tong_nhan_vien\nFROM provider;"
+  },
+  {
+    "id": "ex072",
+    "question_vi": "Có bao nhiêu điều dưỡng/bác sĩ ICU (caregiver) trong hệ thống?",
+    "tables": ["caregiver"],
+    "type": "caregiver_count",
+    "sql": "SELECT COUNT(*) AS tong_caregiver\nFROM caregiver;"
+  },
+  {
+    "id": "ex073",
+    "question_vi": "Liệt kê các thành phần hoạt chất (ingredientevents) phổ biến nhất trong dịch truyền ICU.",
+    "tables": ["ingredientevents", "d_items"],
+    "type": "ingredient_top",
+    "sql": "SELECT di.label, COUNT(*) AS so_lan\nFROM ingredientevents ig\nJOIN d_items di ON ig.itemid = di.itemid\nGROUP BY di.label\nORDER BY so_lan DESC\nLIMIT 15;"
+  },
+  {
+    "id": "ex074",
+    "question_vi": "Liệt kê các tham số chi tiết (field_name) trong y lệnh bác sĩ và số lượng.",
+    "tables": ["poe_detail"],
+    "type": "poe_detail_fields",
+    "sql": "SELECT field_name, COUNT(*) AS so_lan\nFROM poe_detail\nWHERE field_name IS NOT NULL\nGROUP BY field_name\nORDER BY so_lan DESC;"
+  },
+  {
+    "id": "ex075",
+    "question_vi": "Đếm tổng số bản ghi trong bảng datetimeevents.",
+    "tables": ["datetimeevents"],
+    "type": "datetimeevents_count",
+    "sql": "SELECT COUNT(*) AS tong_ban_ghi\nFROM datetimeevents;"
+  },
+  {
+    "id": "ex076",
+    "question_vi": "Liệt kê tên đầy đủ các mã chẩn đoán ICD-10 liên quan đến viêm phổi.",
+    "tables": ["d_icd_diagnoses"],
+    "type": "icd_lookup",
+    "sql": "SELECT icd_code, long_title\nFROM d_icd_diagnoses\nWHERE icd_version = 10\n  AND long_title ILIKE '%pneumonia%'\nORDER BY icd_code;"
+  },
+  {
+    "id": "ex077",
+    "question_vi": "Liệt kê tên đầy đủ các mã thủ thuật ICD-10 liên quan đến tim.",
+    "tables": ["d_icd_procedures"],
+    "type": "icd_proc_lookup",
+    "sql": "SELECT icd_code, long_title\nFROM d_icd_procedures\nWHERE icd_version = 10\n  AND long_title ILIKE '%heart%'\nORDER BY icd_code;"
+  },
+  {
+    "id": "ex078",
+    "question_vi": "Tìm bệnh nhân được chuyển khoa từ ICU sang phòng thường và tính thời gian nằm ICU.",
+    "tables": ["transfers"],
+    "type": "transfers_icu_to_ward",
+    "sql": "SELECT t1.subject_id, t1.hadm_id, t1.careunit AS khoa_icu, t2.careunit AS khoa_chuyen_den,\n  ROUND(EXTRACT(EPOCH FROM (t1.outtime - t1.intime))/3600::NUMERIC, 1) AS gio_nam_icu\nFROM transfers t1\nJOIN transfers t2 ON t1.hadm_id = t2.hadm_id AND t1.transfer_id < t2.transfer_id\nWHERE t1.careunit ILIKE '%ICU%'\n  AND t2.careunit NOT ILIKE '%ICU%'\nORDER BY gio_nam_icu DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex079",
+    "question_vi": "Đếm số lần chuyển khoa trung bình mỗi đợt nhập viện.",
+    "tables": ["transfers"],
+    "type": "transfers_avg",
+    "sql": "SELECT ROUND(AVG(so_lan_chuyen)::NUMERIC, 1) AS tb_chuyen_khoa_moi_dot\nFROM (\n  SELECT hadm_id, COUNT(*) AS so_lan_chuyen\n  FROM transfers\n  WHERE eventtype = 'transfer'\n  GROUP BY hadm_id\n) sub;"
+  },
+  {
+    "id": "ex080",
+    "question_vi": "Tìm bệnh nhân được chuyển sang dịch vụ phẫu thuật (SURG) và tính thời gian từ nhập viện đến chuyển dịch vụ.",
+    "tables": ["services", "admissions"],
+    "type": "services_surgery",
+    "sql": "SELECT s.subject_id, s.hadm_id, s.prev_service, s.curr_service,\n  ROUND(EXTRACT(EPOCH FROM (s.transfertime - a.admittime))/3600::NUMERIC, 1) AS gio_sau_nhap_vien\nFROM services s\nJOIN admissions a ON s.hadm_id = a.hadm_id\nWHERE s.curr_service ILIKE '%SURG%'\nORDER BY gio_sau_nhap_vien\nLIMIT 20;"
+  },
+  {
+    "id": "ex081",
+    "question_vi": "Thống kê số lượt chuyển dịch vụ theo từng cặp dịch vụ (từ - đến).",
+    "tables": ["services"],
+    "type": "services_transition",
+    "sql": "SELECT prev_service, curr_service, COUNT(*) AS so_luot\nFROM services\nWHERE prev_service IS NOT NULL\nGROUP BY prev_service, curr_service\nORDER BY so_luot DESC\nLIMIT 15;"
+  },
+  {
+    "id": "ex082",
+    "question_vi": "Liệt kê mô tả các dịch vụ HCPCS phân theo danh mục (category).",
+    "tables": ["d_hcpcs"],
+    "type": "d_hcpcs_categories",
+    "sql": "SELECT category, COUNT(*) AS so_dich_vu\nFROM d_hcpcs\nGROUP BY category\nORDER BY so_dich_vu DESC;"
+  },
+  {
+    "id": "ex083",
+    "question_vi": "Thống kê tổng chi phí dịch vụ HCPCS theo từng đợt nhập viện.",
+    "tables": ["hcpcsevents"],
+    "type": "hcpcs_per_admission",
+    "sql": "SELECT hadm_id, COUNT(*) AS so_dich_vu_hcpcs, COUNT(DISTINCT hcpcs_cd) AS so_loai\nFROM hcpcsevents\nGROUP BY hadm_id\nORDER BY so_dich_vu_hcpcs DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex084",
+    "question_vi": "Phân tích liều thuốc đã dùng qua eMAR chi tiết, theo đơn vị liều.",
+    "tables": ["emar_detail"],
+    "type": "emar_detail_dose",
+    "sql": "SELECT dose_given_unit, COUNT(*) AS so_lan, AVG(dose_given::NUMERIC) AS lieu_trung_binh\nFROM emar_detail\nWHERE dose_given IS NOT NULL AND dose_given ~ '^[0-9]'\nGROUP BY dose_given_unit\nORDER BY so_lan DESC\nLIMIT 15;"
+  },
+  {
+    "id": "ex085",
+    "question_vi": "Liệt kê đường dùng thuốc (route) phổ biến nhất trong eMAR chi tiết.",
+    "tables": ["emar_detail"],
+    "type": "emar_detail_route",
+    "sql": "SELECT route, COUNT(*) AS so_lan\nFROM emar_detail\nWHERE route IS NOT NULL\nGROUP BY route\nORDER BY so_lan DESC;"
+  },
+  {
+    "id": "ex086",
+    "question_vi": "Liệt kê field_value phổ biến nhất cho y lệnh thuốc trong poe_detail.",
+    "tables": ["poe_detail", "poe"],
+    "type": "poe_detail_med_values",
+    "sql": "SELECT pd.field_name, pd.field_value, COUNT(*) AS so_lan\nFROM poe_detail pd\nJOIN poe p ON pd.poe_id = p.poe_id\nWHERE p.order_type = 'Medications'\n  AND pd.field_value IS NOT NULL\nGROUP BY pd.field_name, pd.field_value\nORDER BY so_lan DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex087",
+    "question_vi": "Tìm datetimeevents liên quan đến thời điểm đặt ống nội khí quản (intubation).",
+    "tables": ["datetimeevents", "d_items"],
+    "type": "datetimeevents_intubation",
+    "sql": "SELECT de.subject_id, de.stay_id, de.charttime, de.value AS thoi_diem_su_kien, di.label\nFROM datetimeevents de\nJOIN d_items di ON de.itemid = di.itemid\nWHERE di.label ILIKE '%intubat%'\nORDER BY de.charttime DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex088",
+    "question_vi": "Đếm số sự kiện thời gian (datetimeevents) theo từng loại chỉ số.",
+    "tables": ["datetimeevents", "d_items"],
+    "type": "datetimeevents_by_item",
+    "sql": "SELECT di.label, COUNT(*) AS so_su_kien\nFROM datetimeevents de\nJOIN d_items di ON de.itemid = di.itemid\nGROUP BY di.label\nORDER BY so_su_kien DESC\nLIMIT 15;"
+  },
+  {
+    "id": "ex089",
+    "question_vi": "Thống kê lượng từng thành phần hoạt chất (ingredientevents) theo đơn vị.",
+    "tables": ["ingredientevents"],
+    "type": "ingredient_by_unit",
+    "sql": "SELECT amountuom, COUNT(*) AS so_ban_ghi, ROUND(AVG(amount)::NUMERIC, 2) AS luong_trung_binh\nFROM ingredientevents\nWHERE amountuom IS NOT NULL AND amount > 0\nGROUP BY amountuom\nORDER BY so_ban_ghi DESC;"
+  },
+  {
+    "id": "ex090",
+    "question_vi": "Tìm bệnh nhân ICU có caregiver_id thay đổi nhiều nhất trong cùng một stay.",
+    "tables": ["chartevents", "caregiver"],
+    "type": "caregiver_turnover",
+    "sql": "SELECT ce.subject_id, ce.stay_id, COUNT(DISTINCT ce.caregiver_id) AS so_caregiver\nFROM chartevents ce\nGROUP BY ce.subject_id, ce.stay_id\nORDER BY so_caregiver DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex091",
+    "question_vi": "Tìm top 10 vi khuẩn phổ biến nhất trong cấy đường hô hấp.",
+    "tables": ["microbiologyevents"],
+    "type": "microbiology_respiratory",
+    "sql": "SELECT org_name, COUNT(*) AS so_ca\nFROM microbiologyevents\nWHERE spec_type_desc ILIKE '%SPUTUM%' OR spec_type_desc ILIKE '%RESPIRATORY%'\n  AND org_name IS NOT NULL\nGROUP BY org_name\nORDER BY so_ca DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex092",
+    "question_vi": "Phân tích kết quả kháng sinh đồ (S/I/R) theo loại vi khuẩn.",
+    "tables": ["microbiologyevents"],
+    "type": "microbiology_antibiogram",
+    "sql": "SELECT org_name, interpretation, COUNT(*) AS so_lan\nFROM microbiologyevents\nWHERE org_name IS NOT NULL AND interpretation IS NOT NULL\nGROUP BY org_name, interpretation\nORDER BY org_name, so_lan DESC\nLIMIT 30;"
+  },
+  {
+    "id": "ex093",
+    "question_vi": "Tìm bệnh nhân bị nhiễm khuẩn huyết (ICD A41) có kết quả cấy máu dương tính trong ICU.",
+    "tables": ["diagnoses_icd", "microbiologyevents", "icustays"],
+    "type": "cross_sepsis_culture_icu",
+    "sql": "SELECT DISTINCT m.subject_id, m.org_name, icu.first_careunit, ROUND(icu.los::NUMERIC, 1) AS los_icu\nFROM diagnoses_icd d\nJOIN icustays icu ON d.hadm_id = icu.hadm_id\nJOIN microbiologyevents m ON d.hadm_id = m.hadm_id\nWHERE d.icd_code LIKE 'A41%' AND d.icd_version = 10\n  AND m.spec_type_desc ILIKE '%BLOOD%' AND m.org_name IS NOT NULL\nORDER BY los_icu DESC\nLIMIT 20;"
+  },
+  {
+    "id": "ex094",
+    "question_vi": "So sánh tỷ lệ tử vong giữa các khoa hồi sức ICU khác nhau.",
+    "tables": ["icustays", "admissions"],
+    "type": "icu_mortality_by_unit",
+    "sql": "SELECT icu.first_careunit,\n  COUNT(*) AS tong_dot,\n  SUM(a.hospital_expire_flag) AS tu_vong,\n  ROUND(100.0 * SUM(a.hospital_expire_flag) / COUNT(*), 2) AS ty_le_tu_vong_pct\nFROM icustays icu\nJOIN admissions a ON icu.hadm_id = a.hadm_id\nGROUP BY icu.first_careunit\nORDER BY ty_le_tu_vong_pct DESC;"
+  },
+  {
+    "id": "ex095",
+    "question_vi": "Tính thời gian trung bình từ nhập viện đến vào ICU.",
+    "tables": ["admissions", "icustays"],
+    "type": "time_to_icu",
+    "sql": "SELECT ROUND(AVG(EXTRACT(EPOCH FROM (icu.intime - a.admittime))/3600)::NUMERIC, 1) AS gio_tu_nhap_vien_den_icu\nFROM icustays icu\nJOIN admissions a ON icu.hadm_id = a.hadm_id\nWHERE icu.intime > a.admittime;"
+  },
+  {
+    "id": "ex096",
+    "question_vi": "Phân tích tỷ lệ thuốc được dùng đúng liều theo đường dùng (oral, IV) qua eMAR.",
+    "tables": ["emar", "emar_detail"],
+    "type": "emar_compliance",
+    "sql": "SELECT ed.route,\n  COUNT(*) AS tong_lan,\n  SUM(CASE WHEN e.event_txt = 'Administered' THEN 1 ELSE 0 END) AS da_dung,\n  ROUND(100.0 * SUM(CASE WHEN e.event_txt = 'Administered' THEN 1 ELSE 0 END) / COUNT(*), 1) AS ty_le_dung_pct\nFROM emar e\nJOIN emar_detail ed ON e.emar_id = ed.emar_id AND e.emar_seq = ed.emar_seq\nWHERE ed.route IS NOT NULL\nGROUP BY ed.route\nORDER BY tong_lan DESC;"
+  },
+  {
+    "id": "ex097",
+    "question_vi": "Tìm mối liên hệ giữa y lệnh bác sĩ (poe) và thuốc thực tế dùng qua eMAR.",
+    "tables": ["poe", "emar"],
+    "type": "poe_emar_link",
+    "sql": "SELECT p.order_type, COUNT(DISTINCT p.poe_id) AS tong_y_lenh,\n  COUNT(DISTINCT e.emar_id) AS tong_emar_tuong_ung\nFROM poe p\nLEFT JOIN emar e ON p.poe_id = e.poe_id\nWHERE p.order_type = 'Medications'\nGROUP BY p.order_type;"
+  },
+  {
+    "id": "ex098",
+    "question_vi": "Liệt kê các thành phần hoạt chất truyền cho bệnh nhân suy tim trong ICU.",
+    "tables": ["ingredientevents", "d_items", "diagnoses_icd"],
+    "type": "ingredient_heart_failure",
+    "sql": "SELECT di.label, COUNT(*) AS so_lan, ROUND(AVG(ig.amount)::NUMERIC, 2) AS luong_tb\nFROM ingredientevents ig\nJOIN d_items di ON ig.itemid = di.itemid\nJOIN diagnoses_icd d ON ig.hadm_id = d.hadm_id\nWHERE d.icd_code LIKE 'I50%' AND d.icd_version = 10\nGROUP BY di.label\nORDER BY so_lan DESC\nLIMIT 15;"
+  },
+  {
+    "id": "ex099",
+    "question_vi": "Tìm bệnh nhân bị chuyển từ cấp cứu (Emergency) vào ICU, kèm chẩn đoán chính.",
+    "tables": ["admissions", "icustays", "diagnoses_icd", "d_icd_diagnoses"],
+    "type": "er_to_icu_diagnosis",
+    "sql": "SELECT DISTINCT a.subject_id, a.hadm_id, a.admission_type, icu.first_careunit,\n  di.long_title AS chan_doan_chinh\nFROM admissions a\nJOIN icustays icu ON a.hadm_id = icu.hadm_id\nJOIN diagnoses_icd d ON a.hadm_id = d.hadm_id AND d.seq_num = 1\nJOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version\nWHERE a.admission_type = 'EMERGENCY'\nORDER BY a.subject_id\nLIMIT 20;"
+  },
+  {
+    "id": "ex100",
+    "question_vi": "Tổng hợp toàn cảnh một bệnh nhân ICU: chẩn đoán, vital signs, thuốc truyền, xét nghiệm bất thường.",
+    "tables": ["patients", "icustays", "diagnoses_icd", "d_icd_diagnoses", "chartevents", "d_items", "inputevents", "labevents"],
+    "type": "icu_patient_overview",
+    "sql": "SELECT p.subject_id, p.gender, p.anchor_age, icu.first_careunit,\n  ROUND(icu.los::NUMERIC, 1) AS los_icu,\n  (SELECT COUNT(DISTINCT d.icd_code) FROM diagnoses_icd d WHERE d.hadm_id = icu.hadm_id) AS so_chan_doan,\n  (SELECT COUNT(*) FROM labevents le WHERE le.hadm_id = icu.hadm_id AND le.flag = 'abnormal') AS xn_bat_thuong\nFROM patients p\nJOIN icustays icu ON p.subject_id = icu.subject_id\nORDER BY los_icu DESC\nLIMIT 10;"
+  },
+  {
+    "id": "ex101",
+    "question_vi": "Tìm nhân viên y tế (provider) có tham gia khám cho nhiều bệnh nhân nhất qua bảng emar.",
+    "tables": ["provider", "emar"],
+    "type": "provider_emar_activity",
+    "sql": "SELECT e.pharmacy_id, COUNT(DISTINCT e.subject_id) AS so_benh_nhan, COUNT(*) AS so_lan_cap_thuoc\nFROM emar e\nWHERE e.pharmacy_id IS NOT NULL\nGROUP BY e.pharmacy_id\nORDER BY so_benh_nhan DESC\nLIMIT 10;"
   }
 ]

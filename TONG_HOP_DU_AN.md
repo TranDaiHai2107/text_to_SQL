@@ -23,8 +23,8 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 
 ### 2.2. Kiến trúc RAG 3 Tầng Chuyên Biệt (Domain-Specific Multi-Layer RAG)
 - **Tầng 1 (ICD Dictionary Retrieval):** Kho 10,000 vector mã bệnh (ICD-9 & ICD-10) từ `d_icd_diagnoses`. Tự động nhận diện thực thể bệnh trong câu hỏi (ví dụ: *"viêm phổi"* → ICD-9: `486`, ICD-10: `J189`) để chèn mã chính xác vào mệnh đề `WHERE`.
-- **Tầng 2 (Schema Selection Retrieval):** Kho 12 vector mô tả song ngữ của 12 bảng MIMIC-IV. Tự động chọn lọc động 3–5 bảng liên quan nhất thay vì nhồi toàn bộ 22+ bảng gây loãng context và quá tải token.
-- **Tầng 3 (SQL Examples Few-Shot Retrieval):** Kho 40 cặp câu hỏi tiếng Việt ↔ SQL Gold (`mimic_examples.json`), truy xuất 3 câu mẫu tương đồng nhất về mặt ngữ nghĩa và cấu trúc SQL.
+- **Tầng 2 (Schema Selection Retrieval):** Kho 31 vector mô tả song ngữ của 31 bảng MIMIC-IV. Tự động chọn lọc động 3–5 bảng liên quan nhất thay vì nhồi toàn bộ 31 bảng gây loãng context và quá tải token.
+- **Tầng 3 (SQL Examples Few-Shot Retrieval):** Kho 101 cặp câu hỏi tiếng Việt ↔ SQL Gold (`mimic_examples.json`), truy xuất 3 câu mẫu tương đồng nhất về mặt ngữ nghĩa và cấu trúc SQL.
 
 ### 2.3. Màng lọc Schema-Aware SQL Validator (`sql_validator.py`)
 - Phân tích cú pháp AST (Abstract Syntax Tree) của câu lệnh SQL trước khi gửi tới PostgreSQL.
@@ -45,8 +45,8 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 ### 2.7. Tối ưu hóa Hạn mức Token (Rate Limit & OTPM Protection)
 - Khắc phục triệt để lỗi `429 RateLimitError` từ Groq: Giảm `max_tokens` từ 1024 xuống 900 cho sinh SQL và 256 cho rewrite câu hỏi, hoàn toàn tương thích với mức trần 1,000 OTPM của Groq Free Tier.
 
-### 2.8. Bộ Dữ liệu Đánh giá Chuẩn Hóa (100 Test Cases với Gold SQL)
-- File `test_dataset.json` chứa 100 câu hỏi tiếng Việt độc lập kèm Gold SQL chính xác phủ kín 12 bảng, phân tầng thành 4 cấp độ: **Easy (21%)**, **Medium (40%)**, **Hard (25%)**, **Complex (14%)**.
+### 2.8. Bộ Dữ liệu Đánh giá Chuẩn Hóa (180 Test Cases với Gold SQL)
+- File `test_dataset.json` chứa 180 câu hỏi tiếng Việt độc lập kèm Gold SQL chính xác phủ kín 31 bảng, phân tầng thành 4 cấp độ: **Easy (37%)**, **Medium (33%)**, **Hard (11%)**, **Complex (19%)**.
 
 ### 2.9. Ứng dụng Giao diện Trực quan (Streamlit Web App - `app.py`)
 - Giao diện chat trực quan với các tag màu hiển thị RAG stages (`ICD`, `SCHEMA`, `EXAMPLES`, `REWRITE`, `FIX`).
@@ -65,7 +65,7 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 | **Xử lý đa lượt** | Chỉ đọc chuỗi văn bản đơn giản | Đọc sâu kèm SQL và kết quả trước + Rule sinh Subquery tập con |
 | **Đầu ra hệ thống** | Chỉ trả về bảng dữ liệu thô | Trả về cả SQL, Data Table, Biểu đồ và **Diễn giải tự nhiên tiếng Việt** |
 | **Quản lý Token** | Dễ bị chặn lỗi 429 OTPM | Tối ưu hóa `max_tokens=900/256`, ổn định không bị gián đoạn |
-| **Tập Test Benchmark** | 30 câu chưa phân cấp | 100 câu phân tầng rõ ràng 4 cấp độ phức tạp |
+| **Tập Test Benchmark** | 30 câu chưa phân cấp | 180 câu phân tầng rõ ràng 4 cấp độ phức tạp |
 | **Trạng thái Database** | Từng bị dừng container | PostgreSQL Docker (`mimic-postgres`) đang chạy ổn định |
 
 ---
@@ -73,8 +73,8 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 ## 4. Các Bước Kế Tiếp để Hoàn Tất Đồ Án
 
 1. **Chạy Ablation Study Benchmark:**
-   - Chạy lệnh `python evaluate.py --quick` để kiểm tra nhanh chỉ số **VSR** (Valid SQL Rate) và **EX** (Execution Accuracy) trên 10 câu cho cả 5 mode (`base`, `icd`, `schema`, `examples`, `full`).
-   - (Tùy chọn) Chạy trọn vẹn 100 câu trên mode `full` để có số liệu chính thức ghi vào báo cáo.
+   - Chạy lệnh `python evaluate.py --quick` để kiểm tra nhanh chỉ số **VSR** (Valid SQL Rate) và **EX** (Execution Accuracy) trên 10 câu cho cả 6 mode (`base`, `icd`, `schema`, `examples`, `full`, `full_agentic`).
+   - (Tùy chọn) Chạy trọn vẹn 180 câu trên mode `full` để có số liệu chính thức ghi vào báo cáo.
 2. **Xuất Số Liệu và Biểu Đồ:**
    - Số liệu từ `evaluate_results.json` sẽ tự động hiển thị trong expander của giao diện Streamlit.
 3. **Hoàn thiện Báo cáo Đồ án Tốt nghiệp:**

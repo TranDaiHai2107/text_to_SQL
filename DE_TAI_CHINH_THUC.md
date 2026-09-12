@@ -42,7 +42,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
 
 ### 2.3. Dữ liệu Sử dụng
 **MIMIC-IV** (Medical Information Mart for Intensive Care, v3.1) — cơ sở dữ liệu y tế công khai chuẩn mực quốc tế do Viện Công nghệ Massachusetts (MIT) và Beth Israel Deaconess Medical Center duy trì:
-- **Tập con triển khai (MIMIC-IV Mini):** 500 bệnh nhân tiêu biểu, 12 bảng cốt lõi (patients, admissions, diagnoses_icd, d_icd_diagnoses, labevents, d_labitems, prescriptions, procedures_icd, d_icd_procedures, transfers, services, microbiologyevents).
+- **Tập con triển khai (MIMIC-IV Mini):** Dữ liệu tiêu biểu, 31 bảng cốt lõi (22 bảng hosp + 9 bảng icu).
 - **Quy mô:** Hơn 236,000 dòng dữ liệu thực tế, lưu trữ trên hệ quản trị cơ sở dữ liệu PostgreSQL.
 
 ---
@@ -73,8 +73,8 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
 | # | Điểm mới khoa học | Chi tiết & Đóng góp | So sánh với các công trình gần nhất |
 |---|---|---|---|
 | **1** | **Text-to-SQL Y tế Đa ngữ tiếng Việt (Cross-lingual Clinical Text-to-SQL)** | Khắc phục khoảng trống lớn: EHRSQL (2024), BiomedSQL chỉ hỗ trợ tiếng Anh; ViText2SQL (2020) chỉ giải bài toán tổng quát (Spider), không có tri thức lâm sàng hay mã ICD. | EHRSQL 2024 (chỉ tiếng Anh), ViText2SQL (không có miền y tế) |
-| **2** | **Kiến trúc RAG 3 tầng chuyên biệt cho Dữ liệu Lâm sàng** | Không dùng RAG 1 tầng phẳng mà phân rã thành 3 tầng chức năng độc lập: (1) **ICD Dictionary** (10,000 vectors ánh xạ bệnh học), (2) **Schema Selection** (12 bảng MIMIC chọn lọc động), (3) **Few-shot SQL Examples** (truy xuất mẫu truy vấn tương đồng). | SMART-SLIC 2025, Gen-SQL (chỉ dùng RAG 1 tầng tổng quát) |
-| **3** | **Màng lọc Schema-Aware SQL Validator + Vòng lặp Agentic Self-Correction** | Xây dựng AST parser kiểm tra tĩnh trước khi chạy (bảng/cột tồn tại, điều kiện JOIN version) để chặn hallucination; nếu phát sinh runtime error trên DB thì tác tử tự phản hồi và tái sinh SQL (tối đa 2 lần). | MAGIC 2025 (không có validator tĩnh chuyên sâu cho schema y tế) |
+| **2** | **Kiến trúc RAG 3 tầng chuyên biệt cho Dữ liệu Lâm sàng** | Không dùng RAG 1 tầng phẳng mà phân rã thành 3 tầng chức năng độc lập: (1) **ICD Dictionary** (10,000 vectors ánh xạ bệnh học), (2) **Schema Selection** (31 bảng MIMIC chọn lọc động), (3) **Few-shot SQL Examples** (truy xuất mẫu truy vấn tương đồng). | SMART-SLIC 2025, Gen-SQL (chỉ dùng RAG 1 tầng tổng quát) |
+| **3** | **Màng lọc Schema-Aware SQL Validator + Vòng lặp Agentic Self-Correction** | Kết hợp regex và sqlparse kiểm tra tĩnh trước khi chạy (bảng/cột tồn tại, điều kiện JOIN version) để chặn hallucination; nếu phát sinh runtime error trên DB thì tác tử tự phản hồi và tái sinh SQL (tối đa 2 lần). | MAGIC 2025 (không có validator tĩnh chuyên sâu cho schema y tế) |
 | **4** | **Xử lý Hội thoại Đa lượt Sâu kết hợp Cơ chế Subquery Tập con** | Viết lại câu hỏi tỉnh lược tiếng Việt ("trong đó", "mấy người") dựa trên cả lịch sử câu hỏi, câu SQL và kết quả trước; tích hợp rule sinh câu truy vấn con (`IN (SELECT ...)` / CTE) giải quyết bài toán lọc tập con logic. | Các hệ thống trước chỉ xử lý chuỗi văn bản bề mặt |
 | **5** | **Hệ thống Khép kín Hai chiều (Closed-Loop: Text-to-SQL & SQL-to-Text)** | Không dừng lại ở việc sinh SQL và xuất bảng số liệu thô; hệ thống tích hợp module **Result Interpretation** chuyển kết quả truy vấn thành ngôn ngữ tự nhiên tiếng Việt súc tích, mang ý nghĩa lâm sàng trực tiếp cho bác sĩ. | Hầu hết benchmark (Spider, BIRD, EHRSQL) chỉ dừng lại ở SQL execution |
 
@@ -103,10 +103,10 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
   │ Tầng 1: ICD Dictionary Retrieval (ChromaDB - 10,000 mã)                     │
   │ → Ánh xạ triệu chứng, tên bệnh tiếng Việt sang ICD-9 / ICD-10 quốc tế       │
   │                                                                             │
-  │ Tầng 2: Schema Selection Retrieval (ChromaDB - 12 bảng)                     │
+  │ Tầng 2: Schema Selection Retrieval (ChromaDB - 31 bảng)                     │
   │ → Lọc lấy 3-5 bảng liên quan + DDL cột chuẩn xác (giảm tải context)         │
   │                                                                             │
-  │ Tầng 3: Few-shot SQL Examples Retrieval (ChromaDB - 40 cặp Gold Q-SQL)       │
+  │ Tầng 3: Few-shot SQL Examples Retrieval (ChromaDB - 101 cặp Gold Q-SQL)       │
   │ → Trích xuất 3 cặp câu hỏi - SQL mẫu có cấu trúc ngữ nghĩa tương đồng nhất │
   └──────────────────────────────┬──────────────────────────────────────────────┘
                                  │
@@ -159,7 +159,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
 | 7 | Context-Aware Multi-turn Query Rewriter (Kèm Subquery Logic) | ✅ Hoàn thành | `rag_engine.py` (`rewrite_question`), quy tắc Rule 8 |
 | 8 | Diễn giải kết quả hai chiều (SQL-to-Text Clinical Interpretation) | ✅ Hoàn thành | `rag_engine.py` (`interpret_result`) |
 | 9 | Tối ưu hóa hạn mức gọi LLM (Chống 429 Groq Rate Limit) | ✅ Hoàn thành | Cấu hình `max_tokens=900/256` trong `rag_engine.py` |
-| 10 | Chuẩn hóa bộ dữ liệu kiểm thử (100 Test Cases có Gold SQL) | ✅ Hoàn thành | `test_dataset.json` (4 cấp độ Easy, Medium, Hard, Complex) |
+| 10 | Chuẩn hóa bộ dữ liệu kiểm thử (180 Test Cases có Gold SQL) | ✅ Hoàn thành | `test_dataset.json` (4 cấp độ Easy, Medium, Hard, Complex) |
 | 11 | Giao diện Chatbot tương tác thông minh (Streamlit UI) | ✅ Hoàn thành | `app.py` (Visual RAG tags, khung tím gradient, Dashboard Ablation) |
 | 12 | Script đo lường thực nghiệm khoa học tự động (Ablation Study) | ✅ Hoàn thành | `evaluate.py` (Hỗ trợ cờ `--quick` và `--modes`) |
 | 13 | Cơ sở dữ liệu PostgreSQL (MIMIC-IV trên Docker) | ✅ Hoàn thành | Container `mimic-postgres` đang hoạt động và kết nối tốt |
@@ -170,13 +170,14 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
 
 ## 6. THIẾT KẾ ĐÁNH GIÁ THỰC NGHIỆM (ABLATION STUDY)
 
-Hệ thống đánh giá trên 100 câu hỏi độc lập dựa trên 2 chỉ số tiêu chuẩn quốc tế:
+Hệ thống đánh giá trên 180 câu hỏi độc lập dựa trên 2 chỉ số tiêu chuẩn quốc tế:
 1. **Valid SQL Rate (VSR):** Tỷ lệ câu lệnh SQL hợp lệ về mặt cú pháp và runtime trên PostgreSQL.
 2. **Execution Accuracy (EX):** Tỷ lệ câu SQL cho ra bảng dữ liệu trùng khớp tuyệt đối (sử dụng phương pháp so sánh tập hợp hàng frozenset không phụ thuộc thứ tự) với Gold SQL của chuyên gia.
 
-### Thiết kế 5 chế độ Ablation:
+### Thiết kế 6 chế độ Ablation:
 - `base`: Baseline LLM thuần túy, không có RAG, sử dụng schema tĩnh cứng.
 - `icd`: Chỉ kích hoạt tầng RAG tra cứu mã bệnh ICD.
 - `schema`: Chỉ kích hoạt tầng RAG chọn lọc lược đồ bảng (Schema Selection).
 - `examples`: Chỉ kích hoạt tầng RAG gợi ý câu hỏi mẫu (Few-shot Examples).
-- `full`: Toàn bộ kiến trúc đề xuất (3 tầng RAG + Validator + Self-Correction).
+- `full`: Toàn bộ kiến trúc đề xuất (3 tầng RAG).
+- `full_agentic`: Full RAG + Vòng lặp tự sửa lỗi Agentic (Schema Validator + Runtime Feedback).

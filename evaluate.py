@@ -1,16 +1,17 @@
 """
-Evaluate.py – Đánh giá hệ thống Text-to-SQL trên MIMIC-IV.
+Evaluate.py – Đánh giá hệ thống Text-to-SQL trên MIMIC-IV (31 bảng, 180 câu).
 
 Đo lường 2 chỉ số:
   VSR  (Valid SQL Rate)       – % câu SQL chạy không bị lỗi syntax/runtime
   EX   (Execution Accuracy)  – % câu SQL cho kết quả khớp với gold SQL
 
-Chạy ablation trên 5 mode:
-  base      – prompt tĩnh, không RAG
-  icd       – chỉ ICD retrieval
-  schema    – chỉ schema retrieval
-  examples  – chỉ example retrieval
-  full      – đầy đủ 3 tầng RAG
+Chạy ablation trên 6 mode:
+  base          – prompt tĩnh, không RAG
+  icd           – chỉ ICD retrieval
+  schema        – chỉ schema retrieval
+  examples      – chỉ example retrieval
+  full          – đầy đủ 3 tầng RAG (1 lần gọi LLM)
+  full_agentic  – full RAG + Schema Validator + Self-Correction loop
 
 Kết quả lưu vào evaluate_results.json và in bảng tổng kết ra terminal.
 """
@@ -27,9 +28,9 @@ from pathlib import Path
 import pandas as pd
 from sqlalchemy import text
 
-from rag_engine import generate_sql, run_query, engine
+from rag_engine import generate_sql, generate_sql_with_correction, run_query, engine
 
-MODES = ["base", "icd", "schema", "examples", "full"]
+MODES = ["base", "icd", "schema", "examples", "full", "full_agentic"]
 TEST_FILE = "test_dataset.json"
 RESULTS_FILE = "evaluate_results.json"
 DELAY_BETWEEN_CALLS = 1.5   # giây – tránh rate limit Groq
@@ -49,7 +50,7 @@ def normalize_df(df: pd.DataFrame) -> set:
         return set()
     df = df.copy()
     df.columns = [str(c).lower().strip() for c in df.columns]
-    df = df.applymap(lambda x: round(float(x), 4) if isinstance(x, float) else str(x).strip().lower())
+    df = df.map(lambda x: round(float(x), 4) if isinstance(x, float) else str(x).strip().lower())
     return {frozenset(row.items()) for _, row in df.iterrows()}
 
 
@@ -70,26 +71,51 @@ def evaluate_one(question: str, gold_sql: str | None, mode: str) -> dict:
         "execution_match": None,   # True/False/None (None nếu không có gold)
         "error": None,
         "latency_s": None,
+        "attempts": 1,             # số lần thử (1 = thành công ngay, >1 = self-correction)
     }
 
     t0 = time.time()
-    try:
-        sql, _ = generate_sql(question, mode)
-        result["generated_sql"] = sql
-        result["latency_s"] = round(time.time() - t0, 2)
-    except Exception as e:
-        result["error"] = f"LLM error: {e}"
-        result["latency_s"] = round(time.time() - t0, 2)
-        return result
 
-    # ── Kiểm tra Valid SQL ─────────────────────────────────────
-    try:
-        df_pred = run_query(sql)
-        result["valid_sql"] = True
-    except Exception as e:
-        result["valid_sql"] = False
-        result["error"] = f"SQL exec error: {str(e)[:200]}"
-        return result
+    # ── Mode full_agentic: dùng Self-Correction loop ──────────
+    if mode == "full_agentic":
+        try:
+            agentic_result = generate_sql_with_correction(question, mode="full", max_retries=2)
+            sql = agentic_result["sql"]
+            result["generated_sql"] = sql
+            result["attempts"] = agentic_result["attempts"]
+            result["latency_s"] = round(time.time() - t0, 2)
+
+            if agentic_result["success"]:
+                result["valid_sql"] = True
+                df_pred = agentic_result["df"]
+            else:
+                result["valid_sql"] = False
+                last_err = agentic_result["history"][-1]["error"] if agentic_result["history"] else "Unknown"
+                result["error"] = f"Agentic failed: {str(last_err)[:200]}"
+                return result
+        except Exception as e:
+            result["error"] = f"Agentic error: {e}"
+            result["latency_s"] = round(time.time() - t0, 2)
+            return result
+    else:
+        # ── Mode thường: 1 lần gọi LLM ───────────────────────────
+        try:
+            sql, _ = generate_sql(question, mode)
+            result["generated_sql"] = sql
+            result["latency_s"] = round(time.time() - t0, 2)
+        except Exception as e:
+            result["error"] = f"LLM error: {e}"
+            result["latency_s"] = round(time.time() - t0, 2)
+            return result
+
+        # ── Kiểm tra Valid SQL ─────────────────────────────────────
+        try:
+            df_pred = run_query(sql)
+            result["valid_sql"] = True
+        except Exception as e:
+            result["valid_sql"] = False
+            result["error"] = f"SQL exec error: {str(e)[:200]}"
+            return result
 
     # ── Kiểm tra Execution Match (chỉ khi có gold SQL) ────────
     if gold_sql:

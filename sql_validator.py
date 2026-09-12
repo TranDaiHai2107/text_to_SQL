@@ -2,11 +2,24 @@
 Schema-Aware SQL Validator cho MIMIC-IV RAG Engine.
 Xác thực SQL trước khi thực thi để phát hiện và ngăn chặn Hallucination (Ảo giác tên bảng/cột)
 và các lỗi logic phổ biến trong câu lệnh PostgreSQL.
+
+Sử dụng kết hợp:
+  - sqlparse: parse câu SQL thành token tree để trích xuất tên bảng chính xác
+  - regex fallback: xử lý các trường hợp sqlparse không cover được
+  - domain-specific rules: kiểm tra logic JOIN đặc thù MIMIC-IV
 """
 
 import re
 import sys
 from typing import Dict, List, Tuple, Set
+
+try:
+    import sqlparse
+    from sqlparse.sql import IdentifierList, Identifier, Where, Parenthesis
+    from sqlparse.tokens import Keyword, DML, DDL
+    HAS_SQLPARSE = True
+except ImportError:
+    HAS_SQLPARSE = False
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
@@ -152,22 +165,84 @@ for cols in VALID_COLUMNS.values():
 def extract_table_names(sql: str) -> Set[str]:
     """
     Trích xuất danh sách tên bảng được tham chiếu trong câu lệnh SQL.
-    Dùng regex phát hiện sau FROM và JOIN.
+    Sử dụng sqlparse để parse token tree; fallback về regex nếu cần.
     """
-    # Loại bỏ string literal và comment để tránh false positives
+    tables = set()
+    sql_keywords = {"select", "where", "group", "order", "limit", "having",
+                    "as", "on", "using", "left", "right", "inner", "outer",
+                    "cross", "natural", "full", "lateral", "case", "when",
+                    "then", "else", "end", "and", "or", "not", "in", "exists",
+                    "between", "like", "ilike", "is", "null", "true", "false",
+                    "distinct", "all", "any", "some", "union", "intersect", "except"}
+
+    if HAS_SQLPARSE:
+        # Phương pháp 1: Dùng sqlparse token tree
+        parsed = sqlparse.parse(sql)
+        for statement in parsed:
+            _extract_tables_from_parsed(statement, tables, sql_keywords)
+
+    # Phương pháp 2 (fallback/bổ sung): Regex bắt FROM/JOIN + tên bảng
     cleaned_sql = re.sub(r"'[^']*'", "''", sql)
     cleaned_sql = re.sub(r"--.*?\n", "\n", cleaned_sql)
     cleaned_sql = re.sub(r"/\*.*?\*/", "", cleaned_sql, flags=re.DOTALL)
-
-    # Tìm các từ khóa FROM, JOIN kèm theo tên bảng
-    matches = re.findall(r"\b(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)", cleaned_sql, flags=re.IGNORECASE)
-    tables = set()
+    matches = re.findall(
+        r"\b(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+        cleaned_sql, flags=re.IGNORECASE
+    )
     for m in matches:
         tbl = m.lower()
-        # Bỏ qua subquery alias hoặc các từ khóa SQL nếu bị bắt nhầm
-        if tbl not in ("select", "where", "group", "order", "limit", "having", "as", "on", "using", "left", "right", "inner", "outer"):
+        if tbl not in sql_keywords:
             tables.add(tbl)
+
     return tables
+
+
+def _extract_tables_from_parsed(token_list, tables: set, sql_keywords: set):
+    """Helper: đệ quy duyệt sqlparse token tree để tìm tên bảng."""
+    from_seen = False
+    join_seen = False
+
+    for token in token_list.tokens:
+        if token.ttype is Keyword:
+            upper_val = token.value.upper()
+            if upper_val in ('FROM',):
+                from_seen = True
+                join_seen = False
+            elif 'JOIN' in upper_val:
+                join_seen = True
+                from_seen = False
+            else:
+                from_seen = False
+                join_seen = False
+
+        elif from_seen or join_seen:
+            if isinstance(token, IdentifierList):
+                for identifier in token.get_identifiers():
+                    _add_table_name(identifier, tables, sql_keywords)
+                from_seen = False
+                join_seen = False
+            elif isinstance(token, Identifier):
+                _add_table_name(token, tables, sql_keywords)
+                from_seen = False
+                join_seen = False
+            elif isinstance(token, Parenthesis):
+                # Subquery: đệ quy vào trong
+                _extract_tables_from_parsed(token, tables, sql_keywords)
+                from_seen = False
+                join_seen = False
+
+        # Đệ quy vào subquery và WHERE
+        if isinstance(token, (Where, Parenthesis)):
+            _extract_tables_from_parsed(token, tables, sql_keywords)
+
+
+def _add_table_name(identifier, tables: set, sql_keywords: set):
+    """Trích xuất tên bảng từ một Identifier token."""
+    real_name = identifier.get_real_name()
+    if real_name:
+        name_lower = real_name.lower()
+        if name_lower not in sql_keywords:
+            tables.add(name_lower)
 
 
 def extract_column_candidates(sql: str) -> List[Tuple[str, str]]:
@@ -189,7 +264,7 @@ def extract_column_candidates(sql: str) -> List[Tuple[str, str]]:
 
 def validate_sql_schema(sql: str) -> Dict:
     """
-    Kiểm tra tính hợp lệ của câu lệnh SQL đối với Schema MIMIC-IV 12 bảng.
+    Kiểm tra tính hợp lệ của câu lệnh SQL đối với Schema MIMIC-IV 31 bảng.
     
     Trả về:
       {
@@ -204,6 +279,22 @@ def validate_sql_schema(sql: str) -> Dict:
     sql_lower = sql.lower()
     tables_used = extract_table_names(sql)
 
+    # 0. Kiểm tra Dangerous SQL (DML/DDL không cho phép)
+    dangerous_keywords = {"insert", "update", "delete", "drop", "alter", "truncate", "create", "grant", "revoke"}
+    if HAS_SQLPARSE:
+        parsed = sqlparse.parse(sql)
+        for statement in parsed:
+            token_types = [token.ttype for token in statement.tokens if token.ttype in (DML, DDL)]
+            if any(token_types):
+                errors.append("LỖI BẢO MẬT: Câu lệnh chứa hành động thay đổi dữ liệu (INSERT/UPDATE/DELETE/DROP). Chỉ cho phép SELECT.")
+                break
+    
+    # Fallback/Additional check bằng regex cho an toàn
+    for keyword in dangerous_keywords:
+        if re.search(rf"\b{keyword}\b", sql_lower):
+            errors.append(f"LỖI BẢO MẬT: Phát hiện từ khóa '{keyword.upper()}'. Chỉ cho phép câu lệnh SELECT.")
+            break
+
     # 1. Kiểm tra Table Hallucination (Ảo giác tên bảng)
     for tbl in tables_used:
         if tbl not in VALID_TABLES:
@@ -215,7 +306,7 @@ def validate_sql_schema(sql: str) -> Dict:
     for tbl in tables_used:
         if tbl in VALID_TABLES:
             alias_to_table[tbl] = tbl
-            # Phỏng đoán alias phổ biến
+            # Phỏng đoán alias phổ biến (hosp module)
             if tbl == "patients": alias_to_table["p"] = tbl
             elif tbl == "admissions": alias_to_table["a"] = tbl
             elif tbl == "diagnoses_icd": alias_to_table["d"] = tbl
@@ -228,6 +319,24 @@ def validate_sql_schema(sql: str) -> Dict:
             elif tbl == "transfers": alias_to_table["t"] = tbl
             elif tbl == "services": alias_to_table["s"] = tbl
             elif tbl == "microbiologyevents": alias_to_table["me"] = tbl
+            elif tbl == "pharmacy": alias_to_table["ph"] = tbl
+            elif tbl == "poe": alias_to_table["po"] = tbl
+            elif tbl == "poe_detail": alias_to_table["pd"] = tbl
+            elif tbl == "emar": alias_to_table["e"] = tbl
+            elif tbl == "emar_detail": alias_to_table["ed"] = tbl
+            elif tbl == "drgcodes": alias_to_table["drg"] = tbl
+            elif tbl == "hcpcsevents": alias_to_table["h"] = tbl
+            elif tbl == "d_hcpcs": alias_to_table["dh"] = tbl
+            elif tbl == "omr": alias_to_table["o"] = tbl
+            # Alias phổ biến cho ICU module
+            elif tbl == "icustays": alias_to_table["icu"] = tbl
+            elif tbl == "chartevents": alias_to_table["ce"] = tbl
+            elif tbl == "d_items": alias_to_table["di"] = tbl  # chú ý: trùng với d_icd_diagnoses nếu cả 2 cùng query
+            elif tbl == "inputevents": alias_to_table["ie"] = tbl
+            elif tbl == "outputevents": alias_to_table["oe"] = tbl
+            elif tbl == "procedureevents": alias_to_table["pe"] = tbl
+            elif tbl == "datetimeevents": alias_to_table["de"] = tbl
+            elif tbl == "ingredientevents": alias_to_table["ig"] = tbl
 
     col_candidates = extract_column_candidates(sql)
     for prefix, col in col_candidates:
@@ -265,6 +374,30 @@ def validate_sql_schema(sql: str) -> Dict:
         if "icd_version" not in sql_lower:
             warnings.append(
                 "CẢNH BÁO JOIN THỦ THUẬT: Khi JOIN procedures_icd với d_icd_procedures, cần khớp cả 'icd_code AND icd_version'."
+            )
+
+    # Lỗi hay gặp 4: JOIN emar + emar_detail thiếu emar_seq
+    if "emar" in tables_used and "emar_detail" in tables_used:
+        if "emar_seq" not in sql_lower:
+            warnings.append(
+                "CẢNH BÁO JOIN eMAR: Khi JOIN emar với emar_detail, cần khớp cả 'emar_id AND emar_seq' để tránh trùng bản ghi."
+            )
+
+    # Lỗi hay gặp 5: JOIN chartevents/inputevents/outputevents với d_items phải qua itemid
+    icu_event_tables = {"chartevents", "inputevents", "outputevents", "datetimeevents",
+                        "procedureevents", "ingredientevents"}
+    if "d_items" in tables_used and icu_event_tables & tables_used:
+        if "itemid" not in sql_lower:
+            warnings.append(
+                "CẢNH BÁO JOIN ICU: Khi JOIN bảng events ICU với d_items, phải dùng 'ON events.itemid = d_items.itemid'."
+            )
+
+    # Lỗi hay gặp 6: Dùng 'los' không đúng bảng (chỉ icustays mới có cột los)
+    if re.search(r'\blos\b', sql_lower) and "icustays" not in tables_used:
+        if not re.search(r'\bextract\b', sql_lower):  # nếu tính LOS bằng EXTRACT thì OK
+            warnings.append(
+                "CẢNH BÁO CỘT LOS: Cột 'los' chỉ tồn tại trong bảng 'icustays'. "
+                "Bảng 'admissions' không có cột los, cần tính bằng EXTRACT(EPOCH FROM (dischtime - admittime))/86400."
             )
 
     return {

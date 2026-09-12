@@ -38,11 +38,11 @@ from sql_validator import validate_sql_schema, get_validator_prompt_hint
 load_dotenv()
 
 # ── Kết nối PostgreSQL ────────────────────────────────────────
-DB_USER = "postgres"
-DB_PASS = "password123"
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "mimiciv"
+DB_USER = os.getenv("DB_USER", "postgres")
+DB_PASS = os.getenv("DB_PASS", "password123")
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = os.getenv("DB_PORT", "5432")
+DB_NAME = os.getenv("DB_NAME", "mimiciv")
 engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
 
 # ── Groq LLM ────────────────────────────────────────────────
