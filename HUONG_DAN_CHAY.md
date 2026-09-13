@@ -62,7 +62,7 @@ python -c "from rag_engine import engine; print('DB connected:', engine.connect(
 
 Nếu đã build sẵn dữ liệu trong thư mục `mimic_chroma_db/` thì có thể bỏ qua bước này:
 
-1. **Nạp 12 bảng dữ liệu MIMIC-IV vào PostgreSQL**:
+1. **Nạp 31 bảng dữ liệu MIMIC-IV vào PostgreSQL**:
    ```bash
    python build_mimic_mini.py
    ```
@@ -103,7 +103,8 @@ Chạy trên 10 câu hỏi mẫu tiêu biểu của 5 chế độ ablation (`bas
 python evaluate.py --quick
 ```
 
-### 7.2. Chạy đánh giá toàn diện trên toàn bộ 100 câu:
+### 7.2. Chạy đánh giá toàn diện trên toàn bộ 180 câu:
+Để thu thập số liệu thực nghiệm **Valid SQL Rate (VSR)** và **Execution Accuracy (EX)** chính thức đưa vào báo cáo, hãy chạy:
 ```bash
 # Chạy đầy đủ 5 mode ablation (cần tài khoản Groq đủ quota hoặc key trả phí)
 python evaluate.py

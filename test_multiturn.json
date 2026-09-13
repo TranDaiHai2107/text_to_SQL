@@ -1,0 +1,60 @@
+[
+  {
+    "id": "mt001",
+    "history": [
+      {
+        "role": "user",
+        "content": "Có bao nhiêu bệnh nhân nữ trên 60 tuổi trong database?",
+        "sql": "SELECT COUNT(*) FROM patients WHERE gender = 'F' AND anchor_age > 60;",
+        "result_summary": "Kết quả: 1250"
+      }
+    ],
+    "question_vi": "Trong nhóm này, có bao nhiêu người nhập viện qua cấp cứu (EMER)?",
+    "expected_rewrite": "Trong nhóm bệnh nhân nữ trên 60 tuổi, có bao nhiêu người nhập viện qua cấp cứu (EMER)?"
+  },
+  {
+    "id": "mt002",
+    "history": [
+      {
+        "role": "user",
+        "content": "Hãy tìm những bệnh nhân bị viêm phổi.",
+        "sql": "SELECT p.subject_id FROM patients p JOIN diagnoses_icd d ON p.subject_id = d.subject_id WHERE d.icd_code = 'J189';",
+        "result_summary": "450 dòng, 1 cột."
+      }
+    ],
+    "question_vi": "Trong số đó, có bao nhiêu bệnh nhân đã tử vong trong viện?",
+    "expected_rewrite": "Trong số bệnh nhân bị viêm phổi, có bao nhiêu bệnh nhân đã tử vong trong viện?"
+  },
+  {
+    "id": "mt003",
+    "history": [
+      {
+        "role": "user",
+        "content": "Cho tôi biết thời gian nằm viện trung bình của bệnh nhân phẫu thuật tim.",
+        "sql": "SELECT AVG(EXTRACT(EPOCH FROM (dischtime - admittime))/86400) FROM admissions a JOIN procedures_icd p ON a.hadm_id = p.hadm_id WHERE p.icd_code = '39.71';",
+        "result_summary": "Kết quả: 8.5"
+      },
+      {
+        "role": "user",
+        "content": "Vậy còn bệnh nhân đột quỵ thì sao?",
+        "sql": "SELECT AVG(EXTRACT(EPOCH FROM (dischtime - admittime))/86400) FROM admissions a JOIN diagnoses_icd d ON a.hadm_id = d.hadm_id WHERE d.icd_code = 'I63.9';",
+        "result_summary": "Kết quả: 5.2"
+      }
+    ],
+    "question_vi": "Sự khác biệt giữa hai nhóm này là bao nhiêu?",
+    "expected_rewrite": "Sự khác biệt về thời gian nằm viện trung bình giữa nhóm bệnh nhân phẫu thuật tim và nhóm bệnh nhân đột quỵ là bao nhiêu?"
+  },
+  {
+    "id": "mt004",
+    "history": [
+      {
+        "role": "user",
+        "content": "Liệt kê các loại thuốc điều trị huyết áp phổ biến nhất.",
+        "sql": "SELECT medication, COUNT(*) FROM pharmacy WHERE medication ILIKE '%Lisinopril%' OR medication ILIKE '%Amlodipine%' GROUP BY medication ORDER BY count DESC LIMIT 5;",
+        "result_summary": "5 dòng, 2 cột."
+      }
+    ],
+    "question_vi": "Những thuốc này được kê cho bệnh nhân ở đơn vị ICU nào nhiều nhất?",
+    "expected_rewrite": "Những thuốc điều trị huyết áp phổ biến nhất (như Lisinopril, Amlodipine) được kê cho bệnh nhân ở đơn vị ICU nào nhiều nhất?"
+  }
+]

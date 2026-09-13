@@ -60,7 +60,7 @@ Xây dựng pipeline **Closed-Loop Bidirectional Text-to-SQL**:
    │  [RAG Tầng 1]     │    │  [RAG Tầng 2]     │    │  [RAG Tầng 3]     │
    │  ICD Dictionary   │    │  Schema Selection │    │  SQL Few-Shot     │
    │  ChromaDB         │    │  ChromaDB         │    │  ChromaDB         │
-   │  10,000 mã bệnh   │    │  12 bảng MIMIC    │    │  40 cặp Gold Q-SQL│
+   │  10,000 mã bệnh   │    │  31 bảng MIMIC    │    │ 101 cặp Gold Q-SQL│
    │  → ICD-9, ICD-10  │    │  → 3-5 bảng + DDL │    │  → 3 mẫu tương tự │
    └─────────┬─────────┘    └─────────┬─────────┘    └─────────┬─────────┘
              └────────────────────────┼────────────────────────┘
@@ -161,12 +161,12 @@ ChromaDB quản lý 3 collection chuyên biệt:
    - Giúp ánh xạ chuẩn: *"viêm phổi"* → ICD-9 `486`, ICD-10 `J189`.
 
 2. **`schema_dictionary` (12 vectors):**
-   - Chứa mô tả song ngữ (Việt - Anh) và câu lệnh DDL `CREATE TABLE` của 12 bảng.
-   - Metadata: `table`, `description_vi`, `ddl`.
-   - Giúp LLM chỉ nhận DDL của các bảng cần thiết (ví dụ: chỉ lấy `patients` và `admissions` thay vì cả 12 bảng).
+   - Chứa mô tả song ngữ (Việt - Anh) và câu lệnh DDL `CREATE TABLE` của 31 bảng.
+   - Tránh nạp toàn bộ 31 schema vào prompt gây quá tải số lượng token (Prompt Length Limit).
+   - Giúp LLM chỉ nhận DDL của các bảng cần thiết (ví dụ: chỉ lấy `patients` và `admissions` thay vì cả 31 bảng).
 
 3. **`sql_examples` (40 vectors):**
-   - Chứa 40 cặp câu hỏi tiếng Việt ↔ SQL Gold phân loại theo 7 nhóm pattern phức tạp (đếm, JOIN ICD, aggregate, mortality, LOS, lab filter, subquery).
+   - Chứa 101 cặp câu hỏi tiếng Việt ↔ SQL Gold phân loại theo 7 nhóm pattern phức tạp (đếm, JOIN ICD, aggregate, mortality, LOS, lab filter, subquery).
    - Truy xuất 3 ví dụ tương đồng nhất làm gợi ý few-shot trong prompt.
 
 ---
@@ -203,8 +203,8 @@ Màng lọc bảo vệ trước thực thi:
 
 ## 7. Bộ dữ liệu kiểm thử và Phương pháp đánh giá
 
-### 7.1. Tập kiểm thử chuẩn hóa 100 câu (`test_dataset.json`)
-Bộ dữ liệu gồm 100 câu hỏi tiếng Việt độc lập kèm Gold SQL chuẩn, không trùng lặp với tập few-shot:
+### 7.1. Tập kiểm thử chuẩn hóa 180 câu (`test_dataset.json`)
+Bộ dữ liệu gồm 180 câu hỏi tiếng Việt độc lập kèm Gold SQL chuẩn, không trùng lặp với tập few-shot:
 - **Easy (21%):** Truy vấn đơn bảng, đếm số lượng, lọc thuộc tính cơ bản.
 - **Medium (40%):** JOIN 2–3 bảng, lọc theo mã bệnh ICD, tính tỷ lệ phần trăm.
 - **Hard (25%):** JOIN nhiều bảng, tính khoảng thời gian (LOS), lọc giá trị xét nghiệm định lượng.
@@ -249,10 +249,10 @@ d:\Github\text_to_SQL\
 ├── rag_engine.py             # Lõi hệ thống: RAG 3 tầng, LLM, Self-Correction, Rewrite, Interpretation
 ├── app.py                    # Ứng dụng Web Chatbot thông minh trên Streamlit
 ├── evaluate.py               # Script đo lường thực nghiệm Ablation Study tự động
-├── expand_test_dataset.py    # Script khởi tạo bộ test 100 câu hỏi chuẩn hóa
-├── mimic_schema.json         # Lược đồ DDL và mô tả song ngữ 12 bảng MIMIC-IV
-├── mimic_examples.json       # 40 cặp Gold Q-SQL cho tầng Few-shot RAG
-├── test_dataset.json         # 100 câu hỏi test phân tầng kèm Gold SQL
+├── expand_test_dataset.py    # Script khởi tạo bộ test 180 câu hỏi chuẩn hóa
+├── mimic_schema.json         # Lược đồ DDL và mô tả song ngữ 31 bảng MIMIC-IV
+├── mimic_examples.json       # 101 cặp Gold Q-SQL cho tầng Few-shot RAG
+├── test_dataset.json         # 180 câu hỏi test phân tầng kèm Gold SQL
 ├── evaluate_results.json     # File lưu kết quả thực nghiệm VSR và EX
 ├── DE_TAI_CHINH_THUC.md      # Đề cương thuyết minh đồ án tốt nghiệp chính thức
 ├── TONG_HOP_DU_AN.md         # Báo cáo tổng hợp tiến độ và giải thích đề tài
