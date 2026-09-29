@@ -27,7 +27,7 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 - **Tầng 3 (SQL Examples Few-Shot Retrieval):** Kho 101 cặp câu hỏi tiếng Việt ↔ SQL Gold (`mimic_examples.json`), truy xuất 3 câu mẫu tương đồng nhất về mặt ngữ nghĩa và cấu trúc SQL.
 
 ### 2.3. Màng lọc Schema-Aware SQL Validator (`sql_validator.py`)
-- Phân tích cú pháp AST (Abstract Syntax Tree) của câu lệnh SQL trước khi gửi tới PostgreSQL.
+- Phân tích cú pháp SQL bằng `sqlparse` (token tree) kết hợp regex để trích xuất tên bảng/cột trước khi gửi tới PostgreSQL.
 - Kiểm tra toàn diện: Bảng có tồn tại không? Cột có thuộc bảng tương ứng không? Có JOIN thiếu phiên bản ICD (`icd_code` và `icd_version`) không?
 - Ngăn chặn triệt để hiện tượng hallucination trước khi tác động đến cơ sở dữ liệu.
 

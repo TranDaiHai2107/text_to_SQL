@@ -122,7 +122,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
   MODULE 4: SCHEMA-AWARE SQL VALIDATOR
  ════════════════════════════════╪═════════════════════════════════════════════════
                                  ▼
-  Kiểm tra cú pháp AST trước khi chạm vào cơ sở dữ liệu:
+  Kiểm tra cú pháp bằng sqlparse + regex trước khi chạm vào cơ sở dữ liệu:
   ✓ Bảng có tồn tại? Cột có thuộc bảng?
   ✓ JOIN có đủ cả icd_code VÀ icd_version?
   → Nếu vi phạm → Tạo phản hồi chi tiết yêu cầu LLM tự sửa
@@ -154,7 +154,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
 | 2 | RAG Tầng 1: ICD-9 & ICD-10 Dictionary Collection | ✅ Hoàn thành | `rag_engine.py` (`retrieve_icd_codes`) |
 | 3 | RAG Tầng 2: Schema Selection Collection | ✅ Hoàn thành | `rag_engine.py` (`retrieve_schema`), `mimic_schema.json` |
 | 4 | RAG Tầng 3: Few-shot SQL Examples Collection | ✅ Hoàn thành | `rag_engine.py` (`retrieve_examples`), `mimic_examples.json` |
-| 5 | Schema-Aware SQL Validator (Chặn ảo giác AST) | ✅ Hoàn thành | `sql_validator.py` (`validate_sql_schema`) |
+| 5 | Schema-Aware SQL Validator (Chặn ảo giác bằng sqlparse + regex) | ✅ Hoàn thành | `sql_validator.py` (`validate_sql_schema`) |
 | 6 | Agentic Self-Correction Loop (Vòng lặp tự sửa lỗi) | ✅ Hoàn thành | `rag_engine.py` (`generate_sql_with_correction`) |
 | 7 | Context-Aware Multi-turn Query Rewriter (Kèm Subquery Logic) | ✅ Hoàn thành | `rag_engine.py` (`rewrite_question`), quy tắc Rule 8 |
 | 8 | Diễn giải kết quả hai chiều (SQL-to-Text Clinical Interpretation) | ✅ Hoàn thành | `rag_engine.py` (`interpret_result`) |

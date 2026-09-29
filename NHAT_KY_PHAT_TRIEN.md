@@ -10,7 +10,7 @@ Giai đoạn 1 (Phase 1) tập trung vào việc **Xây dựng nền tảng vữ
 1. **Task 1.1 — Đo lường Baseline V1:** Chạy hệ thống đánh giá trên 5 chế độ (ablation study) để có con số thực tế làm mốc so sánh (benchmark baseline).
 2. **Task 1.2 — Nâng cấp Multilingual Embedding:** Thay thế mô hình nhúng tiếng Anh (`all-MiniLM-L6-v2`) sang mô hình hỗ trợ tiếng Việt (`paraphrase-multilingual-MiniLM-L12-v2`) để giải quyết triệt để điểm yếu ngữ nghĩa khi truy vấn từ điển y tế bằng tiếng Việt.
 3. **Task 1.3 — Mở rộng bộ dữ liệu kiểm nghiệm (Test Dataset 180+ câu):** Tăng quy mô từ 30 lên 180 câu hỏi kèm gold SQL, phân loại chi tiết theo độ khó (easy/medium/hard/complex).
-4. **Task 1.4 — Xây dựng Schema-Aware SQL Validator:** Bổ sung lớp kiểm tra trước thực thi (AST parsing & table/column mapping) nhằm phát hiện và ngăn chặn ảo giác (hallucination) về tên bảng/cột trước khi gửi xuống cơ sở dữ liệu.
+4. **Task 1.4 — Xây dựng Schema-Aware SQL Validator:** Bổ sung lớp kiểm tra trước thực thi (sqlparse token tree & regex table/column mapping) nhằm phát hiện và ngăn chặn ảo giác (hallucination) về tên bảng/cột trước khi gửi xuống cơ sở dữ liệu.
 
 ---
 

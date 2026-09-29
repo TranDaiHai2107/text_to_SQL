@@ -77,7 +77,7 @@ Xây dựng pipeline **Closed-Loop Bidirectional Text-to-SQL**:
   MODULE 4: SCHEMA-AWARE SQL VALIDATOR (sql_validator.py)
  ═════════════════════════════════════╪════════════════════════════════════════════
                                       ▼
-   Kiểm tra tĩnh AST: Bảng tồn tại? Cột đúng bảng? JOIN đủ icd_version?
+   Kiểm tra tĩnh bằng sqlparse + regex: Bảng tồn tại? Cột đúng bảng? JOIN đủ icd_version?
      ├── Hợp lệ (Valid) ────────────────────────┐
      └── Không hợp lệ (Invalid) ────────────┐   │
                                             │   │
@@ -175,7 +175,7 @@ ChromaDB quản lý 3 collection chuyên biệt:
 
 ### 6.1. Schema-Aware SQL Validator (`sql_validator.py`)
 Màng lọc bảo vệ trước thực thi:
-- Phân tích cây cú pháp Abstract Syntax Tree (AST).
+- Phân tích cây cú pháp SQL bằng `sqlparse` (token tree) kết hợp regex.
 - So sánh các bảng và cột được dùng trong SQL với lược đồ thực tế trong `mimic_schema.json`.
 - Bắt buộc kiểm tra điều kiện JOIN bảng ICD: phải khớp cả `icd_code` VÀ `icd_version`.
 - Nếu phát hiện lỗi ảo giác, hệ thống sinh thông báo chi tiết trả về LLM để sửa trước khi lệnh chạm tới database.
@@ -232,7 +232,7 @@ Script `evaluate.py` hỗ trợ đo lường độc lập trên 5 mode:
 
 1. **Đóng góp 1 (Ngôn ngữ):** Hệ thống Text-to-SQL đầu tiên trên dữ liệu lâm sàng MIMIC-IV tối ưu hóa cho câu hỏi tiếng Việt bằng mô hình nhúng đa ngôn ngữ.
 2. **Đóng góp 2 (Kiến trúc RAG):** Phân rã tri thức miền y tế thành 3 tầng RAG độc lập thay vì RAG 1 tầng truyền thống.
-3. **Đóng góp 3 (Độ tin cậy):** Tích hợp màng lọc Schema-Aware AST Validator kết hợp vòng lặp Agentic Self-Correction triệt tiêu hallucination.
+3. **Đóng góp 3 (Độ tin cậy):** Tích hợp màng lọc Schema-Aware SQL Validator (sqlparse + regex) kết hợp vòng lặp Agentic Self-Correction triệt tiêu hallucination.
 4. **Đóng góp 4 (Hội thoại sâu):** Giải quyết bài toán hội thoại đa lượt lâm sàng với cơ chế sinh Subquery tập con chính xác.
 5. **Đóng góp 5 (Hệ thống khép kín):** Xây dựng hoàn chỉnh luồng hai chiều Text-to-SQL và SQL-to-Text mang giá trị ứng dụng thực tiễn cao cho bệnh viện.
 
@@ -245,7 +245,7 @@ d:\Github\text_to_SQL\
 ├── build_mimic_mini.py       # Script trích xuất và nạp dữ liệu MIMIC-IV vào PostgreSQL
 ├── build_vector_db.py        # Script tạo 3 collection ChromaDB
 ├── embedding_config.py       # Cấu hình mô hình nhúng đa ngữ multilingual
-├── sql_validator.py          # Module Schema-Aware SQL Validator (AST)
+├── sql_validator.py          # Module Schema-Aware SQL Validator (sqlparse + regex)
 ├── rag_engine.py             # Lõi hệ thống: RAG 3 tầng, LLM, Self-Correction, Rewrite, Interpretation
 ├── app.py                    # Ứng dụng Web Chatbot thông minh trên Streamlit
 ├── evaluate.py               # Script đo lường thực nghiệm Ablation Study tự động

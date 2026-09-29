@@ -1,6 +1,6 @@
 """
-Mở rộng tập dữ liệu kiểm nghiệm (Test Dataset) từ 30 câu lên 100 câu hỏi (t031 - t100).
-Các câu hỏi mới phủ kín 12 bảng trong MIMIC-IV subset và đa dạng độ khó (easy, medium, hard, complex).
+Mở rộng tập dữ liệu kiểm nghiệm (Test Dataset) từ 30 câu lên 180 câu hỏi.
+Các câu hỏi phủ kín 31 bảng trong MIMIC-IV và đa dạng độ khó (easy, medium, hard, complex).
 """
 
 import json
