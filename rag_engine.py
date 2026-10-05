@@ -25,41 +25,122 @@ mode options (dùng cho ablation):
 import sys
 import os
 import json
+import hashlib
+import random
+import time
+from functools import lru_cache
+from collections.abc import Callable
 import chromadb
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import pandas as pd
 from groq import Groq
 from sqlalchemy import create_engine, text
-from dotenv import load_dotenv
-from embedding_config import get_embedding_function
+from sqlglot import parse_one
+from config import (
+    CHROMA_DIR,
+    EXAMPLES_FILE,
+    LOCK_TIMEOUT_MS,
+    MAX_QUERY_ROWS,
+    QUERY_TIMEOUT_MS,
+    SCHEMA_FILE,
+    TEST_FILE,
+    database_url,
+)
+from embedding_config import DEFAULT_EMBEDDING_MODEL, get_embedding_function
 from sql_validator import validate_sql_schema, get_validator_prompt_hint
 
-load_dotenv()
-
 # ── Kết nối PostgreSQL ────────────────────────────────────────
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASS = os.getenv("DB_PASS", "password123")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "mimiciv")
-engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+engine = create_engine(database_url(), pool_pre_ping=True, connect_args={"connect_timeout": 5})
 
 # ── Groq LLM ────────────────────────────────────────────────
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-LLM_MODEL = "qwen/qwen3.8-27b"
+LLM_MODEL = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
+ICD_MAX_DISTANCE = float(os.getenv("ICD_MAX_DISTANCE", "0.90"))
+SCHEMA_MAX_DISTANCE = float(os.getenv("SCHEMA_MAX_DISTANCE", "0.95"))
+EXAMPLE_MAX_DISTANCE = float(os.getenv("EXAMPLE_MAX_DISTANCE", "0.85"))
+
+SCHEMA_JOIN_NEIGHBORS = {
+    "diagnoses_icd": {"d_icd_diagnoses", "admissions"},
+    "procedures_icd": {"d_icd_procedures", "admissions"},
+    "labevents": {"d_labitems", "admissions"},
+    "hcpcsevents": {"d_hcpcs", "admissions"},
+    "chartevents": {"d_items", "icustays"},
+    "inputevents": {"d_items", "icustays"},
+    "outputevents": {"d_items", "icustays"},
+    "datetimeevents": {"d_items", "icustays"},
+    "procedureevents": {"d_items", "icustays"},
+    "ingredientevents": {"d_items", "icustays"},
+    "emar": {"emar_detail", "admissions"},
+    "poe": {"poe_detail", "admissions"},
+}
+
+DIRECT_ICD_TERMS = {
+    "viêm phổi": ("9_486", "10_J189"),
+    "suy tim": ("9_4280", "10_I509"),
+    "đái tháo đường type 2": ("9_25000", "10_E119"),
+    "tiểu đường type 2": ("9_25000", "10_E119"),
+    "tăng huyết áp": ("9_4011", "10_I10"),
+    "cao huyết áp": ("9_4011", "10_I10"),
+    "nhiễm khuẩn huyết": ("9_0389", "10_A419"),
+    "đột quỵ": ("9_43491", "10_I639"),
+    "suy thận cấp": ("9_5849", "10_N179"),
+    "bệnh phổi tắc nghẽn mạn tính": ("9_496", "10_J449"),
+    "copd": ("9_496", "10_J449"),
+}
 
 # ── ChromaDB Collections ─────────────────────────────────────
-_chroma = chromadb.PersistentClient(path="./mimic_chroma_db")
+_chroma = chromadb.PersistentClient(path=str(CHROMA_DIR))
 
 def _get_collection(name: str):
     try:
-        return _chroma.get_collection(name, embedding_function=get_embedding_function())
-    except Exception:
+        collection = _chroma.get_collection(name, embedding_function=get_embedding_function())
+        metadata = collection.metadata or {}
+        built_model = metadata.get("embedding_model")
+        if built_model and built_model != DEFAULT_EMBEDDING_MODEL:
+            raise RuntimeError(
+                f"Collection '{name}' dùng embedding '{built_model}', cấu hình hiện tại là "
+                f"'{DEFAULT_EMBEDDING_MODEL}'."
+            )
+        expected = metadata.get("expected_count")
+        if expected is not None and collection.count() != int(expected):
+            raise RuntimeError(
+                f"Collection '{name}' chưa hoàn chỉnh: {collection.count()}/{expected} records."
+            )
+        expected_hash = _expected_source_hash(name)
+        built_hash = metadata.get("source_hash")
+        if expected_hash and built_hash != expected_hash:
+            raise RuntimeError(
+                f"Collection '{name}' đã cũ so với file nguồn. Hãy rebuild collection."
+            )
+        return collection
+    except Exception as exc:
         raise RuntimeError(
             f"Collection '{name}' chưa được tạo. "
-            "Hãy chạy build_vector_db.py trước."
-        )
+            f"Hãy chạy build_vector_db.py trước. Chi tiết: {exc}"
+        ) from exc
+
+
+def _short_file_hash(path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
+
+
+def _expected_source_hash(name: str) -> str | None:
+    if name == "schema_dictionary":
+        return _short_file_hash(SCHEMA_FILE)
+    if name == "sql_examples":
+        return _short_file_hash(EXAMPLES_FILE)
+    if name == "sql_examples_eval":
+        return hashlib.sha256(
+            f"{_short_file_hash(EXAMPLES_FILE)}:{_short_file_hash(TEST_FILE)}".encode()
+        ).hexdigest()[:16]
+    return None
+
+
+@lru_cache(maxsize=1)
+def _schema_records() -> dict[str, dict]:
+    with SCHEMA_FILE.open(encoding="utf-8") as handle:
+        return {item["table"]: item for item in json.load(handle)}
 
 # Schema tĩnh dự phòng (dùng khi mode='base' hoặc schema_col chưa sẵn sàng)
 _STATIC_SCHEMA = """
@@ -109,6 +190,11 @@ CREATE TABLE caregiver (caregiver_id INT);
 -- Tính LOS (ngày): EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400
 """
 
+# Keep base-mode schema synchronized with the JSON source of truth.
+_STATIC_SCHEMA = "\n\n".join(
+    record["ddl"] for record in _schema_records().values()
+)
+
 
 
 # ══════════════════════════════════════════════════════════════
@@ -123,17 +209,59 @@ def retrieve_icd_codes(question: str, n_results: int = 3) -> dict:
     """
     try:
         col = _get_collection("icd_dictionary")
-        results = col.query(query_texts=[question], n_results=n_results)
         codes = []
         lines = []
-        for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
+        seen: set[tuple[str, int]] = set()
+
+        direct_ids = []
+        normalized_question = question.casefold()
+        for term, ids in DIRECT_ICD_TERMS.items():
+            if term in normalized_question:
+                direct_ids.extend(ids)
+        if direct_ids:
+            direct = col.get(
+                ids=list(dict.fromkeys(direct_ids)),
+                include=["documents", "metadatas"],
+            )
+            for doc, meta in zip(direct["documents"], direct["metadatas"]):
+                key = (str(meta["icd_code"]), int(meta["icd_version"]))
+                if key in seen or len(codes) >= n_results:
+                    continue
+                seen.add(key)
+                codes.append({
+                    "icd_code": key[0],
+                    "icd_version": key[1],
+                    "long_title": meta.get("long_title", doc),
+                    "distance": 0.0,
+                })
+
+        results = (
+            {"documents": [[]], "metadatas": [[]], "distances": [[]]}
+            if direct_ids
+            else col.query(query_texts=[question], n_results=n_results)
+        )
+        distances = results.get("distances", [[]])[0]
+        for doc, meta, distance in zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            distances,
+        ):
+            if distance is not None and distance > ICD_MAX_DISTANCE:
+                continue
+            key = (str(meta["icd_code"]), int(meta["icd_version"]))
+            if key in seen or len(codes) >= n_results:
+                continue
+            seen.add(key)
             codes.append({
-                "icd_code": meta["icd_code"],
-                "icd_version": meta["icd_version"],
-                "long_title": doc,
+                "icd_code": key[0],
+                "icd_version": key[1],
+                "long_title": meta.get("long_title", doc),
+                "distance": distance,
             })
+        for code in codes:
             lines.append(
-                f"  - Bệnh '{doc[:80]}' → ICD-{meta['icd_version']} code: '{meta['icd_code']}'"
+                f"  - Bệnh '{code['long_title'][:80]}' → "
+                f"ICD-{code['icd_version']} code: '{code['icd_code']}'"
             )
         return {"text": "\n".join(lines), "codes": codes, "found": bool(codes)}
     except Exception as e:
@@ -157,19 +285,40 @@ def retrieve_schema(question: str, n_results: int = 4) -> dict:
         results = col.query(query_texts=[question], n_results=n_results)
         ddl_parts = []
         tables_found = list(CORE_TABLES)
+        schemas = _schema_records()
+        retrieved_tables: set[str] = set()
 
-        for meta in results["metadatas"][0]:
+        distances = results.get("distances", [[]])[0]
+        for meta, distance in zip(results["metadatas"][0], distances):
+            if distance is not None and distance > SCHEMA_MAX_DISTANCE:
+                continue
             tbl = meta["table"]
+            retrieved_tables.add(tbl)
             if tbl not in tables_found:
                 tables_found.append(tbl)
-            ddl_parts.append(f"-- [{tbl}] {meta['description_vi']}\n{meta['ddl']}")
+            schema = schemas.get(tbl)
+            if schema:
+                ddl_parts.append(
+                    f"-- [{tbl}] {schema['description_vi']}\n{schema['ddl']}"
+                )
 
-        all_schema = json.load(open("mimic_schema.json", encoding="utf-8"))
-        core_ddls = {s["table"]: s for s in all_schema}
+        # Add direct join partners so the model sees dictionary keys and bridge
+        # tables even when semantic retrieval returns only one side of a JOIN.
+        expanded_tables = set(retrieved_tables)
+        for table in retrieved_tables:
+            expanded_tables.update(SCHEMA_JOIN_NEIGHBORS.get(table, set()))
+        for table in sorted(expanded_tables - retrieved_tables - CORE_TABLES):
+            schema = schemas.get(table)
+            if schema:
+                tables_found.append(table)
+                ddl_parts.append(
+                    f"-- [{table}] {schema['description_vi']}\n{schema['ddl']}"
+                )
+
         core_parts = []
         for tbl in CORE_TABLES:
-            if tbl in core_ddls and not any(tbl in p for p in ddl_parts):
-                s = core_ddls[tbl]
+            if tbl in schemas and tbl not in retrieved_tables:
+                s = schemas[tbl]
                 core_parts.append(f"-- [{tbl}] {s['description_vi']}\n{s['ddl']}")
 
         all_ddl = "\n\n".join(core_parts + ddl_parts)
@@ -181,7 +330,11 @@ def retrieve_schema(question: str, n_results: int = 4) -> dict:
 # ══════════════════════════════════════════════════════════════
 # TẦNG 3 – EXAMPLE RETRIEVAL
 # ══════════════════════════════════════════════════════════════
-def retrieve_examples(question: str, n_results: int = 3) -> dict:
+def retrieve_examples(
+    question: str,
+    n_results: int = 3,
+    collection_name: str = "sql_examples",
+) -> dict:
     """
     Trả về dict:
       text   – chuỗi các cặp Q-SQL mẫu (cho prompt)
@@ -189,10 +342,16 @@ def retrieve_examples(question: str, n_results: int = 3) -> dict:
       found  – bool
     """
     try:
-        col = _get_collection("sql_examples")
+        col = _get_collection(collection_name)
         results = col.query(query_texts=[question], n_results=n_results)
         items, lines = [], []
-        for i, meta in enumerate(results["metadatas"][0], 1):
+        distances = results.get("distances", [[]])[0]
+        accepted = [
+            (meta, distance)
+            for meta, distance in zip(results["metadatas"][0], distances)
+            if distance is None or distance <= EXAMPLE_MAX_DISTANCE
+        ]
+        for i, (meta, distance) in enumerate(accepted, 1):
             items.append({"question_vi": meta["question_vi"], "sql": meta["sql"]})
             lines.append(
                 f"  Ví dụ {i}:\n"
@@ -213,11 +372,10 @@ SYSTEM_PROMPT = (
     "Quy tắc bắt buộc:\n"
     "  1. CHỈ trả về câu lệnh SQL, không giải thích, không markdown.\n"
     "  2. Chỉ dùng bảng và cột được liệt kê trong schema cung cấp.\n"
-    "  3. Nếu câu hỏi nhắc đến bệnh, BẮT BUỘC dùng mã ICD đã tra cứu trong mệnh đề WHERE.\n"
+    "  3. Nếu câu hỏi nhắc đến bệnh, dùng các mã ICD đã tra cứu trong WHERE; khi có cả ICD-9 và ICD-10, nối hai điều kiện bằng OR và giữ đúng icd_version.\n"
     "  4. JOIN luôn dùng điều kiện đúng: diagnoses_icd ↔ d_icd_diagnoses phải JOIN cả icd_code AND icd_version.\n"
-    "  5. Tính thời gian nằm viện bằng: EXTRACT(EPOCH FROM (dischtime::TIMESTAMP - admittime::TIMESTAMP))/86400.\n"
-    "  6. Các cột thời gian (admittime, dischtime, charttime, starttime, stoptime) lưu dạng TEXT, "
-    "luôn CAST sang TIMESTAMP trước khi dùng: cột::TIMESTAMP.\n"
+    "  5. Tính thời gian nằm viện bằng: EXTRACT(EPOCH FROM (dischtime - admittime))/86400.\n"
+    "  6. Các cột thời gian trong schema là DATE hoặc TIMESTAMP; dùng phép toán thời gian PostgreSQL tương ứng.\n"
     "  7. Dùng ILIKE thay cho LIKE khi so sánh chuỗi (không phân biệt hoa thường).\n"
     "  8. QUAN TRỌNG – Câu hỏi multi-turn: nếu câu hỏi đề cập đến một nhóm kết quả trước "
     "(VD: 'trong số N bệnh nhân nữ', 'trong nhóm bệnh nhân trên 60 tuổi', "
@@ -229,7 +387,11 @@ SYSTEM_PROMPT = (
 )
 
 
-def build_prompt(question: str, mode: str = "full") -> tuple[str, dict]:
+def build_prompt(
+    question: str,
+    mode: str = "full",
+    examples_collection: str = "sql_examples",
+) -> tuple[str, dict]:
     """
     Trả về (user_prompt, context_dict).
     context_dict chứa kết quả RAG từng tầng để hiển thị trên UI.
@@ -257,7 +419,10 @@ def build_prompt(question: str, mode: str = "full") -> tuple[str, dict]:
         )
 
     if mode in ("examples", "full"):
-        ctx["examples"] = retrieve_examples(question)
+        ctx["examples"] = retrieve_examples(
+            question,
+            collection_name=examples_collection,
+        )
         ex_section = (
             "## Câu SQL mẫu tương đồng (học theo cấu trúc SQL này):\n"
             + ctx["examples"]["text"]
@@ -276,18 +441,26 @@ def build_prompt(question: str, mode: str = "full") -> tuple[str, dict]:
 # LLM CALL + SQL CLEAN (helper nội bộ)
 # ══════════════════════════════════════════════════════════════
 def _call_llm(messages: list[dict], max_tokens: int = 900) -> str:
-    """Gọi Groq LLM, trả về raw content.
-    
-    max_tokens mặc định 900 để tránh vượt OTPM limit 1000 tokens/phút
-    trên Groq free tier.
-    """
-    response = client.chat.completions.create(
-        model=LLM_MODEL,
-        messages=messages,
-        temperature=0,
-        max_tokens=max_tokens,
-    )
-    return response.choices[0].message.content.strip()
+    """Call Groq with short exponential backoff for transient failures."""
+    last_error: Exception | None = None
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model=LLM_MODEL,
+                messages=messages,
+                temperature=0,
+                max_tokens=max_tokens,
+            )
+            content = response.choices[0].message.content
+            if not content:
+                raise RuntimeError("LLM trả về nội dung rỗng.")
+            return content.strip()
+        except Exception as exc:
+            last_error = exc
+            if attempt == 2:
+                break
+            time.sleep((0.8 * (2**attempt)) + random.uniform(0, 0.25))
+    raise RuntimeError(f"Gọi Groq thất bại sau 3 lần: {last_error}") from last_error
 
 
 def _clean_sql(raw: str) -> str:
@@ -306,9 +479,13 @@ def _clean_sql(raw: str) -> str:
 # ══════════════════════════════════════════════════════════════
 # SINH SQL (1 lần, dùng cho evaluate.py / backward-compatible)
 # ══════════════════════════════════════════════════════════════
-def generate_sql(question: str, mode: str = "full") -> tuple[str, dict]:
+def generate_sql(
+    question: str,
+    mode: str = "full",
+    examples_collection: str = "sql_examples",
+) -> tuple[str, dict]:
     """Trả về (sql_string, context_dict). Gọi LLM 1 lần."""
-    user_prompt, ctx = build_prompt(question, mode)
+    user_prompt, ctx = build_prompt(question, mode, examples_collection)
     raw = _call_llm([
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user",   "content": user_prompt},
@@ -323,7 +500,9 @@ def generate_sql_with_correction(
     question: str,
     mode: str = "full",
     max_retries: int = 2,
-    on_attempt: callable = None,
+    on_attempt: Callable[[int, str, str | None, bool], None] | None = None,
+    examples_collection: str = "sql_examples",
+    query_max_rows: int | None = None,
 ) -> dict:
     """
     Pipeline Agentic: sinh SQL → chạy thử → nếu lỗi thì gửi lỗi cho LLM sửa.
@@ -339,7 +518,7 @@ def generate_sql_with_correction(
       history    – list[dict] ghi log từng lần thử: {sql, error}
       success    – bool
     """
-    user_prompt, ctx = build_prompt(question, mode)
+    user_prompt, ctx = build_prompt(question, mode, examples_collection)
 
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
@@ -369,7 +548,7 @@ def generate_sql_with_correction(
             continue
 
         try:
-            df = run_query(sql)
+            df = run_query(sql, max_rows=query_max_rows)
             history.append({"attempt": attempt, "sql": sql, "error": None})
             if on_attempt:
                 on_attempt(attempt, sql, None, True)
@@ -408,6 +587,7 @@ _INTERPRET_SYSTEM = (
     "  1. Trả lời ngắn gọn, rõ ràng, đi thẳng vào kết quả.\n"
     "  2. Nêu con số cụ thể từ dữ liệu (không bịa số liệu).\n"
     "  3. Nếu dữ liệu là bảng nhiều dòng, tóm tắt xu hướng chính và highlight top kết quả.\n"
+    "     Nếu prompt nói chỉ có một phần kết quả, chỉ mô tả phần được cung cấp và không suy diễn xu hướng của toàn bộ dữ liệu.\n"
     "  4. Nếu kết quả rỗng (0 dòng), nói rõ 'Không tìm thấy dữ liệu phù hợp'.\n"
     "  5. Dùng đơn vị phù hợp (ngày, %, ca, lần...).\n"
     "  6. KHÔNG giải thích SQL, KHÔNG đề cập đến bảng/cột database.\n"
@@ -440,6 +620,16 @@ def interpret_result(
     # Chuẩn bị dữ liệu kết quả cho prompt
     num_rows = len(df)
     num_cols = len(df.columns)
+
+    # MIMIC-derived rows stay local by default. Operators may explicitly opt in
+    # after checking their data-use and Groq retention settings.
+    if os.getenv("SEND_RESULTS_TO_LLM", "false").lower() not in {"1", "true", "yes"}:
+        if num_rows == 1:
+            values = ", ".join(
+                f"{column}: {df.iloc[0][column]}" for column in df.columns
+            )
+            return f"Kết quả truy vấn: {values}."
+        return f"Truy vấn trả về {num_rows} dòng và {num_cols} cột; chi tiết được hiển thị trong bảng bên dưới."
 
     if num_rows <= max_rows_in_prompt:
         data_str = df.to_string(index=False)
@@ -514,14 +704,14 @@ def rewrite_question(question: str, chat_history: list[dict]) -> str:
     history_parts = []
     for m in recent:
         role_label = 'Người dùng' if m['role'] == 'user' else 'Hệ thống'
-        content = m['content'][:200]
+        content = m['content'][:500]
         line = f"{role_label}: {content}"
 
         # Thêm thông tin SQL và kết quả nếu có (rất quan trọng cho ngữ cảnh)
         if m.get('sql'):
-            line += f"\n  [SQL đã chạy: {m['sql'][:150]}]"
+            line += f"\n  [SQL đã chạy: {m['sql'][:1000]}]"
         if m.get('result_summary'):
-            line += f"\n  [Kết quả: {m['result_summary'][:150]}]"
+            line += f"\n  [Kết quả: {m['result_summary'][:500]}]"
 
         history_parts.append(line)
 
@@ -554,10 +744,26 @@ def rewrite_question(question: str, chat_history: list[dict]) -> str:
 # ══════════════════════════════════════════════════════════════
 # THỰC THI SQL
 # ══════════════════════════════════════════════════════════════
-def run_query(sql: str) -> pd.DataFrame:
-    """Thực thi SQL trên PostgreSQL, trả về DataFrame."""
-    with engine.connect() as conn:
-        return pd.read_sql(text(sql), conn)
+def run_query(sql: str, max_rows: int | None = None) -> pd.DataFrame:
+    """Validate and execute SQL in a bounded, read-only transaction."""
+    validation = validate_sql_schema(sql)
+    if not validation["valid"]:
+        raise ValueError(get_validator_prompt_hint(validation))
+
+    clean_sql = parse_one(sql, read="postgres").sql(dialect="postgres")
+    row_limit = MAX_QUERY_ROWS if max_rows is None else max(1, min(int(max_rows), 100_000))
+    bounded_sql = text(
+        "SELECT * FROM (\n" + clean_sql + "\n) AS _validated_query LIMIT :_row_limit"
+    )
+    with engine.connect().execution_options(postgresql_readonly=True) as conn:
+        with conn.begin():
+            conn.execute(text(f"SET LOCAL statement_timeout = {QUERY_TIMEOUT_MS}"))
+            conn.execute(text(f"SET LOCAL lock_timeout = {LOCK_TIMEOUT_MS}"))
+            return pd.read_sql(
+                bounded_sql,
+                conn,
+                params={"_row_limit": row_limit},
+            )
 
 
 # ══════════════════════════════════════════════════════════════

@@ -68,15 +68,15 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
                              ╚═════════════════════════╝
 ```
 
-### Năm điểm mới cốt lõi chưa từng xuất hiện đồng thời trong các công trình trước:
+### Năm hướng đóng góp cần được kiểm chứng bằng tổng quan tài liệu và thực nghiệm:
 
 | # | Điểm mới khoa học | Chi tiết & Đóng góp | So sánh với các công trình gần nhất |
 |---|---|---|---|
-| **1** | **Text-to-SQL Y tế Đa ngữ tiếng Việt (Cross-lingual Clinical Text-to-SQL)** | Khắc phục khoảng trống lớn: EHRSQL (2024), BiomedSQL chỉ hỗ trợ tiếng Anh; ViText2SQL (2020) chỉ giải bài toán tổng quát (Spider), không có tri thức lâm sàng hay mã ICD. | EHRSQL 2024 (chỉ tiếng Anh), ViText2SQL (không có miền y tế) |
-| **2** | **Kiến trúc RAG 3 tầng chuyên biệt cho Dữ liệu Lâm sàng** | Không dùng RAG 1 tầng phẳng mà phân rã thành 3 tầng chức năng độc lập: (1) **ICD Dictionary** (10,000 vectors ánh xạ bệnh học), (2) **Schema Selection** (31 bảng MIMIC chọn lọc động), (3) **Few-shot SQL Examples** (truy xuất mẫu truy vấn tương đồng). | SMART-SLIC 2025, Gen-SQL (chỉ dùng RAG 1 tầng tổng quát) |
-| **3** | **Màng lọc Schema-Aware SQL Validator + Vòng lặp Agentic Self-Correction** | Kết hợp regex và sqlparse kiểm tra tĩnh trước khi chạy (bảng/cột tồn tại, điều kiện JOIN version) để chặn hallucination; nếu phát sinh runtime error trên DB thì tác tử tự phản hồi và tái sinh SQL (tối đa 2 lần). | MAGIC 2025 (không có validator tĩnh chuyên sâu cho schema y tế) |
-| **4** | **Xử lý Hội thoại Đa lượt Sâu kết hợp Cơ chế Subquery Tập con** | Viết lại câu hỏi tỉnh lược tiếng Việt ("trong đó", "mấy người") dựa trên cả lịch sử câu hỏi, câu SQL và kết quả trước; tích hợp rule sinh câu truy vấn con (`IN (SELECT ...)` / CTE) giải quyết bài toán lọc tập con logic. | Các hệ thống trước chỉ xử lý chuỗi văn bản bề mặt |
-| **5** | **Hệ thống Khép kín Hai chiều (Closed-Loop: Text-to-SQL & SQL-to-Text)** | Không dừng lại ở việc sinh SQL và xuất bảng số liệu thô; hệ thống tích hợp module **Result Interpretation** chuyển kết quả truy vấn thành ngôn ngữ tự nhiên tiếng Việt súc tích, mang ý nghĩa lâm sàng trực tiếp cho bác sĩ. | Hầu hết benchmark (Spider, BIRD, EHRSQL) chỉ dừng lại ở SQL execution |
+| **1** | **Text-to-SQL y tế tiếng Việt** | Khảo sát khả năng hỏi MIMIC-IV bằng tiếng Việt và đo trên benchmark nội bộ 180 câu. Không tuyên bố “đầu tiên” khi chưa có systematic review. | So sánh có kiểm soát với EHRSQL và các hệ thống MIMIC-IV gần đây |
+| **2** | **Kiến trúc RAG 3 tầng cho dữ liệu lâm sàng** | Phân rã thành ICD Dictionary, Schema Selection và Few-shot SQL Examples; đánh giá đóng góp từng tầng bằng ablation. | Kết luận dựa trên VSR/EX theo cùng dataset và protocol |
+| **3** | **Màng lọc Schema-Aware SQL Validator + Vòng lặp Agentic Self-Correction** | Dùng SQLGlot AST để kiểm tra statement, alias, CTE, bảng/cột và điều kiện JOIN trước khi chạy; runtime tiếp tục dùng role/transaction chỉ đọc, timeout và row cap. Nếu có lỗi, tác tử phản hồi và tái sinh SQL (tối đa 2 lần). | Cần đánh giá thực nghiệm so với các baseline validator/correction |
+| **4** | **Xử lý hội thoại đa lượt** | Viết lại câu hỏi tỉnh lược tiếng Việt dựa trên lịch sử, SQL và tóm tắt kết quả; cần đánh giá riêng trên `test_multiturn.json` và mở rộng bộ test. | So sánh với baseline không rewrite và rewrite chỉ dùng văn bản |
+| **5** | **Luồng Text-to-SQL và trình bày kết quả** | Kết hợp sinh SQL, thực thi có giới hạn, bảng/biểu đồ và diễn giải cục bộ hoặc qua LLM khi được bật rõ ràng. | Đánh giá tính hữu dụng người dùng tách khỏi Execution Accuracy |
 
 ---
 
@@ -122,7 +122,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
   MODULE 4: SCHEMA-AWARE SQL VALIDATOR
  ════════════════════════════════╪═════════════════════════════════════════════════
                                  ▼
-  Kiểm tra cú pháp bằng sqlparse + regex trước khi chạm vào cơ sở dữ liệu:
+  Kiểm tra AST bằng SQLGlot trước khi chạm vào cơ sở dữ liệu:
   ✓ Bảng có tồn tại? Cột có thuộc bảng?
   ✓ JOIN có đủ cả icd_code VÀ icd_version?
   → Nếu vi phạm → Tạo phản hồi chi tiết yêu cầu LLM tự sửa
@@ -154,7 +154,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
 | 2 | RAG Tầng 1: ICD-9 & ICD-10 Dictionary Collection | ✅ Hoàn thành | `rag_engine.py` (`retrieve_icd_codes`) |
 | 3 | RAG Tầng 2: Schema Selection Collection | ✅ Hoàn thành | `rag_engine.py` (`retrieve_schema`), `mimic_schema.json` |
 | 4 | RAG Tầng 3: Few-shot SQL Examples Collection | ✅ Hoàn thành | `rag_engine.py` (`retrieve_examples`), `mimic_examples.json` |
-| 5 | Schema-Aware SQL Validator (Chặn ảo giác bằng sqlparse + regex) | ✅ Hoàn thành | `sql_validator.py` (`validate_sql_schema`) |
+| 5 | Schema-Aware SQL Validator (SQLGlot AST + schema qualification) | ✅ Hoàn thành | `sql_validator.py` (`validate_sql_schema`) |
 | 6 | Agentic Self-Correction Loop (Vòng lặp tự sửa lỗi) | ✅ Hoàn thành | `rag_engine.py` (`generate_sql_with_correction`) |
 | 7 | Context-Aware Multi-turn Query Rewriter (Kèm Subquery Logic) | ✅ Hoàn thành | `rag_engine.py` (`rewrite_question`), quy tắc Rule 8 |
 | 8 | Diễn giải kết quả hai chiều (SQL-to-Text Clinical Interpretation) | ✅ Hoàn thành | `rag_engine.py` (`interpret_result`) |

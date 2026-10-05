@@ -24,6 +24,9 @@ env/
 .env
 .env.local
 
+# Local database backups may contain protected MIMIC patient data.
+backups/
+
 # ===== IDE =====
 .vscode/
 .idea/

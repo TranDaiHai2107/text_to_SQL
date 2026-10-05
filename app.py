@@ -7,18 +7,17 @@ Tính năng:
 Chạy: python -m streamlit run app.py
 """
 
+import html
 import json
 import time
 import pandas as pd
 import streamlit as st
 
+from config import RESULTS_FILE
 from rag_engine import (
     generate_sql_with_correction,
     interpret_result,
     rewrite_question,
-    retrieve_icd_codes,
-    retrieve_schema,
-    retrieve_examples,
 )
 
 # ── Cấu hình trang ────────────────────────────────────────────
@@ -106,9 +105,9 @@ with st.sidebar:
         | Thành phần | Chi tiết |
         |---|---|
         | **Database** | PostgreSQL (MIMIC-IV Subset) |
-        | **Vector DB** | ChromaDB – 3 collections |
+        | **Vector DB** | ChromaDB – 3 production + 1 evaluation |
         | **LLM** | {LLM_MODEL} (Groq LPU) |
-        | **Self-Correction** | Tối đa 2 lần retry |
+        | **Self-Correction** | Tối đa {max_retries} lần retry |
         | **Multi-turn** | Query Rewriting via LLM |
         | **SQL-to-Text** | Natural Language Generation |
         """)
@@ -162,7 +161,7 @@ for msg in st.session_state.messages:
                 line-height: 1.6;
                 box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
             ">
-                💬 {msg["nl_answer"]}
+                💬 {html.escape(str(msg["nl_answer"]))}
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -171,7 +170,7 @@ for msg in st.session_state.messages:
         if msg.get("rewritten_q"):
             st.markdown(
                 f'<span class="rag-tag tag-rewrite">REWRITE</span> '
-                f'Câu hỏi đã mở rộng: *{msg["rewritten_q"]}*',
+                f'Câu hỏi đã mở rộng: <em>{html.escape(str(msg["rewritten_q"]))}</em>',
                 unsafe_allow_html=True,
             )
 
@@ -247,8 +246,11 @@ def process_question(question: str):
     did_rewrite = False
 
     if chat_history:
-        rewritten = rewrite_question(question, chat_history)
-        did_rewrite = (rewritten.strip().lower() != question.strip().lower())
+        try:
+            rewritten = rewrite_question(question, chat_history)
+            did_rewrite = (rewritten.strip().lower() != question.strip().lower())
+        except Exception:
+            rewritten = question
 
     effective_q = rewritten if did_rewrite else question
 
@@ -263,7 +265,7 @@ def process_question(question: str):
         if did_rewrite:
             st.markdown(
                 f'<span class="rag-tag tag-rewrite">REWRITE</span> '
-                f'Câu hỏi đã mở rộng: *{rewritten}*',
+                f'Câu hỏi đã mở rộng: <em>{html.escape(str(rewritten))}</em>',
                 unsafe_allow_html=True,
             )
 
@@ -271,44 +273,58 @@ def process_question(question: str):
     with st.chat_message("assistant", avatar="🤖"):
         with st.status("Đang xử lý...", expanded=True) as status:
 
-            # RAG info preview
+            # LLM + Self-Correction
+            st.markdown("**🤖 LLM đang sinh SQL...**")
+            try:
+                result = generate_sql_with_correction(
+                    effective_q,
+                    mode=rag_mode,
+                    max_retries=max_retries,
+                )
+            except Exception as exc:
+                message = f"Không thể xử lý truy vấn: {str(exc).splitlines()[0]}"
+                status.update(label="Có lỗi xảy ra", state="error", expanded=True)
+                st.error(message)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "display": message,
+                    "ts": time.time(),
+                })
+                return
+
+            # Reuse the exact context used to generate SQL instead of querying
+            # all vector collections a second time for the preview.
             rag_lines = []
-            if rag_mode in ("icd", "full"):
-                icd_r = retrieve_icd_codes(effective_q)
-                if icd_r["found"]:
-                    for c in icd_r["codes"]:
-                        rag_lines.append(
-                            f'<span class="rag-tag tag-icd">ICD</span> '
-                            f'`{c["icd_code"]}` (v{c["icd_version"]}) – {c["long_title"][:60]}'
-                        )
-            if rag_mode in ("schema", "full"):
-                sch_r = retrieve_schema(effective_q)
-                tables_str = ", ".join(f"`{t}`" for t in sch_r["tables"])
+            context = result.get("ctx", {})
+            icd_r = context.get("icd")
+            if icd_r and icd_r.get("found"):
+                for code in icd_r["codes"]:
+                    rag_lines.append(
+                        '<span class="rag-tag tag-icd">ICD</span> '
+                        f'<code>{html.escape(str(code["icd_code"]))}</code> '
+                        f'(v{html.escape(str(code["icd_version"]))}) – '
+                        f'{html.escape(str(code["long_title"])[:60])}'
+                    )
+            schema_r = context.get("schema")
+            if schema_r:
+                tables_str = ", ".join(
+                    f"<code>{html.escape(str(table))}</code>" for table in schema_r["tables"]
+                )
                 rag_lines.append(
                     f'<span class="rag-tag tag-schema">SCHEMA</span> Bảng: {tables_str}'
                 )
-            if rag_mode in ("examples", "full"):
-                ex_r = retrieve_examples(effective_q)
-                if ex_r["found"]:
-                    for i, ex in enumerate(ex_r["items"][:3], 1):
-                        rag_lines.append(
-                            f'<span class="rag-tag tag-example">EX-{i}</span> '
-                            f'{ex["question_vi"][:60]}'
-                        )
-
+            examples_r = context.get("examples")
+            if examples_r and examples_r.get("found"):
+                for index, example in enumerate(examples_r["items"][:3], 1):
+                    rag_lines.append(
+                        f'<span class="rag-tag tag-example">EX-{index}</span> '
+                        f'{html.escape(str(example["question_vi"])[:60])}'
+                    )
             if rag_lines:
                 st.markdown("**🔍 RAG Retrieval:**")
                 for line in rag_lines:
                     st.markdown(line, unsafe_allow_html=True)
             rag_info_str = "<br>".join(rag_lines) if rag_lines else ""
-
-            # LLM + Self-Correction
-            st.markdown("**🤖 LLM đang sinh SQL...**")
-            result = generate_sql_with_correction(
-                effective_q,
-                mode=rag_mode,
-                max_retries=max_retries,
-            )
 
             # Hiển thị correction history
             correction_info = ""
@@ -318,7 +334,7 @@ def process_question(question: str):
                     if h["error"]:
                         correction_parts.append(
                             f'<span class="rag-tag tag-fix">LẦN {h["attempt"]}</span> '
-                            f'SQL lỗi → `{h["error"][:120]}...`'
+                            f'SQL lỗi → <code>{html.escape(str(h["error"])[:120])}...</code>'
                         )
                 correction_parts.append(
                     f'<span class="rag-tag tag-fix">LẦN {result["attempts"]}</span> '
@@ -369,7 +385,7 @@ def process_question(question: str):
                     line-height: 1.6;
                     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
                 ">
-                    💬 {nl_answer}
+                    💬 {html.escape(str(nl_answer))}
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -432,7 +448,7 @@ if prompt := st.chat_input("Đặt câu hỏi y khoa (hỗ trợ hội thoại �
 
 # ── Kết quả đánh giá (nếu có) ────────────────────────────────
 try:
-    with open("evaluate_results.json", encoding="utf-8") as f:
+    with RESULTS_FILE.open(encoding="utf-8") as f:
         eval_data = json.load(f)
 
     with st.expander("📊 Kết quả đánh giá Ablation (từ evaluate.py)"):

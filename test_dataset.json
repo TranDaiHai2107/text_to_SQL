@@ -846,7 +846,7 @@
   {
     "id": "t091",
     "question_vi": "Tìm các bệnh nhân nam trên 60 tuổi mắc viêm phổi, có cấy đờm (SPUTUM) mọc vi khuẩn và được điều trị tại ICU.",
-    "gold_sql": "SELECT DISTINCT p.subject_id, p.anchor_age FROM patients p JOIN diagnoses_icd d ON p.subject_id = d.subject_id JOIN microbiologyevents m ON p.hadm_id = m.hadm_id JOIN transfers t ON p.hadm_id = t.hadm_id WHERE p.gender = 'M' AND p.anchor_age > 60 AND (d.icd_code = '486' AND d.icd_version = 9 OR d.icd_code = 'J189' AND d.icd_version = 10) AND m.spec_type_desc ILIKE '%SPUTUM%' AND m.org_name IS NOT NULL AND t.careunit ILIKE '%Intensive Care%';",
+    "gold_sql": "SELECT DISTINCT p.subject_id, p.anchor_age FROM patients p JOIN diagnoses_icd d ON p.subject_id = d.subject_id JOIN microbiologyevents m ON d.hadm_id = m.hadm_id JOIN transfers t ON d.hadm_id = t.hadm_id WHERE p.gender = 'M' AND p.anchor_age > 60 AND (d.icd_code = '486' AND d.icd_version = 9 OR d.icd_code = 'J189' AND d.icd_version = 10) AND m.spec_type_desc ILIKE '%SPUTUM%' AND m.org_name IS NOT NULL AND t.careunit ILIKE '%Intensive Care%';",
     "tables": [
       "patients",
       "diagnoses_icd",
@@ -881,7 +881,7 @@
   {
     "id": "t094",
     "question_vi": "Tính tỷ lệ bệnh nhân bị sốc nhiễm khuẩn (ICD-10 R572) phải sử dụng thuốc vận mạch Norepinephrine theo đường tĩnh mạch (IV).",
-    "gold_sql": "SELECT ROUND(100.0 * COUNT(DISTINCT pr.hadm_id) / COUNT(DISTINCT d.hadm_id), 2) AS ty_le_norepi_pct FROM diagnoses_icd d LEFT JOIN prescriptions pr ON d.hadm_id = pr.hadm_id AND pr.drug ILIKE '%Norepinephrine%' AND pr.route = 'IV' WHERE d.icd_version = 10 AND d.icd_code = 'R572';",
+    "gold_sql": "SELECT ROUND(100.0 * COUNT(DISTINCT pr.hadm_id) / NULLIF(COUNT(DISTINCT d.hadm_id), 0), 2) AS ty_le_norepi_pct FROM diagnoses_icd d LEFT JOIN prescriptions pr ON d.hadm_id = pr.hadm_id AND pr.drug ILIKE '%Norepinephrine%' AND pr.route = 'IV' WHERE d.icd_version = 10 AND d.icd_code = 'R572';",
     "tables": [
       "diagnoses_icd",
       "prescriptions"
@@ -942,7 +942,7 @@
   },
   {
     "id": "t100",
-    "question_vi": "Kiểm tra sự tương quan giữa số ngày điều trị kháng sinh đường tĩnh mạch (route = 'IV') và tỷ lệ sống sót khi xuất viện ở bệnh nhân viêm phổi nặng.",
+    "question_vi": "Phân nhóm bệnh nhân viêm phổi theo số ngày điều trị thuốc đường tĩnh mạch (route = 'IV') và tính tỷ lệ sống sót khi xuất viện của từng nhóm.",
     "gold_sql": "SELECT CASE WHEN pr.days_iv < 3 THEN 'Dưới 3 ngày' WHEN pr.days_iv BETWEEN 3 AND 7 THEN 'Từ 3-7 ngày' ELSE 'Trên 7 ngày' END AS thoi_gian_iv, COUNT(*) AS tong_bn, ROUND(100.0 * SUM(CASE WHEN a.hospital_expire_flag = 0 THEN 1 ELSE 0 END) / COUNT(*), 2) AS ty_le_song_sot_pct FROM admissions a JOIN diagnoses_icd d ON a.hadm_id = d.hadm_id JOIN (SELECT hadm_id, SUM(EXTRACT(EPOCH FROM (stoptime::TIMESTAMP - starttime::TIMESTAMP))/86400) AS days_iv FROM prescriptions WHERE route = 'IV' AND stoptime IS NOT NULL GROUP BY hadm_id) pr ON a.hadm_id = pr.hadm_id WHERE (d.icd_code = '486' AND d.icd_version = 9 OR d.icd_code = 'J189' AND d.icd_version = 10) GROUP BY thoi_gian_iv ORDER BY thoi_gian_iv;",
     "tables": [
       "admissions",
@@ -1224,11 +1224,12 @@
   {
     "id": "t130",
     "question_vi": "Tỷ lệ tử vong (%) của bệnh nhân ICU có thở máy (ventilation) so với không thở máy là bao nhiêu?",
-    "gold_sql": "SELECT CASE WHEN pe.subject_id IS NOT NULL THEN 'Co tho may' ELSE 'Khong tho may' END AS nhom, ROUND(100.0 * SUM(CASE WHEN a.hospital_expire_flag = 1 THEN 1 ELSE 0 END) / COUNT(*), 2) AS ty_le_tu_vong FROM icustays ic JOIN admissions a ON ic.hadm_id = a.hadm_id LEFT JOIN procedureevents pe ON ic.stay_id = pe.stay_id GROUP BY CASE WHEN pe.subject_id IS NOT NULL THEN 'Co tho may' ELSE 'Khong tho may' END;",
+    "gold_sql": "WITH icu_admissions AS (SELECT DISTINCT hadm_id FROM icustays), ventilated AS (SELECT DISTINCT pe.hadm_id FROM procedureevents pe JOIN d_items di ON pe.itemid = di.itemid WHERE di.label ILIKE '%ventilat%' OR di.category ILIKE '%ventilat%') SELECT CASE WHEN v.hadm_id IS NOT NULL THEN 'Co tho may' ELSE 'Khong tho may' END AS nhom, ROUND(100.0 * SUM(CASE WHEN a.hospital_expire_flag = 1 THEN 1 ELSE 0 END) / COUNT(*), 2) AS ty_le_tu_vong FROM icu_admissions ic JOIN admissions a ON ic.hadm_id = a.hadm_id LEFT JOIN ventilated v ON ic.hadm_id = v.hadm_id GROUP BY CASE WHEN v.hadm_id IS NOT NULL THEN 'Co tho may' ELSE 'Khong tho may' END;",
     "tables": [
       "icustays",
       "admissions",
-      "procedureevents"
+      "procedureevents",
+      "d_items"
     ],
     "difficulty": "complex"
   },
@@ -1393,7 +1394,7 @@
   },
   {
     "id": "t147",
-    "question_vi": "Tính tổng chi phí DRG theo loại bảo hiểm của bệnh nhân.",
+    "question_vi": "Thống kê số đợt và mức độ nặng DRG trung bình theo loại bảo hiểm của bệnh nhân.",
     "gold_sql": "SELECT a.insurance, drg.drg_type, COUNT(*) AS so_dot, AVG(drg.drg_severity) AS muc_do_nang_tb FROM drgcodes drg JOIN admissions a ON drg.hadm_id = a.hadm_id WHERE drg.drg_type = 'APR' AND drg.drg_severity IS NOT NULL GROUP BY a.insurance, drg.drg_type ORDER BY so_dot DESC;",
     "tables": [
       "drgcodes",
@@ -1426,13 +1427,14 @@
   {
     "id": "t150",
     "question_vi": "Tổng hợp đầy đủ thông tin một đợt nhập viện bao gồm: thông tin bệnh nhân, chẩn đoán chính, thời gian nằm viện, có vào ICU không, thuốc chính được kê.",
-    "gold_sql": "SELECT a.hadm_id, p.subject_id, p.gender, p.anchor_age, di.long_title AS chan_doan_chinh, ROUND(EXTRACT(EPOCH FROM (a.dischtime - a.admittime))/86400::NUMERIC, 1) AS los_ngay, CASE WHEN icu.hadm_id IS NOT NULL THEN 'Có' ELSE 'Không' END AS vao_icu, a.hospital_expire_flag AS tu_vong FROM admissions a JOIN patients p ON a.subject_id = p.subject_id JOIN diagnoses_icd d ON a.hadm_id = d.hadm_id AND d.seq_num = 1 JOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version LEFT JOIN (SELECT DISTINCT hadm_id FROM icustays) icu ON a.hadm_id = icu.hadm_id ORDER BY a.admittime DESC LIMIT 20;",
+    "gold_sql": "SELECT a.hadm_id, p.subject_id, p.gender, p.anchor_age, di.long_title AS chan_doan_chinh, ROUND(EXTRACT(EPOCH FROM (a.dischtime - a.admittime))/86400::NUMERIC, 1) AS los_ngay, CASE WHEN icu.hadm_id IS NOT NULL THEN 'Có' ELSE 'Không' END AS vao_icu, rx.drug AS thuoc_chinh, a.hospital_expire_flag AS tu_vong FROM admissions a JOIN patients p ON a.subject_id = p.subject_id JOIN diagnoses_icd d ON a.hadm_id = d.hadm_id AND d.seq_num = 1 JOIN d_icd_diagnoses di ON d.icd_code = di.icd_code AND d.icd_version = di.icd_version LEFT JOIN (SELECT DISTINCT hadm_id FROM icustays) icu ON a.hadm_id = icu.hadm_id LEFT JOIN LATERAL (SELECT pr.drug FROM prescriptions pr WHERE pr.hadm_id = a.hadm_id AND pr.drug IS NOT NULL GROUP BY pr.drug ORDER BY COUNT(*) DESC, pr.drug LIMIT 1) rx ON TRUE ORDER BY a.admittime DESC LIMIT 20;",
     "tables": [
       "admissions",
       "patients",
       "diagnoses_icd",
       "d_icd_diagnoses",
-      "icustays"
+      "icustays",
+      "prescriptions"
     ],
     "difficulty": "complex"
   },

@@ -13,7 +13,7 @@ Xây dựng **Hệ thống Text-to-SQL lâm sàng đa ngữ hai chiều (Closed-
 
 ---
 
-## 2. Các Thành phần Kỹ thuật Đã Hoàn Thiện 100%
+## 2. Các thành phần kỹ thuật hiện có
 
 Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end thành công với các thành phần:
 
@@ -27,7 +27,7 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 - **Tầng 3 (SQL Examples Few-Shot Retrieval):** Kho 101 cặp câu hỏi tiếng Việt ↔ SQL Gold (`mimic_examples.json`), truy xuất 3 câu mẫu tương đồng nhất về mặt ngữ nghĩa và cấu trúc SQL.
 
 ### 2.3. Màng lọc Schema-Aware SQL Validator (`sql_validator.py`)
-- Phân tích cú pháp SQL bằng `sqlparse` (token tree) kết hợp regex để trích xuất tên bảng/cột trước khi gửi tới PostgreSQL.
+- Phân tích AST bằng SQLGlot, resolve alias/CTE/subquery và đối chiếu bảng/cột với `mimic_schema.json` trước khi gửi tới PostgreSQL.
 - Kiểm tra toàn diện: Bảng có tồn tại không? Cột có thuộc bảng tương ứng không? Có JOIN thiếu phiên bản ICD (`icd_code` và `icd_version`) không?
 - Ngăn chặn triệt để hiện tượng hallucination trước khi tác động đến cơ sở dữ liệu.
 
@@ -43,10 +43,10 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 - Tự động tóm lược xu hướng, làm nổi bật số liệu quan trọng và hiển thị trong khung thông báo nổi bật trên giao diện.
 
 ### 2.7. Tối ưu hóa Hạn mức Token (Rate Limit & OTPM Protection)
-- Khắc phục triệt để lỗi `429 RateLimitError` từ Groq: Giảm `max_tokens` từ 1024 xuống 900 cho sinh SQL và 256 cho rewrite câu hỏi, hoàn toàn tương thích với mức trần 1,000 OTPM của Groq Free Tier.
+- Giảm `max_tokens` cho sinh SQL/rewrite và retry ngắn khi lỗi tạm thời. Quota Groq phụ thuộc tài khoản và vẫn có thể phát sinh `429 RateLimitError`.
 
 ### 2.8. Bộ Dữ liệu Đánh giá Chuẩn Hóa (180 Test Cases với Gold SQL)
-- File `test_dataset.json` chứa 180 câu hỏi tiếng Việt độc lập kèm Gold SQL chính xác phủ kín 31 bảng, phân tầng thành 4 cấp độ: **Easy (37%)**, **Medium (33%)**, **Hard (11%)**, **Complex (19%)**.
+- File `test_dataset.json` chứa 180 câu hỏi tiếng Việt kèm Gold SQL, phân tầng: **Easy 66 (36,7%)**, **Medium 60 (33,3%)**, **Hard 22 (12,2%)**, **Complex 32 (17,8%)**. Có 28 SQL trùng với tập few-shot production; evaluation loại các ví dụ này qua collection riêng.
 
 ### 2.9. Ứng dụng Giao diện Trực quan (Streamlit Web App - `app.py`)
 - Giao diện chat trực quan với các tag màu hiển thị RAG stages (`ICD`, `SCHEMA`, `EXAMPLES`, `REWRITE`, `FIX`).
@@ -64,7 +64,7 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 | **Bảo vệ Schema** | Không có (dễ bị ảo giác) | `sql_validator.py` kiểm tra bảng, cột, điều kiện JOIN |
 | **Xử lý đa lượt** | Chỉ đọc chuỗi văn bản đơn giản | Đọc sâu kèm SQL và kết quả trước + Rule sinh Subquery tập con |
 | **Đầu ra hệ thống** | Chỉ trả về bảng dữ liệu thô | Trả về cả SQL, Data Table, Biểu đồ và **Diễn giải tự nhiên tiếng Việt** |
-| **Quản lý Token** | Dễ bị chặn lỗi 429 OTPM | Tối ưu hóa `max_tokens=900/256`, ổn định không bị gián đoạn |
+| **Quản lý Token** | Dễ bị chặn lỗi 429 | Giới hạn output và retry ngắn; vẫn phụ thuộc quota tài khoản |
 | **Tập Test Benchmark** | 30 câu chưa phân cấp | 180 câu phân tầng rõ ràng 4 cấp độ phức tạp |
 | **Trạng thái Database** | Từng bị dừng container | PostgreSQL Docker (`mimic-postgres`) đang chạy ổn định |
 

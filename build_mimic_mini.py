@@ -4,29 +4,155 @@ Tạo subset ~500 bệnh nhân với toàn bộ 31 bảng (22 hosp + 9 icu).
 Chạy một lần duy nhất để khởi tạo database.
 """
 
+import json
+import os
+import random
+import re
 import sys
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import Date, DateTime, create_engine, text
+from sqlglot import exp, parse_one
+
+from config import EXAMPLES_FILE, MIMIC_DATA_DIR, TEST_FILE, database_url
 
 # Đảm bảo stdout dùng UTF-8 trên mọi terminal Windows
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-DB_USER = "postgres"
-DB_PASS = "password123"
-DB_HOST = "localhost"
-DB_PORT = "5432"
-DB_NAME = "mimiciv"
-DATA_DIR = "D:/Github/text_to_SQL/mimic-iv-3.1/hosp"
+DATA_DIR = MIMIC_DATA_DIR / "hosp"
+ICU_DIR = MIMIC_DATA_DIR / "icu"
 
-N_PATIENTS = 500
-RANDOM_STATE = 42
-CHUNK_SIZE = 200_000
+N_PATIENTS = int(os.getenv("N_PATIENTS", "500"))
+RANDOM_STATE = int(os.getenv("RANDOM_STATE", "42"))
+CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "200000"))
 
-engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
+engine = create_engine(database_url(loader=True), pool_pre_ping=True, connect_args={"connect_timeout": 5})
+
+DATE_COLUMNS = {
+    "patients": {"dod"},
+    "procedures_icd": {"chartdate"},
+    "microbiologyevents": {"chartdate", "storedate"},
+    "hcpcsevents": {"chartdate"},
+    "omr": {"chartdate"},
+}
+TIMESTAMP_COLUMNS = {
+    "admissions": {"admittime", "dischtime", "deathtime", "edregtime", "edouttime"},
+    "transfers": {"intime", "outtime"},
+    "services": {"transfertime"},
+    "labevents": {"charttime", "storetime"},
+    "prescriptions": {"starttime", "stoptime"},
+    "microbiologyevents": {"charttime", "storetime"},
+    "pharmacy": {"starttime", "stoptime", "entertime", "verifiedtime", "expirationdate"},
+    "poe": {"ordertime"},
+    "emar": {"charttime", "scheduletime", "storetime"},
+    "icustays": {"intime", "outtime"},
+    "chartevents": {"charttime", "storetime"},
+    "inputevents": {"starttime", "endtime", "storetime"},
+    "outputevents": {"charttime", "storetime"},
+    "datetimeevents": {"charttime", "storetime", "value"},
+    "procedureevents": {"starttime", "endtime", "storetime"},
+    "ingredientevents": {"starttime", "endtime", "storetime"},
+}
+
+
+def _concat_or_empty(chunks: list[pd.DataFrame], source_path) -> pd.DataFrame:
+    if chunks:
+        return pd.concat(chunks, ignore_index=True)
+    return pd.read_csv(source_path, compression="gzip", nrows=0)
+
+
+def _priority_icd_patterns() -> tuple[set[str], set[str]]:
+    """Extract ICD literals used by examples/tests for coverage-aware sampling."""
+    sql_texts = []
+    for path, field in ((TEST_FILE, "gold_sql"), (EXAMPLES_FILE, "sql")):
+        with path.open(encoding="utf-8") as handle:
+            sql_texts.extend(item.get(field, "") for item in json.load(handle))
+    exact: set[str] = set()
+    prefixes: set[str] = set()
+    for sql in sql_texts:
+        tree = parse_one(sql, read="postgres")
+        for comparison in tree.find_all(exp.EQ):
+            pairs = ((comparison.this, comparison.expression), (comparison.expression, comparison.this))
+            for column, literal in pairs:
+                if isinstance(column, exp.Column) and column.name.lower() == "icd_code" and isinstance(literal, exp.Literal):
+                    exact.add(str(literal.this))
+        for predicate in tree.find_all(exp.In):
+            if isinstance(predicate.this, exp.Column) and predicate.this.name.lower() == "icd_code":
+                exact.update(
+                    str(value.this) for value in predicate.expressions if isinstance(value, exp.Literal)
+                )
+        for predicate_type in (exp.Like, exp.ILike):
+            for predicate in tree.find_all(predicate_type):
+                if (
+                    isinstance(predicate.this, exp.Column)
+                    and predicate.this.name.lower() == "icd_code"
+                    and isinstance(predicate.expression, exp.Literal)
+                ):
+                    value = str(predicate.expression.this)
+                    if value.endswith("%"):
+                        prefixes.add(value[:-1])
+    return exact, prefixes
+
+
+def _sample_subject_ids(
+    patients: pd.DataFrame,
+    diagnoses: pd.DataFrame,
+    icu_stays: pd.DataFrame,
+) -> set[int]:
+    """Sample reproducibly while retaining coverage for benchmark ICDs and ICU."""
+    rng = random.Random(RANDOM_STATE)
+    available = set(patients["subject_id"].astype(int))
+    selected: set[int] = set()
+    exact_codes, prefixes = _priority_icd_patterns()
+
+    normalized_codes = diagnoses["icd_code"].astype(str).str.upper().str.replace(".", "", regex=False)
+    for code in sorted(exact_codes):
+        normalized = code.upper().replace(".", "")
+        candidates = diagnoses.loc[normalized_codes == normalized, "subject_id"].dropna().astype(int).unique().tolist()
+        rng.shuffle(candidates)
+        selected.update(candidates[:5])
+    for prefix in sorted(prefixes):
+        normalized = prefix.upper().replace(".", "")
+        candidates = diagnoses.loc[normalized_codes.str.startswith(normalized), "subject_id"].dropna().astype(int).unique().tolist()
+        rng.shuffle(candidates)
+        selected.update(candidates[:5])
+
+    icu_candidates = icu_stays["subject_id"].dropna().astype(int).unique().tolist()
+    rng.shuffle(icu_candidates)
+    selected.update(icu_candidates[: min(100, max(20, N_PATIENTS // 5))])
+    selected &= available
+
+    if len(selected) > N_PATIENTS:
+        selected = set(rng.sample(sorted(selected), N_PATIENTS))
+    remaining = sorted(available - selected)
+    selected.update(rng.sample(remaining, N_PATIENTS - len(selected)))
+    return selected
 
 
 def load_table(df, table_name):
-    df.to_sql(table_name, engine, if_exists="replace", index=False)
+    """Load one table through a staging table, preserving real date/time types."""
+    if not re.fullmatch(r"[a-z_][a-z0-9_]*", table_name):
+        raise ValueError(f"Unsafe table name: {table_name}")
+    if len(df.columns) == 0:
+        raise ValueError(f"Cannot create {table_name}: source columns were not detected")
+
+    # Callers often pass a filtered DataFrame view. Work on an owned copy so
+    # date conversion is deterministic and does not trigger chained-assignment
+    # warnings during long-running imports.
+    df = df.copy()
+
+    dtype = {}
+    for column in DATE_COLUMNS.get(table_name, set()) & set(df.columns):
+        df[column] = pd.to_datetime(df[column], errors="coerce")
+        dtype[column] = Date()
+    for column in TIMESTAMP_COLUMNS.get(table_name, set()) & set(df.columns):
+        df[column] = pd.to_datetime(df[column], errors="coerce")
+        dtype[column] = DateTime()
+
+    staging = f"_loading_{table_name}"
+    df.to_sql(staging, engine, if_exists="replace", index=False, dtype=dtype, chunksize=10_000)
+    with engine.begin() as conn:
+        conn.execute(text(f'DROP TABLE IF EXISTS "{table_name}"'))
+        conn.execute(text(f'ALTER TABLE "{staging}" RENAME TO "{table_name}"'))
     print(f"  [OK] {table_name}: {len(df):,} rows")
 
 
@@ -42,8 +168,14 @@ def build_mimic_mini():
     # ── BẢNG 1: PATIENTS ──────────────────────────────────────
     print("\n[1/31] patients ...")
     df_patients = pd.read_csv(f"{DATA_DIR}/patients.csv.gz", compression="gzip")
-    df_patients_mini = df_patients.sample(n=N_PATIENTS, random_state=RANDOM_STATE)
-    subject_ids = set(df_patients_mini["subject_id"].tolist())
+    if N_PATIENTS > len(df_patients):
+        raise ValueError(f"N_PATIENTS={N_PATIENTS} exceeds source size {len(df_patients)}")
+    # Load the two small index tables first so the subset contains benchmark
+    # disease codes and a useful ICU cohort instead of being purely random.
+    df_diag = pd.read_csv(f"{DATA_DIR}/diagnoses_icd.csv.gz", compression="gzip")
+    df_icu = pd.read_csv(f"{ICU_DIR}/icustays.csv.gz", compression="gzip")
+    subject_ids = _sample_subject_ids(df_patients, df_diag, df_icu)
+    df_patients_mini = df_patients[df_patients["subject_id"].isin(subject_ids)].copy()
     load_table(df_patients_mini, "patients")
 
     # ── BẢNG 2: ADMISSIONS ────────────────────────────────────
@@ -51,11 +183,9 @@ def build_mimic_mini():
     df_adm = pd.read_csv(f"{DATA_DIR}/admissions.csv.gz", compression="gzip")
     df_adm_mini = df_adm[df_adm["subject_id"].isin(subject_ids)]
     load_table(df_adm_mini, "admissions")
-    hadm_ids = set(df_adm_mini["hadm_id"].tolist())
 
     # ── BẢNG 3: DIAGNOSES_ICD ─────────────────────────────────
     print("\n[3/31] diagnoses_icd ...")
-    df_diag = pd.read_csv(f"{DATA_DIR}/diagnoses_icd.csv.gz", compression="gzip")
     df_diag_mini = df_diag[df_diag["subject_id"].isin(subject_ids)]
     load_table(df_diag_mini, "diagnoses_icd")
 
@@ -94,9 +224,6 @@ def build_mimic_mini():
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
     df_lab_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame(columns=LAB_COLS)
-    if not df_lab_mini.empty:
-        top_itemids = df_lab_mini["itemid"].value_counts().head(50).index
-        df_lab_mini = df_lab_mini[df_lab_mini["itemid"].isin(top_itemids)]
     print()
     load_table(df_lab_mini, "labevents")
 
@@ -118,7 +245,7 @@ def build_mimic_mini():
         if not filtered.empty:
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
-    df_rx_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame()
+    df_rx_mini = _concat_or_empty(chunks_kept, DATA_DIR / "prescriptions.csv.gz")
     print()
     load_table(df_rx_mini, "prescriptions")
 
@@ -176,7 +303,7 @@ def build_mimic_mini():
         if not filtered.empty:
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
-    df_pha_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame()
+    df_pha_mini = _concat_or_empty(chunks_kept, DATA_DIR / "pharmacy.csv.gz")
     print()
     load_table(df_pha_mini, "pharmacy")
 
@@ -193,7 +320,7 @@ def build_mimic_mini():
         if not filtered.empty:
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
-    df_poe_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame()
+    df_poe_mini = _concat_or_empty(chunks_kept, DATA_DIR / "poe.csv.gz")
     print()
     load_table(df_poe_mini, "poe")
 
@@ -216,7 +343,7 @@ def build_mimic_mini():
         if not filtered.empty:
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
-    df_emar_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame()
+    df_emar_mini = _concat_or_empty(chunks_kept, DATA_DIR / "emar.csv.gz")
     print()
     load_table(df_emar_mini, "emar")
 
@@ -240,7 +367,7 @@ def build_mimic_mini():
         if not filtered.empty:
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
-    df_emar_d_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame()
+    df_emar_d_mini = _concat_or_empty(chunks_kept, DATA_DIR / "emar_detail.csv.gz")
     print()
     load_table(df_emar_d_mini, "emar_detail")
 
@@ -252,14 +379,10 @@ def build_mimic_mini():
     # ══════════════════════════════════════════════════════════
     # ICU MODULE — 9 bảng
     # ══════════════════════════════════════════════════════════
-    ICU_DIR = DATA_DIR.replace("/hosp", "/icu")
-
     # ── BẢNG 23: ICUSTAYS ────────────────────────────────────
     print("\n[23/31] icustays ...")
-    df_icu = pd.read_csv(f"{ICU_DIR}/icustays.csv.gz", compression="gzip")
     df_icu_mini = df_icu[df_icu["subject_id"].isin(subject_ids)]
     load_table(df_icu_mini, "icustays")
-    stay_ids = set(df_icu_mini["stay_id"].tolist())
 
     # ── BẢNG 24: D_ITEMS (từ điển ICU - toàn bộ) ─────────────
     print("\n[24/31] d_items ...")
@@ -267,7 +390,7 @@ def build_mimic_mini():
     load_table(df_d_items, "d_items")
 
     # ── BẢNG 25: CHARTEVENTS (chunk-read do ~3.5GB, rất lớn) ─
-    print("\n[25/31] chartevents (chunk-read, lọc subject_id + top 50 itemid) ...")
+    print("\n[25/31] chartevents (chunk-read, lọc subject_id) ...")
     chunks_kept = []
     total_read = 0
     for chunk in pd.read_csv(
@@ -279,11 +402,7 @@ def build_mimic_mini():
         if not filtered.empty:
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
-    df_chart_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame()
-    # Giữ top 50 itemid phổ biến nhất (vital signs chính) để tránh bảng quá lớn
-    if not df_chart_mini.empty:
-        top_chart_itemids = df_chart_mini["itemid"].value_counts().head(50).index
-        df_chart_mini = df_chart_mini[df_chart_mini["itemid"].isin(top_chart_itemids)]
+    df_chart_mini = _concat_or_empty(chunks_kept, ICU_DIR / "chartevents.csv.gz")
     print()
     load_table(df_chart_mini, "chartevents")
 
@@ -300,7 +419,7 @@ def build_mimic_mini():
         if not filtered.empty:
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
-    df_input_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame()
+    df_input_mini = _concat_or_empty(chunks_kept, ICU_DIR / "inputevents.csv.gz")
     print()
     load_table(df_input_mini, "inputevents")
 
@@ -335,7 +454,7 @@ def build_mimic_mini():
         if not filtered.empty:
             chunks_kept.append(filtered)
         print(f"  Đọc {total_read:,} dòng | Giữ {sum(len(c) for c in chunks_kept):,}", end="\r")
-    df_ing_mini = pd.concat(chunks_kept, ignore_index=True) if chunks_kept else pd.DataFrame()
+    df_ing_mini = _concat_or_empty(chunks_kept, ICU_DIR / "ingredientevents.csv.gz")
     print()
     load_table(df_ing_mini, "ingredientevents")
 
@@ -380,6 +499,26 @@ def build_mimic_mini():
         conn.commit()
     print("  [OK] Indexes created.")
 
+    runtime_user = database_url().username
+    loader_user = database_url(loader=True).username
+    if runtime_user and runtime_user != loader_user:
+        with engine.begin() as conn:
+            role_exists = conn.execute(
+                text("SELECT 1 FROM pg_roles WHERE rolname = :role"),
+                {"role": runtime_user},
+            ).scalar()
+            if role_exists:
+                quoted_role = conn.dialect.identifier_preparer.quote(runtime_user)
+                conn.execute(text(f"GRANT USAGE ON SCHEMA public TO {quoted_role}"))
+                conn.execute(text(f"GRANT SELECT ON ALL TABLES IN SCHEMA public TO {quoted_role}"))
+                conn.execute(text(f"ALTER ROLE {quoted_role} SET default_transaction_read_only = on"))
+                print(f"  [OK] Read-only grants refreshed for {runtime_user}.")
+            else:
+                print(
+                    f"  [WARN] Runtime role '{runtime_user}' does not exist; "
+                    "create it before starting the app."
+                )
+
     print("\n" + "=" * 60)
     print("  DONE! All 31 tables loaded. Database ready.")
     print("=" * 60)
@@ -387,4 +526,3 @@ def build_mimic_mini():
 
 if __name__ == "__main__":
     build_mimic_mini()
-

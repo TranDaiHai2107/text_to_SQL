@@ -201,36 +201,23 @@ Khi bệnh nhân rơi vào tình trạng nguy kịch chuyển vào phòng ICU, t
 
 ---
 
-## 6. Các Bài báo Khoa học Đã Làm Gì trên Dữ liệu MIMIC? (Literature Review)
+## 6. Hướng nghiên cứu liên quan
 
-Cơ sở dữ liệu MIMIC là dữ liệu nền tảng cho hàng nghìn công trình nghiên cứu y sinh và trí tuệ nhân tạo trên thế giới. Dưới đây là phân loại các hướng nghiên cứu lớn nhất:
+MIMIC được dùng rộng rãi cho dự đoán lâm sàng, clinical NLP và hỏi đáp trên EHR. Khi viết luận văn cần tách rõ các bài toán và kiểm tra lại thông tin từ bài báo gốc; các hệ thống cùng dùng SQL hoặc RAG chưa chắc là đối chứng trực tiếp cho MIMIC-IV Text-to-SQL.
 
-```
-                            CÁC HƯỚNG NGHIÊN CỨU TRÊN MIMIC
-                                           │
-         ┌─────────────────────────────────┼─────────────────────────────────┐
-         │                                 │                                 │
-[Clinical Text-to-SQL & QA]     [Machine Learning Lâm sàng]       [Clinical NLP & LLM]
- - EHRSQL (NeurIPS/NAACL)        - Dự đoán tử vong (Mortality)     - Gán mã ICD tự động (CAML)
- - BiomedSQL                     - Dự đoán thời gian nằm (LOS)     - Trích xuất thông tin bệnh án
- - SMART-SLIC (2025)             - Dự đoán Sepsis-3 & SOFA         - Sinh tóm tắt xuất viện
- - ViText2SQL Clinical (Đồ án)   - Dự đoán tái nhập viện 30 ngày   - Mô hình Clinical-BERT
-```
+### 6.1. Clinical Text-to-SQL và hỏi đáp EHR
 
-### 6.1. Nhánh Clinical Text-to-SQL & Hỏi đáp Y tế (Sát nhất với Đề tài)
+1. **EHRSQL: A Practical Text-to-SQL Benchmark on Electronic Health Records (2022)**
+   - Benchmark gốc dùng MIMIC-III và eICU, không phải MIMIC-IV.
+   - Đóng góp quan trọng gồm Execution Accuracy và câu hỏi không thể trả lời. Đây là đối chứng phù hợp về bài toán EHR Text-to-SQL, nhưng khác schema và ngôn ngữ với dự án này.
 
-Các bài báo hướng này chuyển đổi câu hỏi ngôn ngữ tự nhiên thành câu lệnh SQL truy vấn trực tiếp kho dữ liệu hồ sơ bệnh án điện tử (EHR):
+2. **Các hệ thống MIMIC-IV gần đây như M3**
+   - Có thể dùng làm nhóm đối chứng gần hơn về phiên bản dữ liệu. Cần ghi đúng tên, năm, bộ dữ liệu và protocol đánh giá sau khi kiểm tra bài báo gốc.
 
-1. **EHRSQL: A Practical Text-to-SQL Benchmark on Electronic Health Records (KAIST — NeurIPS 2022 / NAACL 2024)**
-   - *Tác giả:* Gyubok Lee, Hyeonji Hwang, Baehoon Choi, Edward Choi.
-   - *Họ đã làm gì:* Xây dựng benchmark chuẩn mực đầu tiên thế giới trên MIMIC-III và MIMIC-IV với sự tham gia của 222 y bác sĩ. Đưa ra chuẩn đánh giá độ chính xác thực thi (*Execution Accuracy - EX*) và cơ chế từ chối câu hỏi không thể trả lời (*Unanswerable Questions*).
-   - *Hạn chế:* **Chỉ giải bài toán tiếng Anh đơn ngữ**, chưa hỗ trợ giải thích ngược kết quả cho bác sĩ (SQL-to-Text) và chưa xử lý hội thoại đa lượt tỉnh lược phức tạp.
+3. **BiomedSQL**
+   - Thuộc hướng truy vấn cơ sở tri thức y sinh/BigQuery, không phải benchmark EHR trên MIMIC-IV. Chỉ nên dùng như tài liệu liên quan rộng, không mô tả như hệ thống trực tiếp cùng bài toán.
 
-2. **SMART-SLIC & M3-SQL: Multi-task Clinical Text-to-SQL (2024 - 2025)**
-   - *Họ đã làm gì:* Xây dựng màng lọc RAG vector để chọn lọc động schema và từ điển ICD đưa vào prompt của LLM, giúp mô hình không bị quá tải ngữ cảnh và giảm 70% lỗi bịa tên cột/tên bảng (hallucination).
-
-3. **BiomedSQL & Gen-SQL (MIT / Stanford)**
-   - *Họ đã làm gì:* Nghiên cứu việc sinh SQL có kiểm soát an toàn (chỉ sinh lệnh `SELECT`, cấm tuyệt đối các thao tác thay đổi dữ liệu `UPDATE`/`DROP`) trên dữ liệu sinh học bệnh án.
+`SMART-SLIC` không phải hệ thống clinical Text-to-SQL trên MIMIC và đã được bỏ khỏi nhóm đối chứng trực tiếp. Mọi tuyên bố như “đầu tiên”, phần trăm giảm hallucination hoặc “chưa từng có” cần có systematic review và kết quả thực nghiệm hỗ trợ.
 
 ---
 

@@ -4,6 +4,7 @@ Các câu hỏi phủ kín 31 bảng trong MIMIC-IV và đa dạng độ khó (e
 """
 
 import json
+from config import TEST_FILE
 import sys
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -516,7 +517,7 @@ NEW_QUESTIONS = [
 
 
 def expand_dataset():
-    with open("test_dataset.json", "r", encoding="utf-8") as f:
+    with TEST_FILE.open("r", encoding="utf-8") as f:
         existing = json.load(f)
     
     print(f"Số lượng câu hỏi hiện tại: {len(existing)}")
@@ -529,7 +530,7 @@ def expand_dataset():
             existing.append(q)
             added_count += 1
             
-    with open("test_dataset.json", "w", encoding="utf-8") as f:
+    with TEST_FILE.open("w", encoding="utf-8") as f:
         json.dump(existing, f, ensure_ascii=False, indent=2)
         
     print(f"Đã thêm mới {added_count} câu hỏi. Tổng số câu hỏi trong test_dataset.json hiện tại: {len(existing)}")

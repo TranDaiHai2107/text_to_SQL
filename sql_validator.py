@@ -1,437 +1,262 @@
-"""
-Schema-Aware SQL Validator cho MIMIC-IV RAG Engine.
-Xác thực SQL trước khi thực thi để phát hiện và ngăn chặn Hallucination (Ảo giác tên bảng/cột)
-và các lỗi logic phổ biến trong câu lệnh PostgreSQL.
+"""AST-based safety and schema validation for generated MIMIC-IV SQL.
 
-Sử dụng kết hợp:
-  - sqlparse: parse câu SQL thành token tree để trích xuất tên bảng chính xác
-  - regex fallback: xử lý các trường hợp sqlparse không cover được
-  - domain-specific rules: kiểm tra logic JOIN đặc thù MIMIC-IV
+Only one read-only PostgreSQL query is accepted. SQLGlot resolves aliases,
+CTEs and nested queries before columns are checked against ``mimic_schema.json``.
 """
 
-import re
-import sys
-from typing import Dict, List, Tuple, Set
+from __future__ import annotations
 
-try:
-    import sqlparse
-    from sqlparse.sql import IdentifierList, Identifier, Where, Parenthesis
-    from sqlparse.tokens import Keyword, DML, DDL
-    HAS_SQLPARSE = True
-except ImportError:
-    HAS_SQLPARSE = False
+import json
+from pathlib import Path
+from typing import Any
 
-sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+from sqlglot import exp, parse, parse_one
+from sqlglot.errors import ParseError
+from sqlglot.optimizer.qualify import qualify
+from sqlglot.optimizer.scope import build_scope
 
-# Danh sách 31 bảng hợp lệ trong MIMIC-IV (22 hosp + 9 icu)
-VALID_TABLES: Set[str] = {
-    # ── hosp module (22 bảng) ──
-    "patients", "admissions", "transfers", "services", "provider",
-    "diagnoses_icd", "d_icd_diagnoses", "procedures_icd", "d_icd_procedures",
-    "hcpcsevents", "d_hcpcs", "drgcodes",
-    "labevents", "d_labitems", "microbiologyevents",
-    "prescriptions", "pharmacy", "poe", "poe_detail",
-    "emar", "emar_detail", "omr",
-    # ── icu module (9 bảng) ──
-    "icustays", "chartevents", "d_items",
-    "inputevents", "outputevents", "datetimeevents",
-    "procedureevents", "ingredientevents", "caregiver",
-}
 
-# Chi tiết cột của từng bảng để kiểm tra column hallucination
-VALID_COLUMNS: Dict[str, Set[str]] = {
-    # ── hosp module ──
-    "patients": {"subject_id", "gender", "anchor_age", "anchor_year", "anchor_year_group", "dod"},
-    "admissions": {
-        "subject_id", "hadm_id", "admittime", "dischtime", "deathtime",
-        "admission_type", "admit_provider_id", "admission_location", "discharge_location",
-        "insurance", "language", "marital_status", "race",
-        "edregtime", "edouttime", "hospital_expire_flag"
-    },
-    "transfers": {"subject_id", "hadm_id", "transfer_id", "eventtype", "careunit", "intime", "outtime"},
-    "services": {"subject_id", "hadm_id", "transfertime", "prev_service", "curr_service"},
-    "provider": {"provider_id"},
-    "diagnoses_icd": {"subject_id", "hadm_id", "seq_num", "icd_code", "icd_version"},
-    "d_icd_diagnoses": {"icd_code", "icd_version", "long_title"},
-    "procedures_icd": {"subject_id", "hadm_id", "seq_num", "chartdate", "icd_code", "icd_version"},
-    "d_icd_procedures": {"icd_code", "icd_version", "long_title"},
-    "hcpcsevents": {"subject_id", "hadm_id", "chartdate", "hcpcs_cd", "seq_num", "short_description"},
-    "d_hcpcs": {"code", "category", "long_description", "short_description"},
-    "drgcodes": {"subject_id", "hadm_id", "drg_type", "drg_code", "description", "drg_severity", "drg_mortality"},
-    "labevents": {
-        "labevent_id", "subject_id", "hadm_id", "specimen_id", "itemid",
-        "charttime", "storetime", "value", "valuenum", "valueuom",
-        "ref_range_lower", "ref_range_upper", "flag", "priority", "comments"
-    },
-    "d_labitems": {"itemid", "label", "fluid", "category"},
-    "microbiologyevents": {
-        "microevent_id", "subject_id", "hadm_id", "chartdate", "charttime",
-        "spec_itemid", "spec_type_desc", "test_seq", "storedate", "storetime",
-        "org_itemid", "org_name", "isolate_num", "interpretation", "comments"
-    },
-    "prescriptions": {
-        "subject_id", "hadm_id", "pharmacy_id", "poe_id", "poe_seq",
-        "starttime", "stoptime", "drug_type", "drug", "formulary_drug_cd",
-        "gsn", "ndc", "prod_strength", "form_rx", "dose_val_rx",
-        "dose_unit_rx", "form_val_disp", "form_unit_disp", "doses_per_24_hrs", "route"
-    },
-    "pharmacy": {
-        "subject_id", "hadm_id", "pharmacy_id", "poe_id", "starttime", "stoptime",
-        "medication", "proc_type", "status", "entertime", "verifiedtime",
-        "route", "frequency", "disp_sched", "infusion_type", "sliding_scale",
-        "lockout_interval", "basal_rate", "one_hr_max", "doses_per_24_hrs",
-        "duration", "duration_interval", "expiration_value", "expiration_unit",
-        "expirationdate", "dispensation", "fill_quantity"
-    },
-    "poe": {
-        "poe_id", "poe_seq", "subject_id", "hadm_id", "ordertime",
-        "order_type", "order_subtype", "transaction_type",
-        "discontinue_of_poe_id", "discontinued_by_poe_id",
-        "order_provider_id", "order_status"
-    },
-    "poe_detail": {"poe_id", "poe_seq", "subject_id", "field_name", "field_value"},
-    "emar": {
-        "emar_id", "subject_id", "hadm_id", "emar_seq", "poe_id", "pharmacy_id",
-        "enter_provider_id", "charttime", "medication", "event_txt",
-        "scheduletime", "storetime"
-    },
-    "emar_detail": {
-        "emar_id", "emar_seq", "parent_field_ordinal", "administration_type",
-        "pharmacy_id", "barcode_type", "reason_for_no_barcode",
-        "complete_dose_not_given", "dose_due", "dose_due_unit",
-        "dose_given", "dose_given_unit", "will_remainder_of_dose_be_given",
-        "product_amount_given", "product_unit", "product_code",
-        "product_description", "product_description_other",
-        "prior_infusion_rate", "infusion_rate", "infusion_rate_adjustment",
-        "infusion_rate_adjustment_amount", "infusion_rate_unit",
-        "route", "infusion_complete", "completion_interval",
-        "new_iv_bag_hung", "continued_infusion_in_other_location",
-        "restart_interval", "side", "site", "non_formulary_visual_verification"
-    },
-    "omr": {"subject_id", "chartdate", "seq_num", "result_name", "result_value"},
-    # ── icu module ──
-    "icustays": {"subject_id", "hadm_id", "stay_id", "first_careunit", "last_careunit", "intime", "outtime", "los"},
-    "chartevents": {
-        "subject_id", "hadm_id", "stay_id", "caregiver_id",
-        "charttime", "storetime", "itemid", "value", "valuenum", "valueuom", "warning"
-    },
-    "d_items": {
-        "itemid", "label", "abbreviation", "linksto", "category",
-        "unitname", "param_type", "lownormalvalue", "highnormalvalue"
-    },
-    "inputevents": {
-        "subject_id", "hadm_id", "stay_id", "caregiver_id",
-        "starttime", "endtime", "storetime", "itemid",
-        "amount", "amountuom", "rate", "rateuom",
-        "orderid", "linkorderid", "ordercategoryname",
-        "secondaryordercategoryname", "ordercomponenttypedescription",
-        "ordercategorydescription", "patientweight",
-        "totalamount", "totalamountuom", "isopenbag",
-        "continueinnextdept", "statusdescription", "originalamount", "originalrate"
-    },
-    "outputevents": {
-        "subject_id", "hadm_id", "stay_id", "caregiver_id",
-        "charttime", "storetime", "itemid", "value", "valueuom"
-    },
-    "datetimeevents": {
-        "subject_id", "hadm_id", "stay_id", "caregiver_id",
-        "charttime", "storetime", "itemid", "value", "valueuom", "warning"
-    },
-    "procedureevents": {
-        "subject_id", "hadm_id", "stay_id", "caregiver_id",
-        "starttime", "endtime", "storetime", "itemid", "value", "valueuom",
-        "location", "locationcategory", "orderid", "linkorderid",
-        "ordercategoryname", "ordercategorydescription", "patientweight",
-        "isopenbag", "continueinnextdept", "statusdescription",
-        "originalamount", "originalrate"
-    },
-    "ingredientevents": {
-        "subject_id", "hadm_id", "stay_id", "caregiver_id",
-        "starttime", "endtime", "storetime", "itemid",
-        "amount", "amountuom", "rate", "rateuom",
-        "orderid", "linkorderid", "statusdescription",
-        "originalamount", "originalrate"
-    },
-    "caregiver": {"caregiver_id"},
+BASE_DIR = Path(__file__).resolve().parent
+SCHEMA_FILE = BASE_DIR / "mimic_schema.json"
+
+# Functions that can read server files, sleep, make external connections, or
+# mutate server/session state even when invoked from SELECT.
+DENIED_FUNCTIONS = {
+    "dblink",
+    "dblink_connect",
+    "dblink_connect_u",
+    "dblink_disconnect",
+    "dblink_exec",
+    "lo_export",
+    "lo_import",
+    "lo_create",
+    "lo_unlink",
+    "nextval",
+    "pg_advisory_lock",
+    "pg_advisory_lock_shared",
+    "pg_advisory_unlock",
+    "pg_advisory_unlock_all",
+    "pg_advisory_unlock_shared",
+    "pg_cancel_backend",
+    "pg_create_restore_point",
+    "pg_export_snapshot",
+    "pg_ls_archive_statusdir",
+    "pg_ls_dir",
+    "pg_ls_logdir",
+    "pg_ls_waldir",
+    "pg_read_binary_file",
+    "pg_read_file",
+    "pg_reload_conf",
+    "pg_rotate_logfile",
+    "pg_sleep",
+    "pg_stat_file",
+    "pg_switch_wal",
+    "pg_terminate_backend",
+    "pg_try_advisory_lock",
+    "pg_try_advisory_lock_shared",
+    "pg_notify",
+    "set_config",
+    "setval",
 }
 
 
-# Tập hợp tất cả các cột tồn tại trong database để kiểm tra nhanh
-ALL_KNOWN_COLUMNS: Set[str] = set()
-for cols in VALID_COLUMNS.values():
-    ALL_KNOWN_COLUMNS.update(cols)
+def _load_schema() -> dict[str, dict[str, str]]:
+    """Load table/column names from the same DDL documents used by RAG."""
+    with SCHEMA_FILE.open(encoding="utf-8") as handle:
+        records = json.load(handle)
+
+    schema: dict[str, dict[str, str]] = {}
+    for record in records:
+        table_name = str(record["table"]).lower()
+        ddl = record.get("ddl", "")
+        try:
+            statement = parse_one(ddl, read="postgres")
+        except ParseError as exc:
+            raise RuntimeError(f"DDL của bảng {table_name} không parse được: {exc}") from exc
+
+        columns: dict[str, str] = {}
+        for column_def in statement.find_all(exp.ColumnDef):
+            name = column_def.name.lower()
+            kind = column_def.args.get("kind")
+            columns[name] = kind.sql(dialect="postgres") if kind else "UNKNOWN"
+        if not columns:
+            raise RuntimeError(f"Không tìm thấy cột trong DDL của bảng {table_name}")
+        schema[table_name] = columns
+    return schema
 
 
-def extract_table_names(sql: str) -> Set[str]:
-    """
-    Trích xuất danh sách tên bảng được tham chiếu trong câu lệnh SQL.
-    Sử dụng sqlparse để parse token tree; fallback về regex nếu cần.
-    """
-    tables = set()
-    sql_keywords = {"select", "where", "group", "order", "limit", "having",
-                    "as", "on", "using", "left", "right", "inner", "outer",
-                    "cross", "natural", "full", "lateral", "case", "when",
-                    "then", "else", "end", "and", "or", "not", "in", "exists",
-                    "between", "like", "ilike", "is", "null", "true", "false",
-                    "distinct", "all", "any", "some", "union", "intersect", "except"}
-
-    if HAS_SQLPARSE:
-        # Phương pháp 1: Dùng sqlparse token tree
-        parsed = sqlparse.parse(sql)
-        for statement in parsed:
-            _extract_tables_from_parsed(statement, tables, sql_keywords)
-
-    # Phương pháp 2 (fallback/bổ sung): Regex bắt FROM/JOIN + tên bảng
-    cleaned_sql = re.sub(r"'[^']*'", "''", sql)
-    cleaned_sql = re.sub(r"--.*?\n", "\n", cleaned_sql)
-    cleaned_sql = re.sub(r"/\*.*?\*/", "", cleaned_sql, flags=re.DOTALL)
-    matches = re.findall(
-        r"\b(?:FROM|JOIN)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-        cleaned_sql, flags=re.IGNORECASE
-    )
-    for m in matches:
-        tbl = m.lower()
-        if tbl not in sql_keywords:
-            tables.add(tbl)
-
-    return tables
+SCHEMA = _load_schema()
+VALID_TABLES = frozenset(SCHEMA)
+VALID_COLUMNS = {table: frozenset(columns) for table, columns in SCHEMA.items()}
 
 
-def _extract_tables_from_parsed(token_list, tables: set, sql_keywords: set):
-    """Helper: đệ quy duyệt sqlparse token tree để tìm tên bảng."""
-    from_seen = False
-    join_seen = False
-
-    for token in token_list.tokens:
-        if token.ttype is Keyword:
-            upper_val = token.value.upper()
-            if upper_val in ('FROM',):
-                from_seen = True
-                join_seen = False
-            elif 'JOIN' in upper_val:
-                join_seen = True
-                from_seen = False
-            else:
-                from_seen = False
-                join_seen = False
-
-        elif from_seen or join_seen:
-            if isinstance(token, IdentifierList):
-                for identifier in token.get_identifiers():
-                    _add_table_name(identifier, tables, sql_keywords)
-                from_seen = False
-                join_seen = False
-            elif isinstance(token, Identifier):
-                _add_table_name(token, tables, sql_keywords)
-                from_seen = False
-                join_seen = False
-            elif isinstance(token, Parenthesis):
-                # Subquery: đệ quy vào trong
-                _extract_tables_from_parsed(token, tables, sql_keywords)
-                from_seen = False
-                join_seen = False
-
-        # Đệ quy vào subquery và WHERE
-        if isinstance(token, (Where, Parenthesis)):
-            _extract_tables_from_parsed(token, tables, sql_keywords)
+def _function_name(node: exp.Func) -> str:
+    if isinstance(node, exp.Anonymous):
+        return node.name.lower()
+    return node.sql_name().lower()
 
 
-def _add_table_name(identifier, tables: set, sql_keywords: set):
-    """Trích xuất tên bảng từ một Identifier token."""
-    real_name = identifier.get_real_name()
-    if real_name:
-        name_lower = real_name.lower()
-        if name_lower not in sql_keywords:
-            tables.add(name_lower)
+def _column_pair(node: exp.EQ) -> tuple[tuple[str, str], tuple[str, str]] | None:
+    left, right = node.this, node.expression
+    if not isinstance(left, exp.Column) or not isinstance(right, exp.Column):
+        return None
+    return ((left.table.lower(), left.name.lower()), (right.table.lower(), right.name.lower()))
 
 
-def extract_column_candidates(sql: str) -> List[Tuple[str, str]]:
-    """
-    Trích xuất các ứng viên cột trong SQL theo định dạng (table_alias_or_name, column_name)
-    hoặc ("", column_name).
-    """
-    cleaned_sql = re.sub(r"'[^']*'", "''", sql)
-    cleaned_sql = re.sub(r"--.*?\n", "\n", cleaned_sql)
+def _missing_join_key(
+    expression: exp.Expression,
+    left_table: str,
+    right_table: str,
+    column: str,
+) -> bool:
+    """Return True when two present tables are not equi-joined on ``column``."""
+    aliases: dict[str, str] = {}
+    present: set[str] = set()
+    cte_names = {cte.alias_or_name.lower() for cte in expression.find_all(exp.CTE)}
+    for table in expression.find_all(exp.Table):
+        name = table.name.lower()
+        if name in cte_names:
+            continue
+        present.add(name)
+        aliases[table.alias_or_name.lower()] = name
+        aliases[name] = name
 
-    # Tìm mẫu table.column (ví dụ: p.subject_id, patients.anchor_age)
-    qualified = re.findall(r"\b([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\b", cleaned_sql)
-    candidates = []
-    for tbl_or_alias, col in qualified:
-        candidates.append((tbl_or_alias.lower(), col.lower()))
-    
-    return candidates
+    if left_table not in present or right_table not in present:
+        return False
+
+    for equality in expression.find_all(exp.EQ):
+        pair = _column_pair(equality)
+        if not pair:
+            continue
+        (left_alias, left_col), (right_alias, right_col) = pair
+        resolved = {
+            (aliases.get(left_alias, left_alias), left_col),
+            (aliases.get(right_alias, right_alias), right_col),
+        }
+        if resolved == {(left_table, column), (right_table, column)}:
+            return False
+    return True
 
 
-def validate_sql_schema(sql: str) -> Dict:
-    """
-    Kiểm tra tính hợp lệ của câu lệnh SQL đối với Schema MIMIC-IV 31 bảng.
-    
-    Trả về:
-      {
-        "valid": bool,
-        "errors": List[str],    # Lỗi nghiêm trọng (chắc chắn chạy lỗi trên PostgreSQL)
-        "warnings": List[str]   # Cảnh báo logic (JOIN thiếu điều kiện, v.v.)
-      }
-    """
-    errors: List[str] = []
-    warnings: List[str] = []
+def _format_error(exc: Exception) -> str:
+    return str(exc).splitlines()[0]
 
-    sql_lower = sql.lower()
-    tables_used = extract_table_names(sql)
 
-    # 0. Kiểm tra Dangerous SQL (DML/DDL không cho phép)
-    dangerous_keywords = {"insert", "update", "delete", "drop", "alter", "truncate", "create", "grant", "revoke"}
-    if HAS_SQLPARSE:
-        parsed = sqlparse.parse(sql)
-        for statement in parsed:
-            token_types = [token.ttype for token in statement.tokens if token.ttype in (DML, DDL)]
-            if any(token_types):
-                errors.append("LỖI BẢO MẬT: Câu lệnh chứa hành động thay đổi dữ liệu (INSERT/UPDATE/DELETE/DROP). Chỉ cho phép SELECT.")
-                break
-    
-    # Fallback/Additional check bằng regex cho an toàn
-    for keyword in dangerous_keywords:
-        if re.search(rf"\b{keyword}\b", sql_lower):
-            errors.append(f"LỖI BẢO MẬT: Phát hiện từ khóa '{keyword.upper()}'. Chỉ cho phép câu lệnh SELECT.")
+def validate_sql_schema(sql: str) -> dict[str, Any]:
+    """Validate one PostgreSQL SELECT/CTE query against the MIMIC schema."""
+    errors: list[str] = []
+    warnings: list[str] = []
+
+    if not sql or not sql.strip():
+        return {"valid": False, "errors": ["SQL rỗng."], "warnings": []}
+
+    try:
+        statements = [statement for statement in parse(sql, read="postgres") if statement]
+    except ParseError as exc:
+        return {
+            "valid": False,
+            "errors": [f"SQL không đúng cú pháp PostgreSQL: {_format_error(exc)}"],
+            "warnings": [],
+        }
+
+    if len(statements) != 1:
+        return {
+            "valid": False,
+            "errors": ["Chỉ cho phép đúng một câu truy vấn SQL."],
+            "warnings": [],
+        }
+
+    expression = statements[0]
+    if not isinstance(expression, exp.Query):
+        return {
+            "valid": False,
+            "errors": ["Chỉ cho phép truy vấn SELECT hoặc WITH ... SELECT ở chế độ chỉ đọc."],
+            "warnings": [],
+        }
+
+    if expression.find(exp.Into):
+        errors.append("Không cho phép SELECT INTO vì câu lệnh này tạo hoặc ghi bảng.")
+    if expression.find(exp.Lock):
+        errors.append("Không cho phép SELECT ... FOR UPDATE/SHARE vì truy vấn có thể khóa dữ liệu.")
+    for node_type in (exp.Insert, exp.Update, exp.Delete, exp.Merge, exp.Create, exp.Drop, exp.Alter):
+        if expression.find(node_type):
+            errors.append("Truy vấn chứa thao tác thay đổi dữ liệu hoặc cấu trúc.")
             break
 
-    # 1. Kiểm tra Table Hallucination (Ảo giác tên bảng)
-    for tbl in tables_used:
-        if tbl not in VALID_TABLES:
-            errors.append(f"ẢO GIÁC BẢNG (Table Hallucination): Bảng '{tbl}' không tồn tại trong cơ sở dữ liệu MIMIC-IV.")
+    for function in expression.find_all(exp.Func):
+        name = _function_name(function)
+        if name in DENIED_FUNCTIONS:
+            errors.append(f"Không cho phép gọi hàm PostgreSQL '{name}'.")
 
-    # 2. Kiểm tra Column Hallucination cho các truy vấn có table.column rõ ràng
-    # Lưu mapping từ alias -> tên bảng nếu có thể suy luận đơn giản
-    alias_to_table = {}
-    for tbl in tables_used:
-        if tbl in VALID_TABLES:
-            alias_to_table[tbl] = tbl
-            # Phỏng đoán alias phổ biến (hosp module)
-            if tbl == "patients": alias_to_table["p"] = tbl
-            elif tbl == "admissions": alias_to_table["a"] = tbl
-            elif tbl == "diagnoses_icd": alias_to_table["d"] = tbl
-            elif tbl == "d_icd_diagnoses": alias_to_table["di"] = tbl
-            elif tbl == "procedures_icd": alias_to_table["pi"] = tbl
-            elif tbl == "d_icd_procedures": alias_to_table["dip"] = tbl
-            elif tbl == "labevents": alias_to_table["le"] = tbl
-            elif tbl == "d_labitems": alias_to_table["dl"] = tbl
-            elif tbl == "prescriptions": alias_to_table["pr"] = tbl
-            elif tbl == "transfers": alias_to_table["t"] = tbl
-            elif tbl == "services": alias_to_table["s"] = tbl
-            elif tbl == "microbiologyevents": alias_to_table["me"] = tbl
-            elif tbl == "pharmacy": alias_to_table["ph"] = tbl
-            elif tbl == "poe": alias_to_table["po"] = tbl
-            elif tbl == "poe_detail": alias_to_table["pd"] = tbl
-            elif tbl == "emar": alias_to_table["e"] = tbl
-            elif tbl == "emar_detail": alias_to_table["ed"] = tbl
-            elif tbl == "drgcodes": alias_to_table["drg"] = tbl
-            elif tbl == "hcpcsevents": alias_to_table["h"] = tbl
-            elif tbl == "d_hcpcs": alias_to_table["dh"] = tbl
-            elif tbl == "omr": alias_to_table["o"] = tbl
-            # Alias phổ biến cho ICU module
-            elif tbl == "icustays": alias_to_table["icu"] = tbl
-            elif tbl == "chartevents": alias_to_table["ce"] = tbl
-            elif tbl == "d_items": alias_to_table["di"] = tbl  # chú ý: trùng với d_icd_diagnoses nếu cả 2 cùng query
-            elif tbl == "inputevents": alias_to_table["ie"] = tbl
-            elif tbl == "outputevents": alias_to_table["oe"] = tbl
-            elif tbl == "procedureevents": alias_to_table["pe"] = tbl
-            elif tbl == "datetimeevents": alias_to_table["de"] = tbl
-            elif tbl == "ingredientevents": alias_to_table["ig"] = tbl
-
-    col_candidates = extract_column_candidates(sql)
-    for prefix, col in col_candidates:
-        if col in ("count", "avg", "sum", "min", "max", "round", "extract", "epoch", "coalesce", "cast", "date", "timestamp"):
+    cte_names = {cte.alias_or_name.lower() for cte in expression.find_all(exp.CTE)}
+    tables_used: set[str] = set()
+    for table in expression.find_all(exp.Table):
+        name = table.name.lower()
+        if name in cte_names:
             continue
-        if prefix in alias_to_table:
-            real_table = alias_to_table[prefix]
-            if col not in VALID_COLUMNS[real_table]:
-                errors.append(
-                    f"ẢO GIÁC CỘT (Column Hallucination): Cột '{col}' không tồn tại trong bảng '{real_table}'. "
-                    f"Các cột hợp lệ của '{real_table}' bao gồm: {', '.join(sorted(VALID_COLUMNS[real_table]))}."
-                )
-        elif prefix in VALID_TABLES:
-            if col not in VALID_COLUMNS[prefix]:
-                errors.append(
-                    f"ẢO GIÁC CỘT (Column Hallucination): Cột '{col}' không tồn tại trong bảng '{prefix}'."
-                )
+        tables_used.add(name)
+        if table.catalog or (table.db and table.db.lower() != "public"):
+            errors.append(f"Không cho phép truy cập ngoài schema public: '{table.sql()}'.")
+        elif name not in VALID_TABLES:
+            errors.append(f"Bảng '{name}' không tồn tại trong schema MIMIC-IV đã cấu hình.")
 
-    # 3. Kiểm tra các lỗi thường gặp trong MIMIC-IV (Domain-specific Checks)
-    # Lỗi hay gặp 1: Nhầm cột tuổi 'age' thay vì 'anchor_age'
-    if re.search(r"\bage\b", sql_lower) and not re.search(r"\banchor_age\b", sql_lower):
-        if "patients" in tables_used or "p" in sql_lower:
-            errors.append("LỖI CỘT TUỔI: Bảng patients trong MIMIC-IV sử dụng cột 'anchor_age', KHÔNG có cột 'age'.")
+    if not tables_used:
+        errors.append("Truy vấn phải đọc ít nhất một bảng MIMIC-IV.")
 
-    # Lỗi hay gặp 2: JOIN diagnoses_icd và d_icd_diagnoses thiếu icd_version
-    if "diagnoses_icd" in tables_used and "d_icd_diagnoses" in tables_used:
-        if "icd_version" not in sql_lower:
-            warnings.append(
-                "CẢNH BÁO JOIN ICD: Khi JOIN diagnoses_icd với d_icd_diagnoses, cần khớp cả 'icd_code AND icd_version' "
-                "để tránh trùng lặp mã giữa ICD-9 và ICD-10."
+    if not errors:
+        try:
+            qualify(
+                expression.copy(),
+                dialect="postgres",
+                schema=SCHEMA,
+                expand_stars=False,
+                infer_schema=False,
+                validate_qualify_columns=True,
+                quote_identifiers=False,
+                identify=False,
+                allow_partial_qualification=False,
             )
+            build_scope(expression)
+        except Exception as exc:  # Optimizer exception hierarchy varies by SQLGlot version.
+            errors.append(f"Cột hoặc phạm vi truy vấn không hợp lệ: {_format_error(exc)}")
 
-    # Lỗi hay gặp 3: JOIN procedures_icd và d_icd_procedures thiếu icd_version
-    if "procedures_icd" in tables_used and "d_icd_procedures" in tables_used:
-        if "icd_version" not in sql_lower:
-            warnings.append(
-                "CẢNH BÁO JOIN THỦ THUẬT: Khi JOIN procedures_icd với d_icd_procedures, cần khớp cả 'icd_code AND icd_version'."
-            )
-
-    # Lỗi hay gặp 4: JOIN emar + emar_detail thiếu emar_seq
-    if "emar" in tables_used and "emar_detail" in tables_used:
-        if "emar_seq" not in sql_lower:
-            warnings.append(
-                "CẢNH BÁO JOIN eMAR: Khi JOIN emar với emar_detail, cần khớp cả 'emar_id AND emar_seq' để tránh trùng bản ghi."
-            )
-
-    # Lỗi hay gặp 5: JOIN chartevents/inputevents/outputevents với d_items phải qua itemid
-    icu_event_tables = {"chartevents", "inputevents", "outputevents", "datetimeevents",
-                        "procedureevents", "ingredientevents"}
-    if "d_items" in tables_used and icu_event_tables & tables_used:
-        if "itemid" not in sql_lower:
-            warnings.append(
-                "CẢNH BÁO JOIN ICU: Khi JOIN bảng events ICU với d_items, phải dùng 'ON events.itemid = d_items.itemid'."
-            )
-
-    # Lỗi hay gặp 6: Dùng 'los' không đúng bảng (chỉ icustays mới có cột los)
-    if re.search(r'\blos\b', sql_lower) and "icustays" not in tables_used:
-        if not re.search(r'\bextract\b', sql_lower):  # nếu tính LOS bằng EXTRACT thì OK
-            warnings.append(
-                "CẢNH BÁO CỘT LOS: Cột 'los' chỉ tồn tại trong bảng 'icustays'. "
-                "Bảng 'admissions' không có cột los, cần tính bằng EXTRACT(EPOCH FROM (dischtime - admittime))/86400."
+    required_join_keys = (
+        ("diagnoses_icd", "d_icd_diagnoses", "icd_code"),
+        ("diagnoses_icd", "d_icd_diagnoses", "icd_version"),
+        ("procedures_icd", "d_icd_procedures", "icd_code"),
+        ("procedures_icd", "d_icd_procedures", "icd_version"),
+        ("emar", "emar_detail", "emar_id"),
+        ("emar", "emar_detail", "emar_seq"),
+    )
+    for left_table, right_table, column in required_join_keys:
+        if _missing_join_key(expression, left_table, right_table, column):
+            errors.append(
+                f"JOIN {left_table} với {right_table} phải khớp thêm cột '{column}'."
             )
 
     return {
-        "valid": len(errors) == 0,
-        "errors": errors,
-        "warnings": warnings
+        "valid": not errors,
+        "errors": list(dict.fromkeys(errors)),
+        "warnings": warnings,
+        "tables": sorted(tables_used),
     }
 
 
-def get_validator_prompt_hint(validation_result: Dict) -> str:
-    """
-    Tạo thông báo lỗi chi tiết để gửi cho LLM tự sửa lỗi (Self-Correction) nếu SQL bị invalid schema.
-    """
-    if validation_result["valid"]:
+def get_validator_prompt_hint(validation_result: dict[str, Any]) -> str:
+    """Turn validator failures into concise feedback for SQL self-correction."""
+    if validation_result.get("valid"):
         return ""
-    
-    msg = "SQL vừa tạo mắc lỗi nghiêm trọng về cấu trúc Schema:\n"
-    for err in validation_result["errors"]:
-        msg += f"- {err}\n"
-    if validation_result["warnings"]:
-        for w in validation_result["warnings"]:
-            msg += f"- {w}\n"
-    msg += "\nHãy viết lại câu SQL chỉnh sửa các lỗi trên. CHỈ sử dụng đúng các bảng và cột có trong Schema đã cung cấp."
-    return msg
+    errors = validation_result.get("errors", [])
+    return "SQL chưa hợp lệ:\n" + "\n".join(f"- {error}" for error in errors)
 
 
 if __name__ == "__main__":
-    # Test nhanh validator
-    test_sqls = [
-        "SELECT * FROM patients WHERE age > 60;", # Lỗi age
-        "SELECT * FROM vital_signs WHERE heart_rate > 100;", # Lỗi bảng vital_signs
-        "SELECT p.subject_id, p.anchor_age, d.icd_code FROM patients p JOIN diagnoses_icd d ON p.subject_id = d.subject_id WHERE d.icd_code = 'J189';" # Valid
+    samples = [
+        "SELECT COUNT(*) FROM patients",
+        "WITH older AS (SELECT subject_id FROM patients WHERE anchor_age > 65) SELECT COUNT(*) FROM older",
+        "SELECT p.nonexistent FROM patients p",
+        "SELECT pg_read_file('/etc/passwd') FROM patients LIMIT 1",
     ]
-    for sql in test_sqls:
-        res = validate_sql_schema(sql)
-        print(f"\nSQL: {sql}")
-        print(f"Valid: {res['valid']} | Errors: {res['errors']}")
+    for sample in samples:
+        print(sample)
+        print(validate_sql_schema(sample))

@@ -2,10 +2,11 @@ import json
 import time
 from rag_engine import rewrite_question
 import sys
+from config import BASE_DIR
 sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 
 def run_multiturn_tests():
-    with open("test_multiturn.json", encoding="utf-8") as f:
+    with (BASE_DIR / "test_multiturn.json").open(encoding="utf-8") as f:
         tests = json.load(f)
     
     print("="*60)

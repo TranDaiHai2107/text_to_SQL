@@ -1,186 +1,288 @@
-"""
-Xây dựng Vector Database (ChromaDB) với 3 collections:
-  1. icd_dictionary   – từ điển mã ICD chẩn đoán (tra cứu bệnh → mã ICD)
-  2. schema_dictionary – DDL + mô tả 31 bảng MIMIC-IV (tra cứu bảng liên quan)
-  3. sql_examples     – 101 cặp (câu hỏi tiếng Việt, SQL gold) (few-shot retrieval)
+"""Build verified Chroma collections for the MIMIC-IV RAG pipeline."""
 
-Chạy một lần sau khi đã chạy build_mimic_mini.py.
-"""
+from __future__ import annotations
 
-import sys
-import os
+import argparse
+import hashlib
 import json
-import pandas as pd
+import sys
+import uuid
+from collections import Counter
+from collections.abc import Callable
+from pathlib import Path
+
 import chromadb
+import pandas as pd
 from sqlalchemy import create_engine
-from embedding_config import get_embedding_function
-from dotenv import load_dotenv
+from sqlglot import parse_one
+
+from config import CHROMA_DIR, EXAMPLES_FILE, MIMIC_DATA_DIR, SCHEMA_FILE, TEST_FILE, database_url
+from embedding_config import DEFAULT_EMBEDDING_MODEL, get_embedding_function
+
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+client = chromadb.PersistentClient(path=str(CHROMA_DIR))
+engine = create_engine(database_url(), pool_pre_ping=True, connect_args={"connect_timeout": 5})
 
-load_dotenv()
+COLLECTIONS = ("icd_dictionary", "schema_dictionary", "sql_examples", "sql_examples_eval")
 
-DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASS = os.getenv("DB_PASS", "password123")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_PORT = os.getenv("DB_PORT", "5432")
-DB_NAME = os.getenv("DB_NAME", "mimiciv")
+ICD_VI_SYNONYMS = {
+    ("486", 9): "viêm phổi pneumonia",
+    ("J189", 10): "viêm phổi pneumonia",
+    ("4280", 9): "suy tim heart failure",
+    ("I509", 10): "suy tim heart failure",
+    ("25000", 9): "đái tháo đường tiểu đường type 2 diabetes",
+    ("E119", 10): "đái tháo đường tiểu đường type 2 diabetes",
+    ("4011", 9): "tăng huyết áp cao huyết áp hypertension",
+    ("I10", 10): "tăng huyết áp cao huyết áp hypertension",
+    ("0389", 9): "nhiễm khuẩn huyết sepsis",
+    ("A419", 10): "nhiễm khuẩn huyết sepsis",
+    ("43491", 9): "đột quỵ nhồi máu não stroke",
+    ("I639", 10): "đột quỵ nhồi máu não stroke",
+    ("5849", 9): "suy thận cấp acute kidney injury",
+    ("N179", 10): "suy thận cấp acute kidney injury",
+    ("496", 9): "bệnh phổi tắc nghẽn mạn tính COPD",
+    ("J449", 10): "bệnh phổi tắc nghẽn mạn tính COPD",
+}
 
-engine = create_engine(f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}")
-chroma_client = chromadb.PersistentClient(path="./mimic_chroma_db")
+
+def _source_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()[:16]
 
 
-# ══════════════════════════════════════════════════════
-# COLLECTION 1: ICD DICTIONARY
-# ══════════════════════════════════════════════════════
-def build_icd_collection():
-    print("\n[1/3] Building icd_dictionary ...")
+def _file_signature(path: Path) -> str:
+    stat = path.stat()
+    return f"{path.name}:{stat.st_size}:{stat.st_mtime_ns}"
 
-    # Xóa collection cũ nếu tồn tại để rebuild từ đầu
+
+def _canonical_sql(sql: str) -> str:
+    return parse_one(sql, read="postgres").sql(
+        dialect="postgres",
+        pretty=False,
+        normalize=True,
+    )
+
+
+def _delete_if_exists(name: str) -> None:
     try:
-        chroma_client.delete_collection("icd_dictionary")
+        client.delete_collection(name)
     except Exception:
         pass
 
-    collection = chroma_client.create_collection(
-        name="icd_dictionary",
-        metadata={"hnsw:space": "cosine"},
+
+def _atomic_build(
+    name: str,
+    expected_count: int,
+    source_hash: str,
+    populate: Callable,
+) -> None:
+    """Populate a temporary collection and swap it in only after validation."""
+    temp_name = f"tmp_{name}_{uuid.uuid4().hex[:8]}"
+    collection = client.create_collection(
+        name=temp_name,
+        metadata={
+            "hnsw:space": "cosine",
+            "embedding_model": DEFAULT_EMBEDDING_MODEL,
+            "expected_count": expected_count,
+            "source_hash": source_hash,
+        },
         embedding_function=get_embedding_function(),
     )
+    try:
+        populate(collection)
+        actual = collection.count()
+        if actual != expected_count:
+            raise RuntimeError(f"{name}: expected {expected_count} records, built {actual}")
+        _delete_if_exists(name)
+        collection.modify(name=name)
+    except Exception:
+        _delete_if_exists(temp_name)
+        raise
+    print(f"  [OK] {name}: {expected_count} records")
 
-    df_icd = pd.read_sql(
-        "SELECT icd_code, icd_version, long_title FROM d_icd_diagnoses WHERE long_title IS NOT NULL",
-        engine,
+
+def _load_icd_from_csv() -> tuple[pd.DataFrame, str]:
+    diagnoses_path = MIMIC_DATA_DIR / "hosp" / "diagnoses_icd.csv.gz"
+    dictionary_path = MIMIC_DATA_DIR / "hosp" / "d_icd_diagnoses.csv.gz"
+    counts: Counter = Counter()
+    for chunk in pd.read_csv(
+        diagnoses_path,
+        compression="gzip",
+        usecols=["icd_code", "icd_version"],
+        chunksize=500_000,
+        dtype={"icd_code": str, "icd_version": int},
+    ):
+        counts.update(zip(chunk["icd_code"], chunk["icd_version"]))
+    usage = pd.DataFrame(
+        [(code, version, count) for (code, version), count in counts.items()],
+        columns=["icd_code", "icd_version", "use_count"],
     )
+    dictionary = pd.read_csv(
+        dictionary_path,
+        compression="gzip",
+        usecols=["icd_code", "icd_version", "long_title"],
+        dtype={"icd_code": str, "icd_version": int},
+    )
+    frame = usage.merge(dictionary, on=["icd_code", "icd_version"], how="inner")
+    frame = frame.dropna(subset=["long_title"]).sort_values(
+        ["use_count", "icd_version", "icd_code"],
+        ascending=[False, False, True],
+    )
+    signature = hashlib.sha256(
+        f"{_file_signature(diagnoses_path)}:{_file_signature(dictionary_path)}".encode()
+    ).hexdigest()[:16]
+    return frame, signature
 
-    # Tối đa 10 000 mã để tránh quá nặng; ưu tiên mã ICD-10 vì mới hơn
-    df_icd10 = df_icd[df_icd["icd_version"] == 10].head(6000)
-    df_icd9  = df_icd[df_icd["icd_version"] == 9].head(4000)
-    df_icd = pd.concat([df_icd10, df_icd9], ignore_index=True)
 
-    batch_size = 500
-    total = len(df_icd)
-    for start in range(0, total, batch_size):
-        chunk = df_icd.iloc[start : start + batch_size]
+def build_icd_collection(source: str = "database") -> None:
+    print("\nBuilding icd_dictionary...")
+    sql = """
+        SELECT d.icd_code, d.icd_version, d.long_title, COUNT(*) AS use_count
+        FROM diagnoses_icd x
+        JOIN d_icd_diagnoses d
+          ON x.icd_code = d.icd_code AND x.icd_version = d.icd_version
+        WHERE d.long_title IS NOT NULL
+        GROUP BY d.icd_code, d.icd_version, d.long_title
+        ORDER BY COUNT(*) DESC, d.icd_version DESC, d.icd_code
+    """
+    if source == "csv":
+        frame, db_signature = _load_icd_from_csv()
+    else:
+        frame = pd.read_sql(sql, engine)
+        db_signature = hashlib.sha256(
+            "\n".join(
+                f"{row.icd_version}:{row.icd_code}:{row.use_count}"
+                for row in frame.itertuples()
+            ).encode()
+        ).hexdigest()[:16]
+    frame = frame.head(10_000).reset_index(drop=True)
+    db_signature = hashlib.sha256(
+        f"{db_signature}:{sorted(ICD_VI_SYNONYMS.items())}".encode()
+    ).hexdigest()[:16]
+
+    def populate(collection) -> None:
+        for start in range(0, len(frame), 500):
+            chunk = frame.iloc[start : start + 500]
+            collection.add(
+                documents=[
+                    f"{row.long_title}. {ICD_VI_SYNONYMS.get((str(row.icd_code), int(row.icd_version)), '')}".strip()
+                    for row in chunk.itertuples()
+                ],
+                ids=[f"{row.icd_version}_{row.icd_code}" for row in chunk.itertuples()],
+                metadatas=[
+                    {
+                        "icd_code": str(row.icd_code),
+                        "icd_version": int(row.icd_version),
+                        "long_title": str(row.long_title),
+                        "use_count": int(row.use_count),
+                    }
+                    for row in chunk.itertuples()
+                ],
+            )
+
+    _atomic_build("icd_dictionary", len(frame), db_signature, populate)
+
+
+def build_schema_collection() -> None:
+    print("\nBuilding schema_dictionary...")
+    with SCHEMA_FILE.open(encoding="utf-8") as handle:
+        schemas = json.load(handle)
+
+    def populate(collection) -> None:
         collection.add(
-            documents=chunk["long_title"].tolist(),
-            ids=[f"{row.icd_version}_{row.icd_code}" for row in chunk.itertuples()],
+            documents=[f"{item['document']}\n\n{item['ddl']}" for item in schemas],
+            ids=[item["id"] for item in schemas],
             metadatas=[
-                {"icd_code": str(row.icd_code), "icd_version": int(row.icd_version)}
-                for row in chunk.itertuples()
+                {
+                    "table": item["table"],
+                    "description_vi": item["description_vi"],
+                }
+                for item in schemas
             ],
         )
-        print(f"  icd_dictionary: {min(start + batch_size, total)}/{total}", end="\r")
 
-    print(f"  [OK] icd_dictionary: {total} mã ICD đã nạp.     ")
+    _atomic_build("schema_dictionary", len(schemas), _source_hash(SCHEMA_FILE), populate)
 
 
-# ══════════════════════════════════════════════════════
-# COLLECTION 2: SCHEMA DICTIONARY
-# ══════════════════════════════════════════════════════
-def build_schema_collection():
-    print("\n[2/3] Building schema_dictionary ...")
+def _load_examples(*, exclude_test_overlap: bool) -> list[dict]:
+    with EXAMPLES_FILE.open(encoding="utf-8") as handle:
+        examples = json.load(handle)
+    if not exclude_test_overlap:
+        return examples
 
-    try:
-        chroma_client.delete_collection("schema_dictionary")
-    except Exception:
-        pass
+    with TEST_FILE.open(encoding="utf-8") as handle:
+        test_items = json.load(handle)
+    gold_sql = {_canonical_sql(item["gold_sql"]) for item in test_items if item.get("gold_sql")}
+    return [example for example in examples if _canonical_sql(example["sql"]) not in gold_sql]
 
-    collection = chroma_client.create_collection(
-        name="schema_dictionary",
-        metadata={"hnsw:space": "cosine"},
-        embedding_function=get_embedding_function(),
+
+def build_examples_collection(name: str = "sql_examples") -> None:
+    exclude_overlap = name == "sql_examples_eval"
+    examples = _load_examples(exclude_test_overlap=exclude_overlap)
+    label = " (test overlaps removed)" if exclude_overlap else ""
+    print(f"\nBuilding {name}{label}...")
+
+    def populate(collection) -> None:
+        collection.add(
+            documents=[example["question_vi"] for example in examples],
+            ids=[example["id"] for example in examples],
+            metadatas=[
+                {
+                    "question_vi": example["question_vi"],
+                    "sql": example["sql"],
+                    "tables": ", ".join(example["tables"]),
+                    "type": example.get("type", ""),
+                }
+                for example in examples
+            ],
+        )
+
+    combined_hash = _source_hash(EXAMPLES_FILE)
+    if exclude_overlap:
+        combined_hash = hashlib.sha256(
+            f"{combined_hash}:{_source_hash(TEST_FILE)}".encode()
+        ).hexdigest()[:16]
+    _atomic_build(name, len(examples), combined_hash, populate)
+
+
+def quick_test(names: list[str]) -> None:
+    query = "bệnh nhân bị viêm phổi nhập viện cấp cứu"
+    print("\nQuick retrieval test:")
+    for name in names:
+        collection = client.get_collection(name, embedding_function=get_embedding_function())
+        result = collection.query(query_texts=[query], n_results=min(3, collection.count()))
+        print(f"  {name}: {collection.count()} records, {len(result['ids'][0])} results")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Build MIMIC-IV Chroma collections")
+    parser.add_argument(
+        "--collections",
+        nargs="+",
+        choices=COLLECTIONS,
+        default=list(COLLECTIONS),
     )
-
-    with open("mimic_schema.json", encoding="utf-8") as f:
-        schemas = json.load(f)
-
-    documents, ids, metadatas = [], [], []
-    for s in schemas:
-        # Document = mô tả song ngữ + DDL (để embedding hiểu cả tiếng Việt lẫn tên cột)
-        doc = f"{s['document']}\n\n{s['ddl']}"
-        documents.append(doc)
-        ids.append(s["id"])
-        metadatas.append({
-            "table": s["table"],
-            "description_vi": s["description_vi"][:200],
-            "ddl": s["ddl"][:1500],          # ChromaDB giới hạn metadata string
-        })
-
-    collection.add(documents=documents, ids=ids, metadatas=metadatas)
-    print(f"  [OK] schema_dictionary: {len(schemas)} bảng đã nạp.")
-
-
-# ══════════════════════════════════════════════════════
-# COLLECTION 3: SQL EXAMPLES
-# ══════════════════════════════════════════════════════
-def build_examples_collection():
-    print("\n[3/3] Building sql_examples ...")
-
-    try:
-        chroma_client.delete_collection("sql_examples")
-    except Exception:
-        pass
-
-    collection = chroma_client.create_collection(
-        name="sql_examples",
-        metadata={"hnsw:space": "cosine"},
-        embedding_function=get_embedding_function(),
+    parser.add_argument("--skip-test", action="store_true")
+    parser.add_argument(
+        "--icd-source",
+        choices=("database", "csv"),
+        default="database",
+        help="Nguồn tần suất mã ICD; csv dùng dữ liệu MIMIC gốc khi PostgreSQL chưa chạy.",
     )
+    args = parser.parse_args()
 
-    with open("mimic_examples.json", encoding="utf-8") as f:
-        examples = json.load(f)
-
-    documents, ids, metadatas = [], [], []
-    for ex in examples:
-        # Document là câu hỏi tiếng Việt – dùng để embedding matching
-        documents.append(ex["question_vi"])
-        ids.append(ex["id"])
-        metadatas.append({
-            "question_vi": ex["question_vi"],
-            "sql": ex["sql"],
-            "tables": ", ".join(ex["tables"]),
-            "type": ex.get("type", ""),
-        })
-
-    collection.add(documents=documents, ids=ids, metadatas=metadatas)
-    print(f"  [OK] sql_examples: {len(examples)} cặp Q-SQL đã nạp.")
-
-
-# ══════════════════════════════════════════════════════
-# KIỂM TRA NHANH
-# ══════════════════════════════════════════════════════
-def quick_test():
-    print("\n── Quick Test ──────────────────────────────")
-    test_query = "bệnh nhân bị viêm phổi nhập viện cấp cứu"
-
-    icd_col    = chroma_client.get_collection("icd_dictionary", embedding_function=get_embedding_function())
-    schema_col = chroma_client.get_collection("schema_dictionary", embedding_function=get_embedding_function())
-    ex_col     = chroma_client.get_collection("sql_examples", embedding_function=get_embedding_function())
-
-    r1 = icd_col.query(query_texts=[test_query], n_results=3)
-    print("ICD top-3:")
-    for i, (doc, meta) in enumerate(zip(r1["documents"][0], r1["metadatas"][0])):
-        print(f"  {i+1}. [{meta['icd_version']}] {meta['icd_code']}: {doc[:60]}")
-
-    r2 = schema_col.query(query_texts=[test_query], n_results=3)
-    print("Schema top-3:")
-    for i, meta in enumerate(r2["metadatas"][0]):
-        print(f"  {i+1}. {meta['table']}: {meta['description_vi'][:60]}")
-
-    r3 = ex_col.query(query_texts=[test_query], n_results=3)
-    print("Example top-3:")
-    for i, meta in enumerate(r3["metadatas"][0]):
-        print(f"  {i+1}. Q: {meta['question_vi'][:60]}")
-        print(f"     SQL: {meta['sql'][:80].strip()}")
+    builders = {
+        "icd_dictionary": lambda: build_icd_collection(args.icd_source),
+        "schema_dictionary": build_schema_collection,
+        "sql_examples": lambda: build_examples_collection("sql_examples"),
+        "sql_examples_eval": lambda: build_examples_collection("sql_examples_eval"),
+    }
+    for name in args.collections:
+        builders[name]()
+    if not args.skip_test:
+        quick_test(args.collections)
+    print(f"\n[DONE] Vector DB ready at {CHROMA_DIR}")
 
 
 if __name__ == "__main__":
-    print("=" * 55)
-    print("  Building MIMIC-IV Vector Database (3 collections)")
-    print("=" * 55)
-    build_icd_collection()
-    build_schema_collection()
-    build_examples_collection()
-    quick_test()
-    print("\n[DONE] Vector DB ready at ./mimic_chroma_db")
+    main()
