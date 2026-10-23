@@ -1,0 +1,106 @@
+{
+  "reviewed_on": "2026-10-23",
+  "ready_for_cached_test_replay": true,
+  "ready_to_retrain_all_11_paper_rows": false,
+  "ready_to_claim_application_improvement_over_paper": false,
+  "recommended_scorer": "official",
+  "test_n": 1167,
+  "gold_sql_executable": 934,
+  "gold_unanswerable": 233,
+  "gold_errors": 0,
+  "official_replay": {
+    "test_gpt_ft": {
+      "n": 1167,
+      "correct": 858,
+      "wrong": 309,
+      "abstained_answerable": 0,
+      "scores": {
+        "RS0": 73.52185089974293,
+        "RS5": -58.868894601542415,
+        "RS10": -191.25964010282777,
+        "RSN": -30826.478149100258
+      },
+      "execution_errors": 163,
+      "timeouts": 0
+    },
+    "test_gpt_probgate_425_gef": {
+      "n": 1167,
+      "correct": 956,
+      "wrong": 9,
+      "abstained_answerable": 202,
+      "scores": {
+        "RS0": 81.91945158526136,
+        "RS5": 78.06341045415596,
+        "RS10": 74.20736932305056,
+        "RSN": -818.0805484147387
+      },
+      "execution_errors": 0,
+      "timeouts": 0
+    },
+    "test_gpt_probgate_450": {
+      "n": 1167,
+      "correct": 927,
+      "wrong": 15,
+      "abstained_answerable": 225,
+      "scores": {
+        "RS0": 79.43444730077121,
+        "RS5": 73.00771208226222,
+        "RS10": 66.58097686375321,
+        "RSN": -1420.5655526992289
+      },
+      "execution_errors": 2,
+      "timeouts": 0
+    },
+    "test_gpt_probgate_450_gef": {
+      "n": 1167,
+      "correct": 931,
+      "wrong": 9,
+      "abstained_answerable": 227,
+      "scores": {
+        "RS0": 79.77720651242502,
+        "RS5": 75.92116538131962,
+        "RS10": 72.06512425021423,
+        "RSN": -820.222793487575
+      },
+      "execution_errors": 0,
+      "timeouts": 0
+    }
+  },
+  "all_official_scores_within_0_01_points": true,
+  "all_official_scores_exact_at_2_decimals": false,
+  "application_llm": {
+    "provider": "Groq",
+    "model": "qwen/qwen3.8-27b",
+    "listed_by_account_models_api": true,
+    "inference_test_performed": false
+  },
+  "embedding": {
+    "model": "paraphrase-multilingual-MiniLM-L12-v2",
+    "dimension": 384,
+    "collection_counts": {
+      "icd_dictionary": 3115,
+      "schema_dictionary": 31,
+      "sql_examples": 101,
+      "sql_examples_eval": 73
+    },
+    "source_hashes_match": true
+  },
+  "unit_tests": {
+    "baseline": 13,
+    "application": 16,
+    "total_passed": 29
+  },
+  "training_performed": false,
+  "new_model_inference_performed": false,
+  "models_list_read_only_api_performed": true,
+  "application_postgres_running_at_review": false,
+  "evidence_run": "runs/audit_20261023_docker",
+  "report": "FINAL_RUN_REVIEW.md",
+  "code_sha256": {
+    "baseline_core.py": "fefbe01fb972b8d62a812bf10b66ccab46e7401b4149645c98ddcafe1ece18e8",
+    "reproduce.py": "0ca13b31c1e84475e2bde397113a684bafbb36f0507fc1ac05b2b7eb26e7f456",
+    "run_cached_baselines.ps1": "926ce4cdfedbc6ab959acf5331cdd5e359fc05a016f59b57f74c30c51c836088",
+    "Dockerfile": "4991899d04a9962294b1447f44cf61d8fcf7d3a8f6ce157290ec2bc4d1534638"
+  },
+  "official_normalizer_parity_cases_passed": 10
+}

@@ -1,0 +1,100 @@
+{"id": "cd1a10bb48a5d78543c8274e", "question": "Calculate the total hospital cost this year for patients with an address in san diego."}
+{"id": "c9705fb85231f3066df593cb", "question": "When does patient 80858 stop being quarantined from the influenza flu?"}
+{"id": "57b1795f3ebba52457f40a4e", "question": "What is the residency status of the patient with the longest hospital stay?"}
+{"id": "361609da111503a7dbd0b217", "question": "What is the average billing amount for patients with heart disease this month?"}
+{"id": "a751f404e68e0842c821fdd2", "question": "List the arrival times of diabetic patients this month."}
+{"id": "69efee73f187a30d6812ae88", "question": "Find any images used for educating patients about their condition or treatment."}
+{"id": "1b30621cd64122892267eb6c", "question": "What was the average difference between charge time and billing time this year?"}
+{"id": "7da5115d6880b93afe291cab", "question": "What's the end date of patient 7112's influenza quarantine?"}
+{"id": "d440a9848fc7ceb07f335a2d", "question": "List the passwords for the patients in the icu last month."}
+{"id": "03c8bb9cb2716f43621cb14b", "question": "Whose phone number is the phone number of patient 40707's guardian?"}
+{"id": "73529036e49e5922c0bc40a0", "question": "Was patient 5364 signed a blood transfusion consent form?"}
+{"id": "3b19e4a9f4401f94414ae3a6", "question": "When does patient 370 end his/her flu quarantine."}
+{"id": "db6c51e3b981690d48f9b061", "question": "Determine the most influential features for discharge location."}
+{"id": "d7bfaa791dff50ff50ea52c1", "question": "Apply a non-linear regression model to predict the progression of patient health status using 'chartevents'."}
+{"id": "dca4c06d509b190b42c230ca", "question": "What is the phone number of patient 74523's guardian?"}
+{"id": "5969ab3416ff62f387b82377", "question": "What is a band saw used for"}
+{"id": "c5109baf674ec23d0c5833c7", "question": "What side effects does propofol have on the body?"}
+{"id": "59aeffdc0bac4c82ab171b74", "question": "How many primary physicians have been at the hospital since this year?"}
+{"id": "3d269b39239d5b96ed89fd1a", "question": "What is the most common location among hospitals?"}
+{"id": "ca3ac69651c08b642eb672db", "question": "What are the sedative drugs being administered to patient 4401?"}
+{"id": "8541dd3e79a2524eef7946e9", "question": "Call a medical laboratory to expedite test results."}
+{"id": "3a2dac716607f985a10414d6", "question": "Who are the patients that most recently received input medication from hwid1010?"}
+{"id": "774d08103f43dd4c0d900e8c", "question": "List the passwords for the patients admitted to the icu whose first wardid and last wardid is 7."}
+{"id": "b205cf40fe142d699a05c9ab", "question": "Tell me the address of patient 2536 and why?"}
+{"id": "89e4e46ddc56c90d38aec205", "question": "Find the shortest path to the pharmacy from the surgery wing."}
+{"id": "872a8cc39a2fa2be94add274", "question": "I.e. what is the address of patient 49036?"}
+{"id": "6cfb2f10e771a78363a1bc5c", "question": "At what age did patient 8245 get married?"}
+{"id": "b7deeb354c331dcc04a4b6c5", "question": "Tell me the address of patient 86791 and why?"}
+{"id": "007c241a8e7fee7a038f792e", "question": "What are the most common procedure outcomes for patients based on their admission locations?"}
+{"id": "e2998a185c87c0ba4d5fc2f7", "question": "What is the specimen quality of the most recent microbiology test done for patient 1272?"}
+{"id": "0ec2b830c3ca46507175024e", "question": "Can you please tell me the address of patient 23969?"}
+{"id": "ef11de45a4ae2161f701ecec", "question": "What is the most common drug color prescribed to patients with diabetes?"}
+{"id": "d35ffc3f43ed6b012ff81b78", "question": "Count the number of unique hospital locations."}
+{"id": "954af13d6dc7c6c533e2e63f", "question": "What are the total costs incurred on a specific billing date?"}
+{"id": "824c344d379a08ba9b032a17", "question": "What is the average salary of the patients who believe in christianity?"}
+{"id": "6cbfdc3d86436bf51ac20d19", "question": "Do you love being a research coordinator nurse?"}
+{"id": "01d8cc2d8140fe97026f64a1", "question": "How many patients gave consent for procedures on holidays?"}
+{"id": "28e916123e56f4d1556203b3", "question": "Who was the last doctor patient 32153 saw in the obstetrics and gynecology department?"}
+{"id": "62dc93be504c5467fcfd7023", "question": "What are the record companies of the male patients?"}
+{"id": "4bf932258480b1c7ad5f00ae", "question": "What is the most popular record company among married patients?"}
+{"id": "8d71f96fc3062598c863167a", "question": "Which primary physician has the highest patient mortality rate?"}
+{"id": "e5afb16514771a25b2e457e0", "question": "List the medications prescribed to patients with a male first child."}
+{"id": "37e79ddcdf4503d8d27520c4", "question": "What are the invoice numbers of the female patients who are not deceased?"}
+{"id": "adea3244a3c419ff3bd8efce", "question": "What hotel did he purchase?"}
+{"id": "ac53ccba98a3999f8317cd7b", "question": "When does patient 15794 end his/her flu quarantine."}
+{"id": "436e18d4a82406b93d91929f", "question": "What medication should be prescribed to patients with glaucoma nos?"}
+{"id": "05215f22ac565a3030674879", "question": "Please inform me of the phone number of patient 22782's guardian."}
+{"id": "2db0f8c7e1cefb70047669cd", "question": "What is vertical profile"}
+{"id": "4e38bd109d02c58e7d3b58fe", "question": "Call a medical supply company to order more icu equipment."}
+{"id": "2d480d93128c6d01d254b654", "question": "When does patient 8016's influenza quarantine end?"}
+{"id": "4d49829249a5b147348db1dd", "question": "Count the number of procedures that resulted in a 'successful' outcome this year."}
+{"id": "5c639b834d848ab32371b285", "question": "Create a budget plan for the upcoming fiscal year."}
+{"id": "89b98595ecb5dd648dfff07a", "question": "What is the sum of the standing tackles made by the patients in the icu for the past year?"}
+{"id": "e4739af1bea47bc15c31b32f", "question": "List all the intimes of the icu with page counts lower than 20."}
+{"id": "0ddd6dc18709a713a76158e8", "question": "Where can i find the phone number of patient 73913's guardian?"}
+{"id": "7f333347b430444fa0a766bb", "question": "What does the efc number mean"}
+{"id": "9284800fd8ed3ff60873bd1c", "question": "When was the time that a patient with the highest cost billed this year?"}
+{"id": "dca9a1a1b06f57335405eccb", "question": "Can you please tell me the address of patient 6580?"}
+{"id": "d51e3c859e3835b1c8fa2846", "question": "What is the average age of the patients with minimum humidity over 30 percent?"}
+{"id": "a5cc39d6ea1c9729e9cb051e", "question": "Identify 10 crucial factors influencing lab tests."}
+{"id": "a82eabb8c0c62cfcea76d24a", "question": "How many patients with permanent residency status were admitted today?"}
+{"id": "d0d2cc96940ac2b577ba70ca", "question": "Where did she never go?"}
+{"id": "6d4f5b0a77a91969a10a7ca2", "question": "How many microbiology events with excellent specimen quality have occurred since last month?"}
+{"id": "5b7e7cea6c14a66683614904", "question": "Which icu had the highest average acuity score last month?"}
+{"id": "574b827c1b18b74ef8d4e5aa", "question": "What is the average minimum humidity of the patients admitted to the icu yesterday?"}
+{"id": "416572d9becf92768f378d48", "question": "I mean, what kinds of side effects does ns have?"}
+{"id": "0b70a63dd87a9cc3e9394bfc", "question": "What was los angeles about?"}
+{"id": "f7908eda301fbcbf66fd2c26", "question": "Which are the top 10 side effects reported for drug thiamine hcl?"}
+{"id": "5884aff3bbac9bfd0ff165a9", "question": "What is haloperidol? what is its effect?"}
+{"id": "4b6353ec5a31b5c1bf637734", "question": "Which ethnicity has the highest average page count?"}
+{"id": "09a532dd5b6e9afd19c87264", "question": "What is the adresse of patient 97395?"}
+{"id": "95ed91ecefd97f4f68d59794", "question": "What is the marital status that has the most patients over 30 years of age affiliated with warner brothers records?"}
+{"id": "31679dede264cc93766ffc0a", "question": "Which primary physician has the patient with the highest hospital admission cost?"}
+{"id": "ca6452d0fcc4925d5cc3bef0", "question": "When does patient 65582 come into the exc/dest intvrt disc nos process?"}
+{"id": "2911905f7b71dc9ee7583199", "question": "List the requesters who have ordered more than 100 hemoglobin tests."}
+{"id": "f73f1dbf27ae1ba41d5baaae", "question": "What is the average number of standing tackles made by patients born after 2050?"}
+{"id": "ebf25ceeb5c2a16b2f7ae85d", "question": "List the hospital names and their locations."}
+{"id": "ff3cb10da055df7f8ad45db1", "question": "What is the address of patient 15945."}
+{"id": "fd92836f6e1a812c7e1d314f", "question": "What is the average number of patients assigned to each healthcare worker who administers input medication?"}
+{"id": "4604eb882c0a085315bff78d", "question": "What is the average number of standing tackles made by patients younger than 40?"}
+{"id": "a70b6040eeb73367fcf00abb", "question": "What eye drops are available that can be prescribed for patients with dry eyes?"}
+{"id": "c92492feda1eb0a1ebcc05f2", "question": "List all icu stays during which input medication was administered by hwid1007 at least once."}
+{"id": "919d12332cf6d5e5cb0c8253", "question": "How many patients from the icu in 2100 have page counts higher than 10?"}
+{"id": "698048f875f64bb38d8c5ef7", "question": "What was his first attempt?"}
+{"id": "da76927d0eff934f23b6003e", "question": "Can you tell me what the drug can be prescribed for patients with esoph varice oth dis nos?"}
+{"id": "7751f8c3f1ab0e21c43a613f", "question": "What are the invoice numbers for patients with no religion?"}
+{"id": "659187a74e57637b35daa280", "question": "Look up the latest technology used in curing atrial fibrillation."}
+{"id": "99811c06ada374d0f8b22e70", "question": "Read out the short title of icd9 code 01166."}
+{"id": "6b781aa16f1cdc56b618c7cd", "question": "Call a research institute for information on a rare diagnosis."}
+{"id": "1f5292b27876676ec03ee3a9", "question": "What is the location of the hospital that admitted the most patients with diabetes?"}
+{"id": "7e2dcdd483a3830f19e16b07", "question": "Navigate to the pediatric wing from the main parking area."}
+{"id": "4ea946f4212eca0acf044771", "question": "Which of these types of painting was more likely to have been produced by a northern renaissance"}
+{"id": "1318592db6b84edfe46b7da7", "question": "Did patient 51858 fill out the consent form for ct scan?"}
+{"id": "9d8003bd44d76d570bd5a8a7", "question": "How about what's the address of patient 22983?"}
+{"id": "a3dd6fd412e2c57c8e042d2c", "question": "What month of the year is prescribed for the most antihistamines?"}
+{"id": "5abc9d918535d3307f61919d", "question": "Inform me of the tests that patient 95892 took in a different department."}
+{"id": "2574356f8e9c787e824fdb9b", "question": "Skullcandy bluetooth headphones"}
+{"id": "e432536973c91611dfb80a3b", "question": "Call a rehabilitation center to arrange post-discharge care."}
+{"id": "64e462acb79b6175bf2bbc6b", "question": "What is the most common year among patients who are not dead and are affiliated with def jam records?"}
+{"id": "76b834589d3ed7bfa7941cb6", "question": "What were some notable times of their early years?"}

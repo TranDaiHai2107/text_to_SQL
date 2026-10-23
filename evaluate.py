@@ -49,14 +49,14 @@ def _normalize_value(value: Any) -> tuple[str, str]:
         return ("number", format(normalized, "f"))
     if isinstance(value, (datetime, date, pd.Timestamp)):
         return ("datetime", pd.Timestamp(value).isoformat())
-    return ("text", str(value).strip().casefold())
+    return ("text", str(value))
 
 
 def normalize_df(df: pd.DataFrame) -> Counter:
-    """Compare row multisets while ignoring row order and output aliases."""
+    """Ignore row order/aliases, preserving column positions and text values."""
     rows = []
     for row in df.itertuples(index=False, name=None):
-        normalized = tuple(sorted((_normalize_value(value) for value in row)))
+        normalized = tuple(_normalize_value(value) for value in row)
         rows.append(normalized)
     return Counter(rows)
 
@@ -99,7 +99,8 @@ def evaluate_one(
         "question": item["question_vi"],
         "generated_sql": None,
         "valid_sql": False,
-        "execution_match": None,
+        # A failed generation/execution is incorrect, not excluded from EX.
+        "execution_match": False if not gold_df.empty else None,
         "gold_empty": gold_df.empty,
         "error": None,
         "latency_s": None,
@@ -148,7 +149,7 @@ def evaluate_one(
 def compute_metrics(results: list[dict[str, Any]]) -> dict[str, Any]:
     total = len(results)
     valid_count = sum(bool(result["valid_sql"]) for result in results)
-    eligible = [result for result in results if result["execution_match"] is not None]
+    eligible = [result for result in results if not result["gold_empty"]]
     matches = sum(result["execution_match"] is True for result in eligible)
     latencies = [result["latency_s"] for result in results if result["latency_s"] is not None]
     return {
@@ -220,6 +221,9 @@ def run_evaluation(modes_to_run: list[str] | None = None, quick: bool = False):
 
     print_summary(all_metrics)
     output = {
+        "evaluation_version": 2,
+        "comparison_scope": "internal Vietnamese/PostgreSQL dataset; not EHRSQL paper scores",
+        "ex_definition": "matches / all questions with nonempty gold; generation/execution failures count as incorrect; column positions and exact text preserved",
         "timestamp": datetime.now().isoformat(),
         "dataset_size": len(dataset),
         "examples_collection": EVAL_EXAMPLES_COLLECTION,

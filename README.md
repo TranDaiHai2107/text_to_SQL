@@ -87,7 +87,7 @@ python -m streamlit run app.py
 python evaluate.py --quick --modes base full full_agentic
 ```
 
-`evaluate.py` chạy preflight toàn bộ gold SQL trước khi gọi LLM. EX dùng multiset của các dòng nên giữ được bản ghi trùng, không phụ thuộc thứ tự hàng hay alias cột. Gold trả về rỗng được báo riêng và không tính vào EX. Kết quả gồm metric tổng và metric theo độ khó.
+`evaluate.py` chạy preflight toàn bộ gold SQL trước khi gọi LLM. EX dùng multiset của các dòng nên giữ được bản ghi trùng, không phụ thuộc thứ tự hàng hay alias cột; vẫn giữ thứ tự giá trị trong mỗi hàng và phân biệt chính xác chuỗi. Mẫu số EX gồm tất cả câu có gold không rỗng: sinh SQL lỗi hoặc thực thi lỗi được tính sai. Gold trả về rỗng được báo riêng và không tính vào EX. Kết quả từ phiên bản đánh giá 2 ghi rõ định nghĩa này; không so ngang điểm cũ trước khi chạy lại. Đây là đánh giá nội bộ trên tiếng Việt/PostgreSQL, không phải điểm benchmark EHRSQL. Kết quả gồm metric tổng và metric theo độ khó.
 
 ## Quyền riêng tư
 

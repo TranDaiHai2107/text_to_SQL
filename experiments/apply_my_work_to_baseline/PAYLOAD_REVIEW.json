@@ -1,0 +1,29 @@
+{
+  "provider": "Groq",
+  "model": "qwen/qwen3.8-27b",
+  "question": "Since 2100, what were the top four most frequent lab tests conducted on patients in the same month following a diagnosis of other and unspecified cerebral laceration and contusion, without mention of open intracranial wound, with loss of consciousness of unspecified duration?",
+  "schema_tables": [
+    "admissions",
+    "cost",
+    "d_icd_diagnoses",
+    "d_labitems",
+    "diagnoses_icd",
+    "labevents",
+    "patients"
+  ],
+  "training_example_ids": [
+    "a7a3de424d31c00f89567ff3",
+    "f93686c3008e71187f331de5",
+    "b3a9bd9b492cf5ebf684f04b",
+    "9a53dfd94198f8a68458fa6d"
+  ],
+  "medical_dictionary_sources": [
+    "d_labitems"
+  ],
+  "full_payload_characters": 6558,
+  "sends_patient_result_rows": false,
+  "sends_sql_query_results": false,
+  "sends_api_key_in_prompt": false,
+  "sends_gold_dev_or_test_sql": false,
+  "source": "public pinned EHRSQL/ProbGate demo dataset; train Q/SQL only for retrieval"
+}

@@ -1,0 +1,110 @@
+{
+  "paper": "https://aclanthology.org/2024.clinicalnlp-1.65/",
+  "reported_scores_are_targets_not_reproduced_results": true,
+  "score_order": ["RS0", "RS5", "RS10", "RSN"],
+  "experiments": [
+    {
+      "id": "dev_t5_small_filter", "table": 1, "row": 1, "split": "dev",
+      "name": "T5-small FT + Filtering", "model": "T5-small (paper); google/flan-t5-small occurs in released code; exact row mapping unresolved",
+      "stages": ["entropy_filter"], "published_scores": [47.81, 45.66, 43.51, -452.19],
+      "source_files": ["upstream/src/t5_model_train.py", "upstream/src/train_utils.py", "upstream/src/t5_model_eval.py"],
+      "required_artifacts": ["fine-tuned T5-small checkpoint", "dev generated SQL + token entropies", "calibration threshold from internal validation"],
+      "cached_predictions_available": false,
+      "unresolved": ["author checkpoint not released", "T5-small versus Flan-T5-small row identity", "source contains multiple overwritten training configurations"]
+    },
+    {
+      "id": "dev_t5_large_filter", "table": 1, "row": 2, "split": "dev",
+      "name": "T5-Large-text2sql-spider FT + Filtering", "model": "gaussalgo/T5-LM-Large-text2sql-spider (source identifier)",
+      "stages": ["entropy_filter"], "published_scores": [74.63, 59.59, 44.54, -3425.37],
+      "source_files": ["upstream/src/t5_model_train.py", "upstream/src/train_utils.py", "upstream/src/t5_model_eval.py"],
+      "required_artifacts": ["fine-tuned T5-Large checkpoint", "dev generated SQL + token entropies", "calibrated entropy threshold"],
+      "cached_predictions_available": false,
+      "unresolved": ["author checkpoint and exact selected run not released", "schema-dictionary files referenced by dataset loader are missing"]
+    },
+    {
+      "id": "dev_t5_large_classifier_t5", "table": 1, "row": 3, "split": "dev",
+      "name": "T5-Large-text2sql-spider FT + Classifier(T5)", "model": "T5-Large SQL generator + T5 classifier; classifier source uses google/flan-t5-small",
+      "stages": ["classifier"], "published_scores": [63.80, 18.23, -27.34, -10536.20],
+      "source_files": ["upstream/src/t5_classifier_train.py", "upstream/src/classifier_train_utils.py", "upstream/src/apply_null.py", "upstream/src/t5_model_train.py"],
+      "required_artifacts": ["T5-Large generator checkpoint and dev SQL", "trained T5 classifier and dev labels"],
+      "cached_predictions_available": false,
+      "unresolved": ["both trained checkpoints missing", "exact classifier configuration for table row not pinned"]
+    },
+    {
+      "id": "dev_t5_large_filter_classifier_t5", "table": 1, "row": 4, "split": "dev",
+      "name": "T5-Large-text2sql-spider FT + Filtering + Classifier(T5)", "model": "T5-Large SQL generator + T5 classifier",
+      "stages": ["entropy_filter", "classifier"], "published_scores": [72.74, 58.56, 44.37, -3227.26],
+      "source_files": ["upstream/src/t5_model_train.py", "upstream/src/train_utils.py", "upstream/src/t5_classifier_train.py", "upstream/src/apply_null.py"],
+      "required_artifacts": ["T5-Large dev SQL and entropies", "calibrated entropy threshold", "T5 classifier dev labels"],
+      "cached_predictions_available": false,
+      "unresolved": ["generator/classifier checkpoints missing", "validation calibration output not released"]
+    },
+    {
+      "id": "dev_gpt_classifier_t5", "table": 1, "row": 5, "split": "dev",
+      "name": "gpt-3.5-turbo FT + Classifier(T5)", "model": "fine-tuned gpt-3.5-turbo-0125 + T5 classifier",
+      "stages": ["classifier"], "published_scores": [90.28, 51.59, 12.89, -8109.02],
+      "source_files": ["upstream/src/chatgpt_sql_finetuning.ipynb", "upstream/src/chatgpt_sql_inference.ipynb", "upstream/src/t5_classifier_train.py", "upstream/src/apply_null.py"],
+      "required_artifacts": ["fine-tuned GPT SQL generator access and dev outputs", "T5 classifier dev labels"],
+      "cached_predictions_available": false,
+      "unresolved": ["author GPT fine-tune is account-specific", "dev predictions and classifier checkpoint absent"]
+    },
+    {
+      "id": "dev_gpt_classifier_gpt", "table": 1, "row": 6, "split": "dev",
+      "name": "gpt-3.5-turbo FT + Classifier(gpt-3.5-turbo)", "model": "fine-tuned gpt-3.5-turbo SQL generator + gpt-3.5-turbo answerability classifier",
+      "stages": ["classifier"], "published_scores": [88.05, 57.95, 27.86, -6911.95],
+      "source_files": ["upstream/src/chatgpt_sql_finetuning.ipynb", "upstream/src/chatgpt_sql_inference.ipynb", "upstream/src/apply_null.py"],
+      "required_artifacts": ["GPT dev SQL", "GPT classifier dev answerable/null predictions"],
+      "cached_predictions_available": false,
+      "unresolved": ["exact GPT-classifier training/prompt/checkpoint not identifiable in released source", "no classifier predictions released"]
+    },
+    {
+      "id": "dev_gpt_probgate_387", "table": 1, "row": 7, "split": "dev",
+      "name": "gpt-3.5-turbo FT + ProbGate(t=387)", "model": "fine-tuned gpt-3.5-turbo-0125",
+      "stages": ["probgate"], "rank_index": 387, "bottom_n": 10,
+      "published_scores": [85.30, 80.57, 75.84, -1014.70],
+      "source_files": ["upstream/src/chatgpt_sql_finetuning.ipynb", "upstream/src/chatgpt_sql_inference.ipynb", "upstream/src/filter_log_probability.ipynb"],
+      "required_artifacts": ["dev SQL + token log probabilities from author fine-tune"],
+      "cached_predictions_available": false,
+      "unresolved": ["released raw cache covers test, not dev; cannot reuse test outputs for this row"]
+    },
+    {
+      "id": "test_gpt_ft", "table": 2, "row": 1, "split": "test",
+      "name": "gpt-3.5-turbo FT", "model": "fine-tuned gpt-3.5-turbo-0125",
+      "stages": [], "published_scores": [73.52, -58.87, -191.25, -30826.47],
+      "source_files": ["upstream/src/chatgpt_sql_finetuning.ipynb", "upstream/src/chatgpt_sql_inference.ipynb"],
+      "required_artifacts": ["cached test SQL in log_probability_final_test.json"],
+      "cached_predictions_available": true,
+      "unresolved": ["cached replay has not yet been scored; numerical reproduction not claimed"]
+    },
+    {
+      "id": "test_gpt_probgate_450", "table": 2, "row": 2, "split": "test",
+      "name": "gpt-3.5-turbo FT + ProbGate(t=450)", "model": "fine-tuned gpt-3.5-turbo-0125",
+      "stages": ["probgate"], "rank_index": 450, "bottom_n": 10,
+      "published_scores": [79.43, 73.01, 66.58, -1420.57],
+      "source_files": ["upstream/src/filter_log_probability.ipynb"],
+      "required_artifacts": ["cached test SQL + token log probabilities"],
+      "cached_predictions_available": true,
+      "unresolved": ["cached replay has not yet been scored; numerical reproduction not claimed"]
+    },
+    {
+      "id": "test_gpt_probgate_450_gef", "table": 2, "row": 3, "split": "test",
+      "name": "gpt-3.5-turbo FT + ProbGate(t=450) + GEF", "model": "fine-tuned gpt-3.5-turbo-0125",
+      "stages": ["probgate", "gef"], "rank_index": 450, "bottom_n": 10,
+      "published_scores": [79.78, 75.92, 72.06, -820.22],
+      "source_files": ["upstream/src/filter_log_probability.ipynb", "upstream/src/run_sql_check.py"],
+      "required_artifacts": ["cached test SQL/logprobs", "author SQLite database"],
+      "cached_predictions_available": true,
+      "unresolved": ["paper describes error filtering; released code also filters empty results", "cached replay has not yet been scored"]
+    },
+    {
+      "id": "test_gpt_probgate_425_gef", "table": 2, "row": 4, "split": "test",
+      "name": "gpt-3.5-turbo FT + ProbGate(t=425) + GEF", "model": "fine-tuned gpt-3.5-turbo-0125",
+      "stages": ["probgate", "gef"], "rank_index": 425, "bottom_n": 10,
+      "published_scores": [81.92, 78.06, 74.21, -818.08],
+      "source_files": ["upstream/src/filter_log_probability.ipynb", "upstream/src/run_sql_check.py"],
+      "required_artifacts": ["cached test SQL/logprobs", "author SQLite database"],
+      "cached_predictions_available": true,
+      "unresolved": ["cached replay has not yet been scored; numerical reproduction not claimed"]
+    }
+  ]
+}

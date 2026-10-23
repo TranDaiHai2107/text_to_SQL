@@ -17,5 +17,46 @@ services:
       timeout: 5s
       retries: 12
 
+  probgate-baseline:
+    profiles: ["baseline"]
+    image: text-to-sql-probgate:local
+    build:
+      context: ./baselines/probgate_ehrsql_2024
+      dockerfile: Dockerfile
+    init: true
+    read_only: true
+    network_mode: none
+    environment:
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - type: bind
+        source: ./baselines/probgate_ehrsql_2024/upstream
+        target: /app/upstream
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./baselines/probgate_ehrsql_2024/data
+        target: /app/data
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./baselines/probgate_ehrsql_2024/runs
+        target: /app/runs
+        bind:
+          create_host_path: false
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    mem_limit: 2g
+    cpus: 2
+    healthcheck:
+      test: ["CMD", "python", "docker_runner.py", "health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
 volumes:
   postgres_data:

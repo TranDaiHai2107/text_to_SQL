@@ -59,10 +59,11 @@ with st.sidebar:
     st.subheader("⚙️ Cấu hình")
     rag_mode = st.selectbox(
         "Mode RAG:",
-        options=["full", "base", "icd", "schema", "examples"],
+        options=["full_agentic", "full", "base", "icd", "schema", "examples"],
         index=0,
         help=(
-            "full: 3 tầng RAG (khuyến nghị)\n"
+            "full_agentic: 3 tầng RAG + Validator + Self-Correction (khuyến nghị)\n"
+            "full: 3 tầng RAG (không tự sửa lỗi)\n"
             "base: không RAG\n"
             "icd / schema / examples: ablation từng thành phần"
         ),
@@ -276,10 +277,14 @@ def process_question(question: str):
             # LLM + Self-Correction
             st.markdown("**🤖 LLM đang sinh SQL...**")
             try:
+                # full_agentic = full RAG + Validator + Self-Correction loop
+                # Các mode khác chạy single-shot (không retry)
+                effective_mode = "full" if rag_mode == "full_agentic" else rag_mode
+                effective_retries = max_retries if rag_mode == "full_agentic" else 0
                 result = generate_sql_with_correction(
                     effective_q,
-                    mode=rag_mode,
-                    max_retries=max_retries,
+                    mode=effective_mode,
+                    max_retries=effective_retries,
                 )
             except Exception as exc:
                 message = f"Không thể xử lý truy vấn: {str(exc).splitlines()[0]}"
@@ -452,6 +457,11 @@ try:
         eval_data = json.load(f)
 
     with st.expander("📊 Kết quả đánh giá Ablation (từ evaluate.py)"):
+        if eval_data.get("evaluation_version", 1) < 2:
+            st.warning(
+                "Kết quả cũ dùng cách tính EX trước bản sửa ngày 23/10/2026; "
+                "hãy chạy lại evaluate.py trước khi dùng số liệu cho báo cáo."
+            )
         st.caption(f"Thời điểm: {eval_data.get('timestamp', 'N/A')} · "
                    f"Dataset: {eval_data.get('dataset_size', '?')} câu")
 

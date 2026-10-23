@@ -248,8 +248,10 @@ def build_examples_collection(name: str = "sql_examples") -> None:
 def quick_test(names: list[str]) -> None:
     query = "bệnh nhân bị viêm phổi nhập viện cấp cứu"
     print("\nQuick retrieval test:")
+    # Re-open client so HNSW segments are read fresh after atomic rename
+    test_client = chromadb.PersistentClient(path=str(CHROMA_DIR))
     for name in names:
-        collection = client.get_collection(name, embedding_function=get_embedding_function())
+        collection = test_client.get_collection(name, embedding_function=get_embedding_function())
         result = collection.query(query_texts=[query], n_results=min(3, collection.count()))
         print(f"  {name}: {collection.count()} records, {len(result['ids'][0])} results")
 

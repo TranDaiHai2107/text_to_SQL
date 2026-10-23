@@ -1,0 +1,238 @@
+{
+  "checked_on": "2026-10-19",
+  "scope": "metadata, counts, split and schema compatibility; no model/evaluation execution",
+  "application": {
+    "schema_tables": 31,
+    "table_names": [
+      "admissions",
+      "caregiver",
+      "chartevents",
+      "d_hcpcs",
+      "d_icd_diagnoses",
+      "d_icd_procedures",
+      "d_items",
+      "d_labitems",
+      "datetimeevents",
+      "diagnoses_icd",
+      "drgcodes",
+      "emar",
+      "emar_detail",
+      "hcpcsevents",
+      "icustays",
+      "ingredientevents",
+      "inputevents",
+      "labevents",
+      "microbiologyevents",
+      "omr",
+      "outputevents",
+      "patients",
+      "pharmacy",
+      "poe",
+      "poe_detail",
+      "prescriptions",
+      "procedureevents",
+      "procedures_icd",
+      "provider",
+      "services",
+      "transfers"
+    ],
+    "question_count": 180,
+    "question_fields": [
+      "difficulty",
+      "gold_sql",
+      "id",
+      "question_vi",
+      "tables"
+    ],
+    "english_question_fields_present": false,
+    "unanswerable_gold_count": 0,
+    "difficulties": {
+      "easy": 66,
+      "medium": 60,
+      "hard": 22,
+      "complex": 32
+    },
+    "example_count": 101,
+    "example_ids_with_exact_canonical_sql_overlap": [
+      "ex043",
+      "ex045",
+      "ex046",
+      "ex049",
+      "ex050",
+      "ex051",
+      "ex053",
+      "ex057",
+      "ex058",
+      "ex059",
+      "ex060",
+      "ex062",
+      "ex064",
+      "ex065",
+      "ex066",
+      "ex067",
+      "ex068",
+      "ex071",
+      "ex078",
+      "ex080",
+      "ex082",
+      "ex085",
+      "ex087",
+      "ex089",
+      "ex090",
+      "ex095",
+      "ex096",
+      "ex099"
+    ],
+    "source_version_directory": "mimic-iv-3.1",
+    "configured_default_patients": 500,
+    "sampling_uses_test_gold_icd": true
+  },
+  "benchmark": {
+    "database_path": "upstream/src/data/mimic_iv/mimic_iv.sqlite",
+    "tables": [
+      "patients",
+      "admissions",
+      "d_icd_diagnoses",
+      "d_icd_procedures",
+      "d_labitems",
+      "d_items",
+      "diagnoses_icd",
+      "procedures_icd",
+      "labevents",
+      "prescriptions",
+      "cost",
+      "chartevents",
+      "inputevents",
+      "outputevents",
+      "microbiologyevents",
+      "icustays",
+      "transfers"
+    ],
+    "table_count": 17,
+    "row_counts": {
+      "patients": 94,
+      "admissions": 119,
+      "d_icd_diagnoses": 106308,
+      "d_icd_procedures": 85254,
+      "d_labitems": 1594,
+      "d_items": 3522,
+      "diagnoses_icd": 1561,
+      "procedures_icd": 379,
+      "labevents": 26426,
+      "prescriptions": 5354,
+      "cost": 33720,
+      "chartevents": 31926,
+      "inputevents": 5730,
+      "outputevents": 5292,
+      "microbiologyevents": 1060,
+      "icustays": 88,
+      "transfers": 515
+    },
+    "patient_count": 94,
+    "splits": {
+      "train": {
+        "version": "mimic_iv_demo_1.0_train",
+        "count": 5124,
+        "unanswerable": 450
+      },
+      "dev": {
+        "version": "mimic_iv_demo_1.0_valid",
+        "count": 1163,
+        "unanswerable": 232
+      },
+      "test": {
+        "version": "mimic_iv_demo_1.0_test",
+        "count": 1167,
+        "unanswerable": 233
+      }
+    }
+  },
+  "schema_difference": {
+    "benchmark_only_tables": [
+      "cost"
+    ],
+    "application_only_tables": [
+      "caregiver",
+      "d_hcpcs",
+      "datetimeevents",
+      "drgcodes",
+      "emar",
+      "emar_detail",
+      "hcpcsevents",
+      "ingredientevents",
+      "omr",
+      "pharmacy",
+      "poe",
+      "poe_detail",
+      "procedureevents",
+      "provider",
+      "services"
+    ],
+    "benchmark_columns_absent_in_application": {
+      "patients": [
+        "dob",
+        "row_id"
+      ],
+      "admissions": [
+        "age",
+        "row_id"
+      ],
+      "d_icd_diagnoses": [
+        "row_id"
+      ],
+      "d_icd_procedures": [
+        "row_id"
+      ],
+      "d_labitems": [
+        "row_id"
+      ],
+      "d_items": [
+        "row_id"
+      ],
+      "diagnoses_icd": [
+        "charttime",
+        "row_id"
+      ],
+      "procedures_icd": [
+        "charttime",
+        "row_id"
+      ],
+      "labevents": [
+        "row_id"
+      ],
+      "prescriptions": [
+        "row_id"
+      ],
+      "chartevents": [
+        "row_id"
+      ],
+      "inputevents": [
+        "row_id"
+      ],
+      "outputevents": [
+        "row_id"
+      ],
+      "microbiologyevents": [
+        "row_id"
+      ],
+      "icustays": [
+        "row_id"
+      ],
+      "transfers": [
+        "row_id"
+      ]
+    }
+  },
+  "live_postgres": {
+    "inspected": false,
+    "attempted": true,
+    "error_type": "OperationalError",
+    "reason": "Could not complete read-only local inspection; declared schema/loader settings are not proof of live database contents."
+  },
+  "recommendation": {
+    "keep_current_dataset_for": "application development and internal/Vietnamese/multi-turn evaluation",
+    "use_probgate_dataset_for": "all direct numerical comparisons to ProbGate",
+    "replace_production_database": false,
+    "direct_comparison_using_current_180_questions": false
+  }
+}

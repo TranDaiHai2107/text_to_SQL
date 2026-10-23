@@ -604,11 +604,16 @@ def interpret_result(
     """
     Diễn giải kết quả SQL thành câu trả lời tiếng Việt tự nhiên.
 
+    Chế độ hoạt động:
+      - SEND_RESULTS_TO_LLM=true: Gửi raw data (tối đa max_rows_in_prompt dòng) lên LLM.
+      - SEND_RESULTS_TO_LLM=false (mặc định): Chỉ gửi metadata tổng hợp (số dòng,
+        tên cột, giá trị aggregate, top categories) — KHÔNG gửi dữ liệu bệnh nhân.
+
     Args:
         question: Câu hỏi gốc của người dùng
         sql: Câu SQL đã sinh
         df: DataFrame kết quả từ PostgreSQL
-        max_rows_in_prompt: Số dòng tối đa gửi cho LLM (tránh quá dài)
+        max_rows_in_prompt: Số dòng tối đa gửi cho LLM khi SEND_RESULTS_TO_LLM=true
 
     Returns:
         Câu trả lời ngôn ngữ tự nhiên bằng tiếng Việt
@@ -617,36 +622,38 @@ def interpret_result(
     if df is None or df.empty:
         return "Không tìm thấy dữ liệu phù hợp với câu hỏi của bạn trong cơ sở dữ liệu."
 
-    # Chuẩn bị dữ liệu kết quả cho prompt
     num_rows = len(df)
     num_cols = len(df.columns)
 
-    # MIMIC-derived rows stay local by default. Operators may explicitly opt in
-    # after checking their data-use and Groq retention settings.
-    if os.getenv("SEND_RESULTS_TO_LLM", "false").lower() not in {"1", "true", "yes"}:
-        if num_rows == 1:
-            values = ", ".join(
-                f"{column}: {df.iloc[0][column]}" for column in df.columns
+    send_raw = os.getenv("SEND_RESULTS_TO_LLM", "false").lower() in {"1", "true", "yes"}
+
+    if send_raw:
+        # ── Chế độ đầy đủ: gửi raw data (opt-in) ──
+        if num_rows <= max_rows_in_prompt:
+            data_str = df.to_string(index=False)
+            data_note = f"({num_rows} dòng, {num_cols} cột — toàn bộ kết quả)"
+        else:
+            data_str = df.head(max_rows_in_prompt).to_string(index=False)
+            data_note = (
+                f"({num_rows} dòng tổng cộng, chỉ hiển thị {max_rows_in_prompt} dòng đầu, "
+                f"{num_cols} cột)"
             )
-            return f"Kết quả truy vấn: {values}."
-        return f"Truy vấn trả về {num_rows} dòng và {num_cols} cột; chi tiết được hiển thị trong bảng bên dưới."
-
-    if num_rows <= max_rows_in_prompt:
-        data_str = df.to_string(index=False)
-        data_note = f"({num_rows} dòng, {num_cols} cột — toàn bộ kết quả)"
-    else:
-        data_str = df.head(max_rows_in_prompt).to_string(index=False)
-        data_note = (
-            f"({num_rows} dòng tổng cộng, chỉ hiển thị {max_rows_in_prompt} dòng đầu, "
-            f"{num_cols} cột)"
+        prompt = (
+            f"Câu hỏi của người dùng:\n\"{question}\"\n\n"
+            f"SQL đã dùng:\n{sql}\n\n"
+            f"Kết quả truy vấn {data_note}:\n{data_str}\n\n"
+            f"Hãy trả lời câu hỏi trên bằng tiếng Việt dựa trên kết quả truy vấn."
         )
-
-    prompt = (
-        f"Câu hỏi của người dùng:\n\"{question}\"\n\n"
-        f"SQL đã dùng:\n{sql}\n\n"
-        f"Kết quả truy vấn {data_note}:\n{data_str}\n\n"
-        f"Hãy trả lời câu hỏi trên bằng tiếng Việt dựa trên kết quả truy vấn."
-    )
+    else:
+        # ── Chế độ metadata-only: KHÔNG gửi raw data bệnh nhân ──
+        summary = _build_metadata_summary(df)
+        prompt = (
+            f"Câu hỏi của người dùng:\n\"{question}\"\n\n"
+            f"SQL đã dùng:\n{sql}\n\n"
+            f"Tóm tắt kết quả (metadata, không chứa dữ liệu cá nhân):\n{summary}\n\n"
+            f"Dựa trên thông tin tóm tắt trên, hãy trả lời câu hỏi bằng tiếng Việt. "
+            f"Nêu con số cụ thể nếu có."
+        )
 
     try:
         answer = _call_llm([
@@ -654,12 +661,60 @@ def interpret_result(
             {"role": "user",   "content": prompt},
         ])
         return answer.strip()
-    except Exception as e:
+    except Exception:
         # Fallback nếu LLM lỗi: trả về mô tả cơ bản
         if num_rows == 1 and num_cols == 1:
             val = df.iloc[0, 0]
             return f"Kết quả: {val}"
+        if num_rows == 1:
+            values = ", ".join(
+                f"{col}: {df.iloc[0][col]}" for col in df.columns
+            )
+            return f"Kết quả truy vấn: {values}."
         return f"Truy vấn trả về {num_rows} dòng kết quả."
+
+
+def _build_metadata_summary(df: pd.DataFrame) -> str:
+    """Tạo bản tóm tắt thống kê ẩn danh từ DataFrame — không chứa raw data bệnh nhân."""
+    lines = []
+    num_rows = len(df)
+    num_cols = len(df.columns)
+    lines.append(f"Tổng số: {num_rows} dòng, {num_cols} cột.")
+    lines.append(f"Tên cột: {', '.join(df.columns.tolist())}")
+
+    # Kết quả đơn giá trị (1 dòng, 1 cột) → trả giá trị luôn
+    if num_rows == 1 and num_cols == 1:
+        lines.append(f"Giá trị: {df.iloc[0, 0]}")
+        return "\n".join(lines)
+
+    # Kết quả 1 dòng → trả toàn bộ giá trị (thường là aggregate)
+    if num_rows == 1:
+        pairs = [f"  {col}: {df.iloc[0][col]}" for col in df.columns]
+        lines.append("Giá trị:\n" + "\n".join(pairs))
+        return "\n".join(lines)
+
+    # Nhiều dòng → thống kê aggregate cho từng cột
+    for col in df.columns:
+        series = df[col].dropna()
+        if series.empty:
+            continue
+
+        if pd.api.types.is_numeric_dtype(series):
+            stats = (
+                f"  {col} (số): min={series.min()}, max={series.max()}, "
+                f"trung bình={series.mean():.2f}, tổng={series.sum()}"
+            )
+            lines.append(stats)
+        else:
+            n_unique = series.nunique()
+            top_values = series.value_counts().head(5)
+            top_str = ", ".join(f"{v} ({c} lần)" for v, c in top_values.items())
+            lines.append(
+                f"  {col} (chữ): {n_unique} giá trị khác nhau. "
+                f"Top: {top_str}"
+            )
+
+    return "\n".join(lines)
 
 
 # ══════════════════════════════════════════════════════════════

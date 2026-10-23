@@ -1,0 +1,22 @@
+{
+  "updated_on": "2026-10-23",
+  "state": "deferred_by_user_until_GPT_configuration",
+  "groq_inference_stopped": true,
+  "full_benchmark_run": false,
+  "completed_paired_questions": {
+    "dev_high_v1": 0,
+    "dev_quota_v1": 1
+  },
+  "indexes_prepared": true,
+  "index_manifest": "indexes/manifest.json",
+  "metrics_implemented": [
+    "RS0",
+    "RS5",
+    "RS10",
+    "RSN",
+    "answerable_EX",
+    "VSR"
+  ],
+  "provider_adapter_currently": "Groq_only; GPT adapter must be configured before new inference",
+  "reason": "User plans GPT and requested deferring inference until then."
+}

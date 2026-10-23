@@ -1,0 +1,8 @@
+*
+!Dockerfile
+!baseline_core.py
+!reproduce.py
+!docker_runner.py
+!source_manifest.json
+!configs/
+!configs/*.json

@@ -1,0 +1,20 @@
+{
+  "prepared_on": "2026-10-19",
+  "paper": "ProbGate at EHRSQL 2024",
+  "author_commit": "2dcc2230ea049e7fb87160df922933b4ae2645b9",
+  "ehrsql_annotation_commit": "5ddaaa79e6121bf22f808df34166f6f4e03f4c86",
+  "upstream_files_preserved": 52,
+  "baseline_rows_registered": 11,
+  "dev_rows": 7,
+  "test_rows_with_published_raw_cache": 4,
+  "source_hashes_verified": true,
+  "dataset_id_and_question_alignment_verified": true,
+  "adapter_unit_tests_passed": 9,
+  "training_performed": false,
+  "model_inference_performed": false,
+  "api_calls_performed": false,
+  "benchmark_sql_executed": false,
+  "benchmark_scores_reproduced": false,
+  "unreleased_model_artifacts_documented_in": "UPSTREAM_NOTES.md",
+  "application_code_modified": false
+}
