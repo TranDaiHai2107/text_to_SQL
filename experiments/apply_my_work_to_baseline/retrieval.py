@@ -139,7 +139,7 @@ class ThreeRAG:
         return report
 
     def retrieve(self, question, mode="full"):
-        if mode not in {"base", "icd", "schema", "examples", "full"}:
+        if mode not in {"base", "icd", "schema", "examples", "full", "full_schema"}:
             raise ValueError("Unknown retrieval mode")
         ctx = {"medical": [], "tables": sorted(self.schema), "examples": []}
         if mode == "base":
@@ -152,7 +152,7 @@ class ThreeRAG:
                                                   include=["metadatas", "distances"], **({"where":where} if where else {}))
             return [{"id": key, **meta, "distance": distance} for key, meta, distance in zip(
                 result["ids"][0], result["metadatas"][0], result["distances"][0])]
-        if mode in {"icd", "full"}:
+        if mode in {"icd", "full", "full_schema"}:
             ctx["medical"] = search("medical_dictionary", 5)
             # Preserve the application's explicit disease lookup behavior:
             # generic lab/item matches must not crowd out a diagnosis/procedure.
@@ -169,7 +169,7 @@ class ThreeRAG:
             for table in found:
                 selected.update(self.neighbors[table])
             ctx["tables"] = sorted(selected)
-        if mode in {"examples", "full"}:
+        if mode in {"examples", "full", "full_schema"}:
             ctx["examples"] = search("sql_examples_train", 4)
         return ctx
 

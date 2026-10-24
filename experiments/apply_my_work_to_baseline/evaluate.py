@@ -1,12 +1,34 @@
 """Score actual completed paired questions; never pad unfinished IDs with null."""
 import argparse
 from collections import Counter
+import hashlib
 import json
 from pathlib import Path
 import random
 import sqlite3
 from settings import ROOT, BASELINE, DB
 from baseline_core import process_answer, score_answers, execute_readonly, post_process_sql
+
+
+def reliability_diagnostics(gold, predicted, outcomes):
+    """Separate SQL accuracy from correct refusals; errors remain answered/wrong."""
+    answerable = [key for key in gold if gold[key] != "null"]
+    unanswerable = [key for key in gold if gold[key] == "null"]
+    answered = [key for key in gold if predicted[key] != "null"]
+    correct_sql = sum(outcomes[key] == "correct" for key in answerable)
+    false_answers = sum(predicted[key] != "null" for key in unanswerable)
+    return {
+        "answerable_count":len(answerable),
+        "unanswerable_count":len(unanswerable),
+        "correct_answerable_sql":correct_sql,
+        "wrong_answers_on_answerable":sum(outcomes[key] == "wrong" for key in answerable),
+        "false_abstentions_on_answerable":sum(predicted[key] == "null" for key in answerable),
+        "correct_abstentions_on_unanswerable":len(unanswerable)-false_answers,
+        "false_answers_on_unanswerable":false_answers,
+        "coverage_percent":100*len(answered)/len(gold),
+        "answer_precision_percent":100*correct_sql/len(answered) if answered else None,
+        "unanswerable_recall_percent":100*(len(unanswerable)-false_answers)/len(unanswerable) if unanswerable else None,
+    }
 
 
 def paired_delta(reference, candidate, penalty=10):
@@ -66,6 +88,8 @@ def evaluate(run_dir):
         metrics["vsr_all_questions"] = 100*metrics["sql_executed_successfully"]/len(records)
         answered = len(records)-metrics["abstained"]
         metrics["execution_success_among_answered"] = 100*metrics["sql_executed_successfully"]/answered if answered else None
+        metrics["reliability"] = reliability_diagnostics(selected_gold, predicted, metrics["per_question"])
+        metrics["gef_filtered_count"] = sum(bool(row["variants"][mode].get("gef_filtered")) for row in records)
         variants[mode] = metrics
         # Complete output only for a complete split. No synthetic prediction for missing IDs.
         prediction = {row["id"]:row["variants"][mode]["sql"] for row in records}
@@ -80,11 +104,27 @@ def evaluate(run_dir):
     calls_path = run_dir/"api_events.jsonl"
     events = [json.loads(line) for line in calls_path.read_text().splitlines()] if calls_path.exists() else []
     success = [e for e in events if e["kind"]=="success"]
+    calls = {e["request_hash"]:e for e in success if "request_hash" in e}
+    for mode, metrics in variants.items():
+        hashes = {h for row in records for h in row["variants"][mode].get("call_hashes", [])}
+        metrics["standalone_inference_usage"] = {
+            "unique_calls":len(hashes),
+            "missing_usage_records":len(hashes-set(calls)),
+            "tokens":{key:sum(calls[h]["usage"].get(key,0) or 0 for h in hashes if h in calls)
+                      for key in ("prompt_tokens", "completion_tokens", "total_tokens")},
+            "note":"Shared calls counted once within each variant, so variant totals must not be added together. Missing usage is unknown, not free."
+        }
     report = {"split":config["split"], "completed_questions":len(records), "expected_questions":expected,
               "full_benchmark_complete":len(records)==expected, "official_normalization":True,
               "runtime_sqlite":sqlite3.sqlite_version, "variants":variants,
               "paired_author_best_on_same_ids":paired_baseline,
               "primary_variant":config.get("primary_variant"), "primary_metric":"RS10",
+              "scoring_code_sha256":{str(p.name):hashlib.sha256(p.read_bytes()).hexdigest()
+                                     for p in [ROOT/"evaluate.py", BASELINE/"baseline_core.py"]},
+              "paired_deltas_vs_matched_gef_base":{
+                  mode:paired_delta(variants["base_gef"]["per_question"], metrics["per_question"])
+                  for mode, metrics in variants.items() if mode.endswith("_gef") and mode != "base_gef"
+              } if "base_gef" in variants else {},
               "paired_deltas_vs_same_model_base":{
                   mode:paired_delta(variants["base"]["per_question"], metrics["per_question"])
                   for mode, metrics in variants.items() if mode != "base"} if "base" in variants else {},

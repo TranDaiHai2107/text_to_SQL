@@ -11,7 +11,7 @@ import time
 from settings import ROOT, WORKSPACE, BASELINE, MODEL, EMBEDDING_MODEL
 from retrieval import ThreeRAG, load
 from model_client import ModelClient, RunBlocked
-from pipeline import MODES, DEFAULT_MODES, run_question
+from pipeline import MODES, DEFAULT_MODES, PRIMARY_VARIANT, run_question
 
 
 def dump(path, value):
@@ -20,13 +20,14 @@ def dump(path, value):
     temporary.replace(path)
 
 
-def definition(split, modes, model, effort, limit, sql_tokens=900, rewrite_tokens=256):
+def definition(split, modes, model, effort, limit, sql_tokens=900, rewrite_tokens=256, primary_variant=None):
     files = ["settings.py", "retrieval.py", "sql_runtime.py", "model_client.py", "pipeline.py", "run.py"]
     return {"split":split, "modes":modes, "model":model, "reasoning_effort":effort,
             "embedding_model":EMBEDDING_MODEL, "temperature":0, "seed":42,
             "max_sql_completion_tokens":sql_tokens, "max_rewrite_completion_tokens":rewrite_tokens,
             "repair_retries":2, "question_limit":limit, "scorer":"official",
-            "primary_variant":"three_rag_standalone_rewrite_agentic_gef",
+            "primary_variant":primary_variant or (PRIMARY_VARIANT if PRIMARY_VARIANT in modes else modes[-1]),
+            "protocol_version":2,
             "gold_test_access_during_inference":False, "examples_split":"train_only",
             "code_sha256":{name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in files},
             "application_source_sha256":{name:hashlib.sha256((WORKSPACE/name).read_bytes()).hexdigest()
@@ -40,17 +41,24 @@ def main():
     parser.add_argument("--run-name", required=True)
     parser.add_argument("--split", choices=["dev", "test"], default="test")
     parser.add_argument("--modes", nargs="+", choices=MODES, default=DEFAULT_MODES)
+    parser.add_argument("--primary-variant", choices=MODES, help="Freeze the dev-selected primary before a test run")
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--reasoning-effort", choices=["none", "low", "medium", "high"], default="none")
     parser.add_argument("--sql-tokens", type=int, default=900)
     parser.add_argument("--rewrite-tokens", type=int, default=256)
     parser.add_argument("--limit", type=int, default=0)
     args = parser.parse_args()
+    if len(args.modes) != len(set(args.modes)):
+        parser.error("Duplicate modes are not allowed")
+    if args.primary_variant and args.primary_variant not in args.modes:
+        parser.error("Primary variant must be included in --modes")
+    if args.split == "test" and not args.primary_variant:
+        parser.error("Choose --primary-variant on dev and specify it explicitly before test")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", args.run_name) or args.limit < 0 or not (64 <= args.sql_tokens <= 16384) or not (64 <= args.rewrite_tokens <= 4096):
         parser.error("Invalid run name/limit")
     run_dir = ROOT/"runs"/args.run_name
     run_dir.mkdir(parents=True, exist_ok=True)
-    config = definition(args.split, args.modes, args.model, args.reasoning_effort, args.limit, args.sql_tokens, args.rewrite_tokens)
+    config = definition(args.split, args.modes, args.model, args.reasoning_effort, args.limit, args.sql_tokens, args.rewrite_tokens, args.primary_variant)
     if (run_dir/"config.json").is_file():
         if load(run_dir/"config.json") != config:
             raise ValueError("Configuration/code changed. Use a new run name; do not mix experiment versions.")

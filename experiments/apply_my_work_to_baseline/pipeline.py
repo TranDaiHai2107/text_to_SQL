@@ -4,15 +4,20 @@ No evaluation gold is available to this module. Native multi-turn rewrite with
 empty history is intentionally identity, exactly like the user's original code.
 """
 import copy
+from collections import Counter
 import re
 from sql_runtime import clean_sql, outcome
 
 MODES = ["base", "icd", "schema", "examples", "three_rag", "three_rag_agentic",
          "three_rag_native_rewrite_agentic", "three_rag_standalone_rewrite_agentic",
-         "three_rag_agentic_gef", "three_rag_standalone_rewrite_agentic_gef"]
-DEFAULT_MODES = ["base", "three_rag", "three_rag_agentic", "three_rag_native_rewrite_agentic",
-                 "three_rag_standalone_rewrite_agentic", "three_rag_agentic_gef",
-                 "three_rag_standalone_rewrite_agentic_gef"]
+                 "three_rag_agentic_gef", "three_rag_standalone_rewrite_agentic_gef",
+         "base_gef", "examples_gef", "full_schema_rag", "full_schema_rag_agentic",
+         "full_schema_rag_agentic_gef"]
+# A dev starting configuration, not a claim that full schema is empirically best.
+# Every default uses all 17 tables; rewrite remains an optional dev ablation.
+DEFAULT_MODES = ["base", "base_gef", "examples", "examples_gef", "full_schema_rag",
+                 "full_schema_rag_agentic", "full_schema_rag_agentic_gef"]
+PRIMARY_VARIANT = "full_schema_rag_agentic_gef"
 
 SYSTEM = """You translate an English medical question into ONE executable SQLite SELECT query on the provided EHR database.
 Return ONLY SQL, or exactly null if the question cannot be answered from this schema. No markdown or explanations.
@@ -42,15 +47,25 @@ def preserve_rewrite(original, proposed):
     text = proposed.strip().strip('"').strip()
     if not text or len(text) > max(1000, 3*len(original)):
         return original, "invalid_length"
-    numbers = re.findall(r"\b\d+(?:\.\d+)?\b", original)
-    if any(n not in re.findall(r"\b\d+(?:\.\d+)?\b", text) for n in numbers):
+    # Equality, including multiplicity: preserving old numbers while ADDING a
+    # patient/date/limit is also a semantic change.
+    numbers = lambda value: Counter(re.findall(r"(?<!\w)[+-]?\d+(?:\.\d+)?\b", value))
+    if numbers(original) != numbers(text):
         return original, "numeric_constraint_changed"
     for phrase in re.findall(r"['\"]([^'\"]+)['\"]", original):
         if phrase.casefold() not in text.casefold():
             return original, "quoted_entity_changed"
-    for word in ["first", "last", "before", "after", "since", "until", "within"]:
-        if re.search(r"\b"+word+r"\b", original, re.I) and not re.search(r"\b"+word+r"\b", text, re.I):
-            return original, "temporal_relation_changed"
+    sensitive = ("first", "last", "before", "after", "since", "until", "within",
+                 "not", "no", "never", "without", "except", "only", "any", "all",
+                 "and", "or", "earliest", "latest", "highest", "lowest", "minimum",
+                 "maximum", "average", "median", "total", "distinct", "more", "less",
+                 "greater", "fewer", "above", "below", "least", "most")
+    for word in sensitive:
+        count = lambda value: len(re.findall(r"\b"+word+r"\b", value, re.I))
+        if count(original) != count(text):
+            return original, "logical_or_temporal_constraint_changed"
+    if Counter(re.findall(r"<=|>=|!=|<>|[<>=]", original)) != Counter(re.findall(r"<=|>=|!=|<>|[<>=]", text)):
+        return original, "comparison_operator_changed"
     return text, "accepted" if text != original else "identity"
 
 
@@ -66,25 +81,37 @@ def build_prompt(question, ctx, schemas):
     return [{"role":"system", "content":SYSTEM}, {"role":"user", "content":"\n\n".join(sections)}]
 
 
+def completion_sql(response):
+    # A truncated 'null' must not receive credit as a deliberate abstention.
+    if response["finish_reason"] == "length":
+        return "", {"valid":False, "abstained":False, "empty":None, "error":"model_generation_truncated"}
+    sql = clean_sql(response["content"])
+    return sql, outcome(sql)
+
+
 def generate(question_id, question, rag_mode, rag, client):
     ctx = rag.retrieve(question, rag_mode)
     messages = build_prompt(question, ctx, rag.schema)
     response = client.call(messages, "sql_"+rag_mode, question_id, max_tokens=getattr(client, "sql_tokens", 4096))
-    sql = clean_sql(response["content"])
-    execution = outcome(sql)
-    if response["finish_reason"] == "length":
-        execution = {"valid":False, "abstained":False, "empty":None, "error":"model_generation_truncated"}
+    sql, execution = completion_sql(response)
     return {"sql":sql, "execution":execution, "attempts":1, "messages":messages,
+            "input_question":question,
             "retrieval":ctx, "call_hashes":[response["request_hash"]], "history":[]}
 
 
-def repair(question_id, record, client):
+def repair(question_id, record, client, rag=None):
     result = copy.deepcopy(record)
     # Valid null is a model abstention. Do not fabricate a SQL repair for it.
     for attempt in range(2):
         if result["execution"]["valid"] or result["execution"]["abstained"]:
             break
         error = result["execution"]["error"]
+        if rag is not None and set(result["retrieval"]["tables"]) != set(rag.schema):
+            # Error feedback cannot repair a missing table if it remains hidden.
+            # Restore actual DDL, with no gold SQL or result rows in the prompt.
+            result["retrieval"]["tables"] = sorted(rag.schema)
+            result["schema_restored_for_repair"] = True
+            result["messages"][:2] = build_prompt(result["input_question"], result["retrieval"], rag.schema)
         result["history"].append({"sql":result["sql"], "error":error})
         result["messages"].extend([
             {"role":"assistant", "content":result["sql"]},
@@ -93,10 +120,7 @@ def repair(question_id, record, client):
         response = client.call(result["messages"], "self_correction", question_id, max_tokens=getattr(client, "sql_tokens", 4096))
         result["call_hashes"].append(response["request_hash"])
         result["attempts"] += 1
-        result["sql"] = clean_sql(response["content"])
-        result["execution"] = outcome(result["sql"])
-        if response["finish_reason"] == "length":
-            result["execution"] = {"valid":False, "abstained":False, "empty":None, "error":"model_generation_truncated"}
+        result["sql"], result["execution"] = completion_sql(response)
     return result
 
 
@@ -123,14 +147,30 @@ def run_question(item, modes, rag, client, on_stage=None):
         if on_stage:
             on_stage(mode, public_record(record))
     for mode in ["base", "icd", "schema", "examples"]:
-        if mode in modes:
-            save(mode, generate(question_id, question, mode, rag, client))
+        filtered = mode+"_gef"
+        if mode in modes or filtered in modes:
+            record = generate(question_id, question, mode, rag, client)
+            if mode in modes:
+                save(mode, record)
+            if filtered in modes:
+                save(filtered, gef(record))
+    full_schema_modes = [m for m in modes if m.startswith("full_schema_rag")]
+    if full_schema_modes:
+        full_schema = generate(question_id, question, "full_schema", rag, client)
+        if "full_schema_rag" in modes:
+            save("full_schema_rag", full_schema)
+        enhanced_schema = repair(question_id, full_schema, client, rag) if any(
+            m != "full_schema_rag" for m in full_schema_modes) else full_schema
+        if "full_schema_rag_agentic" in modes:
+            save("full_schema_rag_agentic", enhanced_schema)
+        if "full_schema_rag_agentic_gef" in modes:
+            save("full_schema_rag_agentic_gef", gef(enhanced_schema))
     full_modes = [m for m in modes if m.startswith("three_rag")]
     if full_modes:
         full = generate(question_id, question, "full", rag, client)
         if "three_rag" in modes:
             save("three_rag", full)
-        enhanced = repair(question_id, full, client) if any(m != "three_rag" for m in full_modes) else full
+        enhanced = repair(question_id, full, client, rag) if any(m != "three_rag" for m in full_modes) else full
         if "three_rag_agentic" in modes:
             save("three_rag_agentic", enhanced)
         if "three_rag_native_rewrite_agentic" in modes:
@@ -146,7 +186,7 @@ def run_question(item, modes, rag, client, on_stage=None):
             if response["finish_reason"] == "length":
                 rewritten, guard = question, "truncated_rewrite_rejected"
             rewritten_result = enhanced if rewritten == question else repair(question_id,
-                generate(question_id, rewritten, "full", rag, client), client)
+                generate(question_id, rewritten, "full", rag, client), client, rag)
             rewritten_result = copy.deepcopy(rewritten_result)
             rewritten_result["rewrite"] = {"kind":"standalone_extension", "question":rewritten,
                                            "changed":rewritten != question, "guard":guard}
