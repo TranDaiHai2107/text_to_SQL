@@ -1,0 +1,32 @@
+{
+  "updated_on": "2026-10-27",
+  "system": "Vanna AI",
+  "distribution_version": "2.0.2",
+  "pipeline": "legacy_SQL_RAG_shipped_with_Vanna_2.0.2",
+  "state": "blocked_by_api",
+  "model_selected": true,
+  "provider_adapter_currently": "Groq transport only; other providers require an adapter",
+  "fine_tuning": false,
+  "model_api_calls": 0,
+  "full_benchmark_run": false,
+  "scores_available": true,
+  "auto_training_on_evaluation": false,
+  "new_framework_source_modified": false,
+  "note": "User clarified: train is knowledge base only; only the full 1167-question test is evaluated. Existing test predictions/cache are reused.",
+  "index_built": true,
+  "train_examples": 5124,
+  "schema_tables": 17,
+  "vanna_tests_passed": 8,
+  "real_index_smoke_passed": true,
+  "model": "qwen/qwen3.8-27b",
+  "inference_started": true,
+  "active_runs": {
+    "test": "vanna_qwen_20261027_v1_test"
+  },
+  "train_role": "knowledge_base_only",
+  "stopped_train_prediction_run": "vanna_qwen_20261027_v1_train",
+  "discarded_train_prediction_count": 2,
+  "completed_test_questions": 70,
+  "latest_results": "LATEST_RESULTS.json",
+  "successful_test_model_calls": 70
+}

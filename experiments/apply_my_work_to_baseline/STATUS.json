@@ -1,5 +1,5 @@
 {
-  "updated_on": "2026-10-23",
+  "updated_on": "2026-10-24",
   "state": "deferred_by_user_until_GPT_configuration",
   "groq_inference_stopped": true,
   "full_benchmark_run": false,
@@ -18,5 +18,19 @@
     "VSR"
   ],
   "provider_adapter_currently": "Groq_only; GPT adapter must be configured before new inference",
-  "reason": "User plans GPT and requested deferring inference until then."
+  "reason": "Inference remains deferred while selecting/configuring a provider. Local pre-run improvements only; no new model calls.",
+  "pre_run_improvements": {
+    "protocol_version": 2,
+    "full_schema_default": true,
+    "matched_gef_controls": true,
+    "rewrite_default": false,
+    "primary_dev_candidate": "full_schema_rag_agentic_gef",
+    "primary_test_variant_requires_explicit_selection": true,
+    "unit_tests_passed": 12,
+    "baseline_regression_tests_passed": 13,
+    "offline_retrieval_smoke_questions": 2,
+    "model_accuracy_measured": false,
+    "new_provider_integrated": false,
+    "probgate_logprob_filter_integrated": false
+  }
 }

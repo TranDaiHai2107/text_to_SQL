@@ -1,0 +1,6 @@
+/.vendor/
+/indexes/
+/prepared/
+/runs/
+__pycache__/
+.test-*/

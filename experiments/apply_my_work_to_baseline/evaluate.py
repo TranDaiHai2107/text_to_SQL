@@ -1,13 +1,20 @@
 """Score actual completed paired questions; never pad unfinished IDs with null."""
 import argparse
-from collections import Counter
 import hashlib
 import json
 from pathlib import Path
 import random
 import sqlite3
 from settings import ROOT, BASELINE, DB
-from baseline_core import process_answer, score_answers, execute_readonly, post_process_sql
+from baseline_core import score_answers, execute_readonly, post_process_sql
+
+
+def scoring_sql(record):
+    # Preserve generation failures across host scoring and Docker export. A
+    # truncated but executable prefix (or truncated 'null') is not a prediction.
+    if record.get("gef_filtered") or record["execution"]["abstained"]:
+        return "null"
+    return record["sql"] if record["execution"]["valid"] else ""
 
 
 def reliability_diagnostics(gold, predicted, outcomes):
@@ -57,7 +64,7 @@ def evaluate(run_dir):
     if len({r["id"] for r in records}) != len(records):
         raise ValueError("Duplicate question ID")
     gold = json.loads((BASELINE/"data/gold"/config["split"]/"answer.json").read_text())
-    expected = 1167 if config["split"]=="test" else 1163
+    expected = {"train":5124, "dev":1163, "test":1167}[config["split"]]
     ids = [r["id"] for r in records]
     selected_gold = {key:gold[key] for key in ids}
     variants = {}
@@ -65,7 +72,7 @@ def evaluate(run_dir):
         predicted, errors = {}, []
         for row in records:
             record = row["variants"][mode]
-            sql = record["sql"]
+            sql = scoring_sql(record)
             if sql == "null":
                 predicted[row["id"]] = "null"
             elif not record["execution"]["valid"] and not record.get("gef_filtered"):
@@ -92,7 +99,7 @@ def evaluate(run_dir):
         metrics["gef_filtered_count"] = sum(bool(row["variants"][mode].get("gef_filtered")) for row in records)
         variants[mode] = metrics
         # Complete output only for a complete split. No synthetic prediction for missing IDs.
-        prediction = {row["id"]:row["variants"][mode]["sql"] for row in records}
+        prediction = {row["id"]:scoring_sql(row["variants"][mode]) for row in records}
         (run_dir/(mode+".prediction.json")).write_text(json.dumps(prediction, indent=2)+"\n")
     # Score the author's best cached predictions ON THE SAME IDs for paired diagnostics.
     baseline_path = BASELINE/"runs/audit_20261023_docker/test_gpt_probgate_425_gef/prediction.json"

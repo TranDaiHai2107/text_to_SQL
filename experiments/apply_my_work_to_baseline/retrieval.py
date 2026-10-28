@@ -40,9 +40,14 @@ def load(path):
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def signature():
+def signature(knowledge_splits=("train",)):
     h = hashlib.sha256(EMBEDDING_MODEL.encode())
-    for path in [DB, BASELINE / "data/inputs/train.json", BASELINE / "data/gold/train/label.json"]:
+    paths = [DB]
+    for split in knowledge_splits:
+        if split not in {"train", "dev"}:
+            raise ValueError("Only train/dev may enter the knowledge base")
+        paths += [BASELINE / "data/inputs" / (split+".json"), BASELINE / "data/gold" / split / "label.json"]
+    for path in paths:
         with path.open("rb") as handle:
             for chunk in iter(lambda: handle.read(1024*1024), b""):
                 h.update(chunk)
@@ -83,31 +88,43 @@ def dictionary_records():
 
 
 class ThreeRAG:
-    def __init__(self):
+    def __init__(self, knowledge_splits=("train",), index_path=None):
         import chromadb
         import torch
         from sentence_transformers import SentenceTransformer
         torch.set_num_threads(min(4, os.cpu_count() or 1))
+        self.knowledge_splits = tuple(knowledge_splits)
+        if self.knowledge_splits not in {("train",), ("train", "dev")}:
+            raise ValueError("Supported knowledge splits: train or train+dev; never test")
+        self.index_path = Path(index_path) if index_path else ROOT / ("indexes/chroma" if self.knowledge_splits==("train",) else "indexes/chroma_train_dev")
+        self.examples_collection = "sql_examples_train" if self.knowledge_splits==("train",) else "sql_examples_train_dev"
         self.model = SentenceTransformer(EMBEDDING_MODEL, device="cpu", local_files_only=True)
-        self.client = chromadb.PersistentClient(path=str(ROOT / "indexes/chroma"))
+        self.client = chromadb.PersistentClient(path=str(self.index_path))
         self.schema, self.neighbors = schema_metadata()
-        self.source_signature = signature()
+        self.source_signature = signature(self.knowledge_splits)
         self.collections = {}
         self.query_cache = {}
 
     def build(self):
-        questions = load(BASELINE / "data/inputs/train.json")["data"]
-        labels = load(BASELINE / "data/gold/train/label.json")
-        for split in ("dev", "test"):
+        questions, labels, sources = [], {}, {}
+        for split in self.knowledge_splits:
+            rows = load(BASELINE / "data/inputs" / (split+".json"))["data"]
+            split_labels = load(BASELINE / "data/gold" / split / "label.json")
+            if set(split_labels) != {r["id"] for r in rows} or set(labels) & set(split_labels):
+                raise ValueError("Knowledge IDs/labels do not align or overlap")
+            questions.extend(rows)
+            labels.update(split_labels)
+            sources.update({r["id"]:split for r in rows})
+        for split in ({"dev", "test"}-set(self.knowledge_splits)):
             other = {row["id"] for row in load(BASELINE / "data/inputs" / (split+".json"))["data"]}
             if other & {row["id"] for row in questions}:
                 raise ValueError("Train/evaluation IDs overlap")
-        examples = [{"id": r["id"], "document": r["question"], "source": "EHRSQL_train",
+        examples = [{"id": r["id"], "document": r["question"], "source": "EHRSQL_"+sources[r["id"]],
                      "question": r["question"], "sql": labels[r["id"]]} for r in questions]
         schemas = [{"id": table, "document": DESCRIPTIONS.get(table, table)+"\n"+ddl,
                     "source": "sqlite_schema", "table": table} for table, ddl in self.schema.items()]
         collections = {"medical_dictionary": dictionary_records(), "schema_dictionary": schemas,
-                       "sql_examples_train": examples}
+                       self.examples_collection: examples}
         counts = {}
         for name, records in collections.items():
             collection = self.client.get_or_create_collection(name,
@@ -132,16 +149,18 @@ class ThreeRAG:
             self.collections[name] = collection
             counts[name] = len(records)
         report = {"source_signature": self.source_signature, "embedding_model": EMBEDDING_MODEL,
-                  "counts": counts, "examples_split": "train_only", "gold_test_read": False,
+                  "counts": counts, "examples_split": "+".join(self.knowledge_splits), "knowledge_splits":list(self.knowledge_splits), "gold_test_read": False,
                   "dictionary_policy": "observed diagnosis/procedure codes, item dictionaries and drug names; no patient rows"}
-        (ROOT / "indexes").mkdir(exist_ok=True)
-        (ROOT / "indexes/manifest.json").write_text(json.dumps(report, indent=2)+"\n", encoding="utf-8")
+        manifest = ROOT/"indexes/manifest.json" if self.knowledge_splits==("train",) else self.index_path/"manifest.json"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(json.dumps(report, indent=2)+"\n", encoding="utf-8")
         return report
 
     def retrieve(self, question, mode="full"):
         if mode not in {"base", "icd", "schema", "examples", "full", "full_schema"}:
             raise ValueError("Unknown retrieval mode")
         ctx = {"medical": [], "tables": sorted(self.schema), "examples": []}
+        ctx["knowledge_splits"] = list(getattr(self, "knowledge_splits", ("train",)))
         if mode == "base":
             return ctx
         if question not in self.query_cache:
@@ -170,6 +189,6 @@ class ThreeRAG:
                 selected.update(self.neighbors[table])
             ctx["tables"] = sorted(selected)
         if mode in {"examples", "full", "full_schema"}:
-            ctx["examples"] = search("sql_examples_train", 4)
+            ctx["examples"] = search(getattr(self, "examples_collection", "sql_examples_train"), 4)
         return ctx
 

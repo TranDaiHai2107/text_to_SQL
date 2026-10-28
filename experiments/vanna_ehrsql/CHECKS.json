@@ -1,0 +1,29 @@
+{
+  "checked_on": "2026-10-26",
+  "vanna_tests_passed": 8,
+  "proposed_system_regression_tests_passed": 12,
+  "real_index_smoke": {
+    "retrieved_sql_examples": 4,
+    "retrieved_ddl": 17,
+    "retrieved_documentation": 1,
+    "prompt_messages": 10,
+    "prompt_characters": 8648,
+    "index_unchanged": true
+  },
+  "model_api_calls": 0,
+  "model_accuracy_measured": false,
+  "source_sha256": {
+    "benchmark.py": "05863c18042e0ce496348c328746301ea070386f57f8fb69e91c056c2fc377b7",
+    "bridge.py": "40bfe111da4b3f0cf69021986ccc99d57520cc58b51c4e9badc713d841aeb023",
+    "compare.py": "58e777c2c09e89b480c296b5e486a3ce4eedc69d4d146066b498593cd3dbaa8f",
+    "prepare.py": "0e3cf5fc7927d91b3f1b3086eb3a682383ff1e5ff27c79a21fc48c8f5ad10260",
+    "run.py": "f55aec6262e5627be0ed519eac4a787ace3163fd758240d49dc6c6d96a50c4c9",
+    "score.py": "d454317a343cc907a663053f500a41b45c618bec605e4b8cff6d5d72ca435d14",
+    "vanna_adapter.py": "ce806df0fd7410c55dd0cb3f7f3078a40a36d6aa96e512d4ad1a9e959926bb5d"
+  },
+  "framework_source_sha256": {
+    "legacy/base/base.py": "b36e3e9a8b8213a322ef957d6c770d073a65c40cf68074966c7d7a0fcb3bfe82",
+    "legacy/chromadb/chromadb_vector.py": "6454db3f76163a75a114b8905e5701d840c9fad01592fd8580a855fb2a47cc59"
+  },
+  "completed_on": "2026-10-27"
+}

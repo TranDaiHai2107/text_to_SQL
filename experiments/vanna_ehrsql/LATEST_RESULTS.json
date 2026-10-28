@@ -1,0 +1,40 @@
+{
+  "model": "qwen/qwen3.8-27b",
+  "provider": "groq",
+  "primary_variant": "vanna",
+  "train_role": "knowledge_base_only_5124_examples",
+  "dev_used": false,
+  "test_run": "vanna_qwen_20261027_v1_test",
+  "completed_test_questions": 70,
+  "expected_test_questions": 1167,
+  "full_test_complete": false,
+  "state": "blocked_by_api",
+  "blocked_reason": "Daily/account quota exhausted; checkpoints retained. Error code: 429 - {'error': {'message': 'Rate limit reached for model `qwen/qwen3.8-27b` in organization `org_01knkgwpr8eg8vjh320a0mvsfb` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 198210, Requested 2900. Please try again in 7m59.52s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+  "api_usage": {
+    "prompt_tokens": 194876,
+    "completion_tokens": 5269,
+    "total_tokens": 200145
+  },
+  "variants": {
+    "vanna": {
+      "scores": {
+        "RS0": 84.28571428571429,
+        "RS5": 48.57142857142857,
+        "RS10": 12.857142857142858,
+        "RSN": -415.7142857142857
+      },
+      "answerable_ex": 81.81818181818181,
+      "vsr_all_questions": 70.0
+    },
+    "vanna_gef": {
+      "scores": {
+        "RS0": 84.28571428571429,
+        "RS5": 62.857142857142854,
+        "RS10": 41.42857142857143,
+        "RSN": -215.71428571428572
+      },
+      "answerable_ex": 81.81818181818181,
+      "vsr_all_questions": 68.57142857142857
+    }
+  }
+}

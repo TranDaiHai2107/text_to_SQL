@@ -1,0 +1,2 @@
+# Framework only, loaded alongside the project's existing dependencies.
+vanna==2.0.2 --hash=sha256:d54f039572b0bcc520859ba99b7a587bdf96eebafc0c77c28fe44c0962550553

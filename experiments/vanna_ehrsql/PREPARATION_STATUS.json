@@ -1,0 +1,39 @@
+{
+  "vanna_version": "2.0.2",
+  "pipeline": "vanna.legacy.generate_sql + ChromaDB",
+  "source": {
+    "vanna_version": "2.0.2",
+    "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
+    "database_sha256": "846adb486d3803f97c6cc2b951f2236a946bafa16b7e3f041e0802cf414a8c4d",
+    "train_questions_sha256": "48ed72b4e8b3c6946d2e0ef629cbae16ff3af621ed4b4f065d3c1ff233917d62",
+    "train_labels_sha256": "9f6545b4850be49015c54a4956d08724bb41eb5167b018b30b77fe9b5579924d",
+    "documentation_sha256": "dbad0a62959e84022d0827c9623431c20c8208cbd83472cbbed484377dd48818"
+  },
+  "train_pairs": 5124,
+  "schema_tables": 17,
+  "train_null_examples": 450,
+  "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "api_calls": 0,
+  "fine_tuning": false,
+  "index_built": true,
+  "index": {
+    "source": {
+      "vanna_version": "2.0.2",
+      "embedding_model": "paraphrase-multilingual-MiniLM-L12-v2",
+      "database_sha256": "846adb486d3803f97c6cc2b951f2236a946bafa16b7e3f041e0802cf414a8c4d",
+      "train_questions_sha256": "48ed72b4e8b3c6946d2e0ef629cbae16ff3af621ed4b4f065d3c1ff233917d62",
+      "train_labels_sha256": "9f6545b4850be49015c54a4956d08724bb41eb5167b018b30b77fe9b5579924d",
+      "documentation_sha256": "dbad0a62959e84022d0827c9623431c20c8208cbd83472cbbed484377dd48818"
+    },
+    "counts": {
+      "sql": 5124,
+      "ddl": 17,
+      "documentation": 1
+    },
+    "train_questions": 5124,
+    "training_is_fine_tuning": false,
+    "held_out_labels_read": false,
+    "native_document_format": true,
+    "bulk_loading": true
+  }
+}

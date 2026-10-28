@@ -1,17 +1,18 @@
 # Áp dụng hệ thống của mình lên EHRSQL
 
-**Trạng thái 23/10/2026:** người dùng quyết định chờ cấu hình GPT trước khi chạy benchmark đầy đủ. Các lời gọi Groq đã dừng. Chưa có điểm test cuối cùng của hệ thống. Xem `STATUS.json`.
+**Trạng thái 24/10/2026:** đã cải thiện pipeline và kiểm thử cục bộ; inference vẫn dừng theo yêu cầu trước đó. Chưa có điểm test cuối cùng của hệ thống. Client hiện chỉ có Groq; cần adapter tương ứng nếu chọn GPT/Gemini/DeepSeek. Xem `STATUS.json` và [các thay đổi trước khi chạy](PRE_RUN_IMPROVEMENTS.md).
 
 ## Đã chuẩn bị
 
 - Database/câu hỏi dùng đúng snapshot ProbGate/EHRSQL trong `../../baselines/probgate_ehrsql_2024`, không thay database của ứng dụng chính.
 - Ba tầng Chroma riêng: từ điển y khoa 6.417 mục, schema 17 bảng và 5.124 ví dụ train. Không đưa gold dev/test vào prompt/index; không gửi hàng kết quả bệnh nhân tới model.
 - Pipeline tiếng Anh/SQLite: model thuần; ba RAG; schema validation + tự sửa tối đa hai lần; rewrite đa lượt gốc (identity vì EHRSQL không có history); nhánh mở rộng standalone rewrite có guard; GEF lấy từ hướng ProbGate để lọc SQL lỗi/kết quả rỗng.
-- Groq không cung cấp token logprobs tương ứng nên không giả lập ProbGate bằng confidence tự đặt.
+- Client hiện chưa thu nhận token logprobs cần cho ProbGate. Chưa có nhánh ProbGate hoàn chỉnh trên model mới; không giả lập nó bằng confidence tự đặt. `base_gef` chỉ là đối chứng dùng GEF, không phải toàn bộ ProbGate.
 - Bộ chấm official RS0/RS5/RS10/RSN, EX trên câu answerable, VSR; so sánh paired cùng ID với model thuần và cache tác giả. Tập chạy dở không được padding null hoặc đem so với điểm toàn bộ paper.
 - `finalize_full.py` chỉ chấp nhận đủ 1.167 ID test rồi chấm lại bằng Docker baseline cùng protocol/runtime.
 - Cache từng lời gọi, checkpoint từng stage, cấu hình/hash code cố định để chạy tiếp và phân biệt các thí nghiệm.
-- Sáu kiểm thử pipeline đã đạt trước khi thử API.
+- Bộ mặc định mới giữ đủ schema 17 bảng, đối soát RAG ví dụ / thêm từ điển / sửa lỗi, có đối chứng GEF dùng chung SQL. Rewrite và schema pruning vẫn có thể chọn để ablation trên dev.
+- Mười hai kiểm thử pipeline/evaluator đã đạt sau cải tiến ngày 24/10. Kiểm thử này không đo độ chính xác model.
 
 ## Những gì đã thực chạy
 
@@ -23,7 +24,9 @@
 
 `model_client.py` hiện vẫn là client **Groq**, chưa có OpenAI/GPT API adapter. Cần cấu hình provider/model và client GPT trước, không chỉ đổi model ID vào Groq. Giữ cùng một model GPT và cùng cấu hình generation cho nhánh thuần/nhánh đề xuất để đánh giá đóng góp phương pháp. Không gọi model GPT mới là model GPT fine-tuned riêng của tác giả.
 
-Chọn ngân sách token phù hợp với model/quota mới; kiểm tra trên dev rồi đóng băng cấu hình trước test. Dùng run name mới để không trộn kết quả Groq và GPT. Chỉ index train, không chỉnh prompt/threshold dựa trên gold test. Primary metric đã dự kiến là RS10; nhánh đầy đủ là `three_rag_standalone_rewrite_agentic_gef`.
+Chọn ngân sách token phù hợp với model/quota mới; kiểm tra trên dev rồi đóng băng cấu hình trước test. Dùng run name mới để không trộn các phiên bản code/provider/model. Chỉ index train, không chỉnh prompt/threshold dựa trên gold test. Primary metric là RS10. Ứng viên mặc định trên dev mới là `full_schema_rag_agentic_gef`; đây chưa phải cấu hình đã chứng minh tốt nhất. Nhánh rewrite cũ vẫn tồn tại để so sánh khi chọn tường minh.
+
+Khi chạy test, bắt buộc truyền `--primary-variant` nằm trong `--modes`, được chọn trước trên dev. Helper PowerShell nhận `-PrimaryVariant`. CLI không kiểm chứng được lịch sử quyết định của người chạy, nên vẫn cần lưu báo cáo dev. Các run Groq cũ không thể resume bằng code mới vì hash khác. Không tự chạy lệnh inference chỉ để thử cấu hình.
 
 ## Các file chính
 

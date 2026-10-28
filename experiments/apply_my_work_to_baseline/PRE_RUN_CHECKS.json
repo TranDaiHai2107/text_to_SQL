@@ -1,0 +1,42 @@
+{
+  "checked_on": "2026-10-24",
+  "model_api_calls": 0,
+  "model_accuracy_measured": false,
+  "experiment_tests_passed": 12,
+  "baseline_tests_passed": 13,
+  "powershell_parser": "passed",
+  "python_ast": "passed",
+  "test_requires_explicit_primary_before_creating_run": "passed",
+  "offline_existing_index_smoke": {
+    "questions": 2,
+    "schema_tables_per_question": [
+      17,
+      17
+    ],
+    "train_examples_per_question": [
+      4,
+      4
+    ],
+    "medical_candidates_per_question": [
+      5,
+      5
+    ],
+    "prompt_characters": [
+      8826,
+      8629
+    ],
+    "characters_are_not_tokens": true
+  },
+  "code_sha256": {
+    "pipeline.py": "35a4e28e87ed7d0b5689627e490506da382a5ca455e9ff1cd8de8bb2361805ba",
+    "retrieval.py": "fa76ce9ef5e7e2a7354c75de2b096e6c560321c8a7d32bd93503d433a942ba3b",
+    "run.py": "d65fa3b46a969ddabf969a781eeeced19073aad8ac133e12f5dfd7c9779a6ca6",
+    "evaluate.py": "218bea82d3885777a9f73264657f696c6d20e19b8914d41499539596f24ce4c7",
+    "run_groq.ps1": "ec2b59b0d355dff38e1c20cc8bc109dbb1d596f53beff294ed5ce46d0d3443f8",
+    "tests/test_pipeline.py": "aab65782af77d845e511917381554d5c9df40e7c84197138a7ca881f14822641"
+  },
+  "limits": [
+    "No new provider adapter or logprob filter.",
+    "No dev/test model accuracy result; no claim of improvement over the paper."
+  ]
+}

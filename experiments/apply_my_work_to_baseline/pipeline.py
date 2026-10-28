@@ -47,9 +47,9 @@ def preserve_rewrite(original, proposed):
     text = proposed.strip().strip('"').strip()
     if not text or len(text) > max(1000, 3*len(original)):
         return original, "invalid_length"
-    # Equality, including multiplicity: preserving old numbers while ADDING a
-    # patient/date/limit is also a semantic change.
-    numbers = lambda value: Counter(re.findall(r"(?<!\w)[+-]?\d+(?:\.\d+)?\b", value))
+    # Conservative ordered equality: adding a patient/date/limit or swapping
+    # interval endpoints is a reason to fall back to the original question.
+    numbers = lambda value: re.findall(r"(?<!\w)[+-]?\d+(?:\.\d+)?\b", value)
     if numbers(original) != numbers(text):
         return original, "numeric_constraint_changed"
     for phrase in re.findall(r"['\"]([^'\"]+)['\"]", original):
@@ -75,7 +75,7 @@ def build_prompt(question, ctx, schemas):
         sections.append("Candidate clinical dictionary matches:\n"+"\n".join(
             f"{r['source']}: {r['label']} -> {r['code']}" for r in ctx["medical"]))
     if ctx["examples"]:
-        sections.append("Training examples (train split only):\n"+"\n\n".join(
+        sections.append("Knowledge base examples ("+"+".join(ctx.get("knowledge_splits", ["train"]))+"; test excluded):\n"+"\n\n".join(
             "Question: "+r["question"]+"\nSQL: "+r["sql"] for r in ctx["examples"]))
     sections.append("Question: "+question+"\nSQL:")
     return [{"role":"system", "content":SYSTEM}, {"role":"user", "content":"\n\n".join(sections)}]
