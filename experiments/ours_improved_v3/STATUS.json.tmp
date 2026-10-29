@@ -1,0 +1,9 @@
+{
+  "state": "running",
+  "phase": "tune",
+  "completed_questions": 164,
+  "expected_questions": 300,
+  "reason": null,
+  "updated_at_unix": 1793232307.7065125,
+  "run": "deepseek_flash_v3_20261029_r1"
+}

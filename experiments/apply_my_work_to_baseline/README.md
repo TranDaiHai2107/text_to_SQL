@@ -1,5 +1,7 @@
 # Áp dụng hệ thống của mình lên EHRSQL
 
+**Kết quả mới ngày 28/10/2026:** đã chạy đủ 1.167 câu test bằng DeepSeek Flash, knowledge train+dev gồm 6.287 câu, không fine-tune. Primary đạt EX 88,12%, RS10 −49,10; chưa vượt ProbGate theo RS10. Điểm đã chấm lại trong Docker. Xem [báo cáo cuối](../deepseek_comparison/runs/deepseek_flash_train_dev_20261028_v1/FINAL_REPORT.md) và [phân tích/cải thiện](../deepseek_comparison/runs/deepseek_flash_train_dev_20261028_v1/RECOMMENDATIONS.md). Các trạng thái Groq/GPT bên dưới là lịch sử chuẩn bị trước lượt này.
+
 **Trạng thái 24/10/2026:** đã cải thiện pipeline và kiểm thử cục bộ; inference vẫn dừng theo yêu cầu trước đó. Chưa có điểm test cuối cùng của hệ thống. Client hiện chỉ có Groq; cần adapter tương ứng nếu chọn GPT/Gemini/DeepSeek. Xem `STATUS.json` và [các thay đổi trước khi chạy](PRE_RUN_IMPROVEMENTS.md).
 
 ## Đã chuẩn bị

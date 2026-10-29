@@ -122,6 +122,19 @@ class VannaTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'overlap'):
                 corpus()
 
+    def test_train_dev_knowledge_excludes_test_labels(self):
+        splits={'train':[{'id':'a','question':'Q'}],'dev':[{'id':'b','question':'R'}],'test':[{'id':'c'}]}
+        def labels(path):
+            source=Path(path).parent.name
+            self.assertIn(source,{'train','dev'})
+            return {'a':'SELECT 1;'} if source=='train' else {'b':'null'}
+        with patch('benchmark.questions',side_effect=lambda s:splits[s]), patch('benchmark.load',side_effect=labels) as reader:
+            rows=corpus(('train','dev'))
+            self.assertEqual([r['id'] for r in rows],['a','b'])
+            self.assertEqual(reader.call_count,2)
+            with self.assertRaises(ValueError):
+                corpus(('train','test'))
+
     def test_final_comparison_rejects_partial_or_mismatched_ids(self):
         with self.assertRaises(ValueError):
             validate_report({'split':'test', 'full_benchmark_complete':False}, {'a'})

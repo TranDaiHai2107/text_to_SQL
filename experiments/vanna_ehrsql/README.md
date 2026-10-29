@@ -1,5 +1,7 @@
 # Hệ thống thứ ba: Vanna AI trên EHRSQL
 
+**Kết quả mới ngày 28/10/2026:** đã chạy đủ test 1.167 câu bằng DeepSeek Flash với train+dev knowledge 6.287 câu. Vanna thuần: EX 85,87%, RS10 −58,10. Vanna + hậu xử lý GEF: EX 85,87%, RS10 −12,08. Đã chấm lại trong Docker; xem [báo cáo chung](../deepseek_comparison/runs/deepseek_flash_train_dev_20261028_v1/FINAL_REPORT.md). Runner DeepSeek nằm ở `../deepseek_comparison/run_deepseek.py`; CLI Groq và các ghi chú 27/10 bên dưới là lịch sử, không phải lượt chạy mới nhất.
+
 **Yêu cầu cuối cùng ngày 27/10/2026:** train 5.124 câu chỉ làm knowledge base; **chỉ sinh SQL và đánh giá 1.167 câu test**, bỏ dev. Dùng key Groq đã cấu hình và `qwen/qwen3.8-27b`. Primary cố định là `vanna`; `vanna_gef` là nhánh phụ. Hai prediction train phát sinh trước khi làm rõ đã dừng và bị loại khỏi đánh giá. Xem `STATUS.json`, `LATEST_RESULTS.json` và `RESULTS.md` khi lượt chạy được chấm.
 
 Vanna là **framework Text-to-SQL/RAG**, không phải một LLM riêng. Thí nghiệm này dùng luồng SQL/RAG legacy có sẵn trong package **Vanna 2.0.2**, với index Chroma độc lập. Không gọi nó là agent Vanna 2.0 đầy đủ: không chạy web UI, chart, conversation, tools đa lượt hoặc sinh câu trả lời tự nhiên. Chỉ so phần English → SQL bằng benchmark EHRSQL.

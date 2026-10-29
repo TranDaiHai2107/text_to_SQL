@@ -69,7 +69,9 @@ class DeepSeekClient:
                     raise RunBlocked(self.blocked_reason or 'DeepSeek account is blocked')
                 try:
                     response = self.http.post('/chat/completions', json=params)
-                except (httpx.TimeoutException, httpx.TransportError):
+                except (httpx.TimeoutException, httpx.TransportError) as error:
+                    self._event({'kind':'network_error','stage':stage,'question_id':question_id,
+                                 'attempt':attempt+1,'error_type':type(error).__name__})
                     if attempt == 3:
                         self._block('DeepSeek network/timeout retry budget exhausted; checkpoints retained')
                     time.sleep(min(2**attempt, 8))

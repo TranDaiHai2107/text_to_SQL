@@ -1,8 +1,8 @@
 {
-  "updated_on": "2026-10-24",
-  "state": "deferred_by_user_until_GPT_configuration",
+  "updated_on": "2026-10-28",
+  "state": "complete_deepseek_test",
   "groq_inference_stopped": true,
-  "full_benchmark_run": false,
+  "full_benchmark_run": true,
   "completed_paired_questions": {
     "dev_high_v1": 0,
     "dev_quota_v1": 1
@@ -17,7 +17,7 @@
     "answerable_EX",
     "VSR"
   ],
-  "provider_adapter_currently": "Groq_only; GPT adapter must be configured before new inference",
+  "provider_adapter_currently": "Groq legacy CLI and DeepSeek REST comparison runner",
   "reason": "Inference remains deferred while selecting/configuring a provider. Local pre-run improvements only; no new model calls.",
   "pre_run_improvements": {
     "protocol_version": 2,
@@ -32,5 +32,18 @@
     "model_accuracy_measured": false,
     "new_provider_integrated": false,
     "probgate_logprob_filter_integrated": false
-  }
+  },
+  "model_latest_benchmark": "deepseek-flash",
+  "latest_run": "deepseek_flash_train_dev_20261028_v1",
+  "scores_available": true,
+  "completed_test_questions": 1167,
+  "knowledge_splits": [
+    "train",
+    "dev"
+  ],
+  "knowledge_questions": 6287,
+  "docker_verified": true,
+  "latest_primary_variant": "full_schema_rag_agentic_gef",
+  "successful_model_calls_latest_run": 1168,
+  "final_report": "experiments\\deepseek_comparison\\runs\\deepseek_flash_train_dev_20261028_v1\\FINAL_REPORT.md"
 }

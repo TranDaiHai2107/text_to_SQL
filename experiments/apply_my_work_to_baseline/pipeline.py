@@ -85,6 +85,9 @@ def completion_sql(response):
     # A truncated 'null' must not receive credit as a deliberate abstention.
     if response["finish_reason"] == "length":
         return "", {"valid":False, "abstained":False, "empty":None, "error":"model_generation_truncated"}
+    if response["finish_reason"] != "stop":
+        return "", {"valid":False, "abstained":False, "empty":None,
+                    "error":"model_generation_incomplete:"+str(response["finish_reason"])}
     sql = clean_sql(response["content"])
     return sql, outcome(sql)
 

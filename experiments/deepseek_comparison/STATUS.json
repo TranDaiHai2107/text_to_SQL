@@ -1,0 +1,12 @@
+{
+  "state": "complete",
+  "run": "deepseek_flash_train_dev_20261028_v1",
+  "full_test_complete": true,
+  "completed_questions": 1167,
+  "reason": null,
+  "report": "D:\\Github\\text_to_SQL\\experiments\\deepseek_comparison\\runs\\deepseek_flash_train_dev_20261028_v1\\RESULTS.md",
+  "docker_verified": true,
+  "canonical_runtime": "Docker official scorer",
+  "final_report": "experiments\\deepseek_comparison\\runs\\deepseek_flash_train_dev_20261028_v1\\FINAL_REPORT.md",
+  "recommendations": "experiments\\deepseek_comparison\\runs\\deepseek_flash_train_dev_20261028_v1\\RECOMMENDATIONS.md"
+}

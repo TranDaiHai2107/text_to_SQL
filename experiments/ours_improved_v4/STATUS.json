@@ -1,0 +1,25 @@
+{
+  "state": "complete",
+  "run": "deepseek_flash_v4_20261029_r1",
+  "test_questions": 1167,
+  "primary": {
+    "scores": {
+      "RS0": 91.08826049700086,
+      "RS5": 82.09083119108826,
+      "RS10": 73.09340188517567,
+      "RSN": -2008.9117395029991
+    },
+    "EX": 90.04282655246253,
+    "VSR": 73.86461011139674,
+    "correct": 1063,
+    "wrong": 21,
+    "correct_answerable_sql": 841,
+    "false_abstentions": 83,
+    "false_answers_on_unanswerable": 11,
+    "coverage": 73.86461011139674,
+    "precision": 97.56380510440836,
+    "source": "D:\\Github\\text_to_SQL\\baselines\\probgate_ehrsql_2024\\runs\\ours_verified_deepseek_flash_v4_20261029_r1\\v4_selected\\scores.json"
+  },
+  "exceeds_paper_RS10": false,
+  "report": "D:\\Github\\text_to_SQL\\experiments\\ours_improved_v4\\runs\\deepseek_flash_v4_20261029_r1\\FINAL_REPORT.md"
+}
