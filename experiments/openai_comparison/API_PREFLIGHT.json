@@ -1,0 +1,22 @@
+{
+  "model": "gpt-6.1-terra",
+  "model_access_verified": true,
+  "reasoning_smoke": {
+    "state": "completed",
+    "reasoning_effort": "high",
+    "input_tokens": 19,
+    "output_tokens_including_reasoning": 8,
+    "reasoning_tokens": 0,
+    "successful_inference_calls": 1
+  },
+  "client_unit_tests_passed": 5,
+  "initial_paired_pipeline_check": {
+    "completed_questions": 8,
+    "final_score_computed": false
+  },
+  "credentials": "ignored root .env; never exported in logs/config",
+  "source_docs": [
+    "https://developers.openai.com/api/docs/models/gpt-6.1-terra",
+    "https://developers.openai.com/api/docs/guides/reasoning"
+  ]
+}

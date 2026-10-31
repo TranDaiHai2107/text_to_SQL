@@ -1,0 +1,10 @@
+{
+  "state": "stopped_by_user_cost_change",
+  "run": "gpt61terra_high_20261030_r1",
+  "model": "gpt-6.1-terra",
+  "reasoning_effort": "high",
+  "completed_questions": 193,
+  "expected_questions": 1167,
+  "reason": "User switched to the cheapest model with no reasoning and requested preserving Vanna. Do not resume Terra automatically.",
+  "updated_at_unix": 1793370749.9771981
+}

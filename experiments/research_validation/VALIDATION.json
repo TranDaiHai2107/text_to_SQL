@@ -1,0 +1,17 @@
+{
+  "state": "implemented_and_offline_validated_waiting_eligible_confirmation_data",
+  "unit_tests_passed": 17,
+  "real_index_integration_smoke_passed": true,
+  "knowledge_questions_verified": 6287,
+  "V5_frozen_files_verified": 147,
+  "V5_RS10_unchanged": 74.89288774635818,
+  "new_model_API_calls": 0,
+  "offline_ablation_questions": 1167,
+  "confirmatory_results_available": false,
+  "external_candidate_commit": "01241a3c55bda895561c76923251ea2421d2e892",
+  "external_test_question_counts": {
+    "mimic_iii": 1786,
+    "eicu": 1792
+  },
+  "protocol_sha256": "de39c56432de835860cad0cbd66f18b58972f98f48ea719dfa4e36059f7ff601"
+}

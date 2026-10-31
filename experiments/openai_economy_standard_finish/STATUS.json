@@ -1,0 +1,11 @@
+{
+  "state": "complete",
+  "run": "gpt6luna_none_complete_20261030_once",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "none",
+  "completed_questions": 1167,
+  "expected_questions": 1167,
+  "new_API_calls_for_scoring": 0,
+  "scoring_import_collision_resolved_by_explicit_module_paths": true,
+  "updated_at_unix": 1793374448.7257345
+}

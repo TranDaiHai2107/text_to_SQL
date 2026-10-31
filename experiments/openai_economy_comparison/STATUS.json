@@ -1,0 +1,10 @@
+{
+  "state": "blocked_with_checkpoints",
+  "run": "gpt6luna_none_flex_20261030_once",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "none",
+  "completed_questions": 997,
+  "expected_questions": 1167,
+  "reason": "Retry delay exceeds bounded wait; checkpoint retained",
+  "updated_at_unix": 1793373982.6791682
+}

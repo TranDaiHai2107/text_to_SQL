@@ -1,0 +1,15 @@
+{
+  "kind": "no_reasoning_flex_probe",
+  "http_status": 200,
+  "status": "completed",
+  "model": "gpt-6-luna",
+  "effort": "none",
+  "tier": "flex",
+  "input_tokens": 12,
+  "output_tokens": 8,
+  "reasoning_tokens": 0,
+  "client_unit_tests_passed": 7,
+  "full_benchmark_passes_authorized": 1,
+  "full_benchmark_repeat_optimization": false,
+  "Terra_run_preserved_at_paired_questions": 193
+}

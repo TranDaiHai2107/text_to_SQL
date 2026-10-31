@@ -1,0 +1,8 @@
+{
+  "state": "awaiting_new_eligible_dataset",
+  "API_calls": 0,
+  "reason": "All local EHRSQL 2024 splits were used for knowledge or test-informed development.",
+  "registered_datasets": [],
+  "protocol": "v5_confirmation_20261029_v1",
+  "V5_frozen": true
+}

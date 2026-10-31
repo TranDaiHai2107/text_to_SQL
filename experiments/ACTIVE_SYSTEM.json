@@ -1,0 +1,20 @@
+{
+  "status": "restored_to_frozen_DeepSeek_V5",
+  "provider": "deepseek",
+  "model": "deepseek-flash",
+  "system": "ours_improved_v5",
+  "generation_source": "ours_improved_v3",
+  "selected_policy": "strict3_canonical",
+  "selected_run": "deepseek_flash_v5_20261029_r1",
+  "results": "ours_improved_v5/runs/deepseek_flash_v5_20261029_r1/FINAL_REPORT.md",
+  "RS10": 74.89288774635818,
+  "routes": {
+    "direct": {"thinking": false, "max_tokens": 2048},
+    "structural": {"thinking": false, "max_tokens": 2048},
+    "plan": {"thinking": true, "max_tokens": 4096}
+  },
+  "OpenAI_experiments": "historical_results_preserved_not_active",
+  "scope": "English_to_SQL_benchmark_only",
+  "live_Vietnamese_application_provider": "unchanged_from_before_OpenAI_experiments",
+  "new_model_inference_executed_for_restore": false
+}

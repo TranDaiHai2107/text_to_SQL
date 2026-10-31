@@ -1,0 +1,113 @@
+{
+  "state": "existing_results_numerically_confirmed",
+  "date": "2026-10-29",
+  "questions": 1167,
+  "answerable": 934,
+  "unanswerable": 233,
+  "scope": "Existing English-to-SQL benchmark only; no new dataset or translation evaluation",
+  "new_model_API_calls": 0,
+  "frozen_source_files_verified": 147,
+  "database_sha256": "846adb486d3803f97c6cc2b951f2236a946bafa16b7e3f041e0802cf414a8c4d",
+  "scorer_sha256": "fefbe01fb972b8d62a812bf10b66ccab46e7401b4149645c98ddcafe1ece18e8",
+  "runtime": {
+    "execution": "fresh host execution with official scorer",
+    "sqlite": "3.45.3",
+    "fresh_Docker_execution": false,
+    "note": "Docker daemon unavailable this session. V5 and paper have previous Docker-verified scores; fresh host per-question results match those stored results."
+  },
+  "systems": {
+    "V5": {
+      "n": 1167,
+      "correct": 1084,
+      "wrong": 21,
+      "abstained_answerable": 62,
+      "scores": {
+        "RS0": 92.88774635818338,
+        "RS5": 83.89031705227077,
+        "RS10": 74.89288774635818,
+        "RSN": -2007.1122536418166
+      },
+      "EX": 92.29122055674519,
+      "VSR": 75.66409597257926,
+      "coverage": 75.66409597257926,
+      "answer_precision": 97.62174405436014,
+      "correct_answerable_sql": 862,
+      "correct_abstentions": 222,
+      "execution_errors": 0,
+      "matches_historical_per_question": true,
+      "prediction_source": "experiments\\ours_improved_v5\\runs\\deepseek_flash_v5_20261029_r1\\test\\v5_selected.prediction.json",
+      "prediction_sha256": "8d02f867f2ac023fa60461f52d9ecfa45dcb62dea0bf43ec4b185e20c9921d16"
+    },
+    "Vanna": {
+      "n": 1167,
+      "correct": 992,
+      "wrong": 167,
+      "abstained_answerable": 8,
+      "scores": {
+        "RS0": 85.00428449014568,
+        "RS5": 13.453299057412169,
+        "RS10": -58.09768637532134,
+        "RSN": -16614.995715509853
+      },
+      "EX": 85.86723768736617,
+      "VSR": 82.86203941730933,
+      "coverage": 83.03341902313625,
+      "answer_precision": 82.76573787409701,
+      "correct_answerable_sql": 802,
+      "correct_abstentions": 190,
+      "execution_errors": 2,
+      "matches_historical_per_question": true,
+      "prediction_source": "experiments\\vanna_ehrsql\\runs\\deepseek_flash_train_dev_20261028_v1\\vanna.prediction.json",
+      "prediction_sha256": "8cb7e69db2404f212e683ed2a7227ad36c45cc7fe7d2967afe8672df786b0a75"
+    },
+    "Vanna_GEF": {
+      "n": 1167,
+      "correct": 1009,
+      "wrong": 115,
+      "abstained_answerable": 43,
+      "scores": {
+        "RS0": 86.46101113967438,
+        "RS5": 37.18937446443873,
+        "RS10": -12.082262210796916,
+        "RSN": -11413.538988860326
+      },
+      "EX": 85.86723768736617,
+      "VSR": 78.57754927163667,
+      "coverage": 78.57754927163667,
+      "answer_precision": 87.45910577971647,
+      "correct_answerable_sql": 802,
+      "correct_abstentions": 207,
+      "execution_errors": 0,
+      "matches_historical_per_question": true,
+      "prediction_source": "experiments\\vanna_ehrsql\\runs\\deepseek_flash_train_dev_20261028_v1\\vanna_gef.prediction.json",
+      "prediction_sha256": "6176932e51a054ed3d76433244b9b6f02789591b41fdbf55d9a9bdc0bbe1a478"
+    },
+    "ProbGate_paper_cache": {
+      "n": 1167,
+      "correct": 956,
+      "wrong": 9,
+      "abstained_answerable": 202,
+      "scores": {
+        "RS0": 81.91945158526136,
+        "RS5": 78.06341045415596,
+        "RS10": 74.20736932305056,
+        "RSN": -818.0805484147387
+      },
+      "EX": 77.73019271948608,
+      "VSR": 62.98200514138817,
+      "coverage": 62.98200514138817,
+      "answer_precision": 98.77551020408163,
+      "correct_answerable_sql": 726,
+      "correct_abstentions": 230,
+      "execution_errors": 0,
+      "matches_historical_per_question": true,
+      "prediction_source": "baselines\\probgate_ehrsql_2024\\runs\\audit_20261023_docker\\test_gpt_probgate_425_gef\\prediction.json",
+      "prediction_sha256": "5dde2811ef1540599326dba1822c7e47bc0de98c162e89e8968e8886fcf3f63f",
+      "published_RS_match": true,
+      "EX_and_VSR_computed_from_released_cache_not_published_columns": true
+    }
+  },
+  "elapsed_seconds": 8.655999999959022,
+  "research_superiority_proven": false,
+  "research_note": "Test-informed V5 development, unequal inference budgets/backbones versus references; this audit verifies numbers, not independent generalization or causal method superiority."
+}

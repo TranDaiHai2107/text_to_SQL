@@ -1,0 +1,71 @@
+{
+  "id": "v5_confirmation_20261029_v1",
+  "status": "registered_design_no_confirmatory_results_yet",
+  "method_under_test": "V5_final_20261029",
+  "hypothesis": "Frozen V5 improves RS10 against a Vanna-based control given the same backbone, knowledge pool and generation-cap envelope on new eligible inputs.",
+  "primary_metric": "RS10",
+  "secondary_metrics": ["RS0", "RS5", "RSN", "EX", "VSR", "coverage", "answer_precision", "wrong_answers", "input_tokens", "output_tokens", "wall_seconds"],
+  "model": "deepseek-flash",
+  "fine_tuning": false,
+  "knowledge_splits": ["train", "dev"],
+  "knowledge_questions": 6287,
+  "database": "EHRSQL_2024_MIMIC_IV_pinned_SQLite_only",
+  "clock": "2100-12-31 23:59:00",
+  "replicates": [1, 2, 3],
+  "replicate_note": "Fresh independent API calls in separate caches. Temperature 0 does not guarantee determinism. Repeated queries do not increase the number of independent questions.",
+  "routes": [
+    {"name": "direct", "thinking": false, "max_tokens": 2048},
+    {"name": "structural", "thinking": false, "max_tokens": 2048},
+    {"name": "plan", "thinking": true, "max_tokens": 4096}
+  ],
+  "generation_families": ["ours_structured", "control_dense", "control_vanna"],
+  "initial_calls_per_question_per_replicate": 9,
+  "execution_repair": "At most one schema/execution-error repair per route for each family; never semantic rewriting after scoring.",
+  "budget_comparison": "Same route count, thinking settings, output caps and repair allowance for the three generation families; actual input/output tokens and cost can differ and must be reported. This is NOT exact dollar/token matching.",
+  "arms": {
+    "vanna_native_single": "Native Vanna prompt/extraction, direct route, before optional repair; practical reference only, not compute matched.",
+    "vanna_matched_three": "Vanna retrieval/native prompt/extraction; three route envelopes plus common GEF and strict-three round3 full-row execution agreement. This is an augmented Vanna control, not off-the-shelf Vanna.",
+    "dense_three_v5": "Same V3 prompts, metadata access and V5 postprocessing, replace only structured example reranker with dense top-4 examples plus top-2 null examples from the same pool.",
+    "ours_direct_gef": "Direct route of unchanged structured generation and original V3 guard; one-candidate reference.",
+    "ours_raw_three": "Same unchanged three candidates, strict-three V3 raw fingerprint; no V4/V5 normalization.",
+    "ours_round3_no_compiler": "Same candidates with unchanged V4 normalization, strict-three round3; disable V5 namespace compiler.",
+    "v5_full": "Unchanged V3 generation and frozen V5 strict3_canonical. No refitting."
+  },
+  "primary_contrast": ["v5_full", "vanna_matched_three"],
+  "secondary_contrasts": [
+    ["v5_full", "dense_three_v5"],
+    ["v5_full", "ours_round3_no_compiler"],
+    ["ours_round3_no_compiler", "ours_raw_three"],
+    ["v5_full", "ours_direct_gef"]
+  ],
+  "statistics": {
+    "unit": "question cluster averaged across all three replicates",
+    "cluster_id": "Externally supplied, reviewed template/family ID for every question; never infer independence from unique question IDs.",
+    "confidence_interval": "Paired cluster bootstrap, 10000 resamples, seed 20261029, percentile 95% interval of mean RS10 difference.",
+    "test": "Paired cluster sign-flip randomization, 10000 samples, two-sided, seed 20261029; clustered sums with fixed question denominator.",
+    "secondary_multiple_testing": "Holm adjustment across the four predeclared secondary contrasts.",
+    "confirmation_rule": "All expected questions and three replicates complete; valid provenance; primary mean delta > 0, 95% lower CI > 0, randomization p < 0.05. Otherwise report inconclusive/negative, do not select another metric, subset or policy.",
+    "limitations": "Model pretraining exposure cannot be ruled out. Template clusters do not guarantee patient independence. No causal claim versus the original fine-tuned ProbGate model."
+  },
+  "dataset_eligibility": {
+    "new_to_method_design": true,
+    "must_not_overlap_any_old_split_by_id_or_normalized_question": true,
+    "near_duplicate_threshold": 0.85,
+    "numeric_literal_mask_rule": "Identical normalized questions after masking standalone numeric literals are also rejected; changing patient IDs/dates alone is not new independent evidence.",
+    "near_duplicate_rule": "Token-set Jaccard >= 0.85 against old train/dev/test questions blocks confirmation pending a documented new protocol/review; threshold fixed before dataset inspection.",
+    "gold_SQL_review_required": true,
+    "unanswerable_annotation_review_required": true,
+    "cluster_ids_required": true,
+    "both_answerable_and_unanswerable_required": true,
+    "minimum_clusters": 30,
+    "minimum_cluster_note": "Operational guard only; not a power guarantee. Report uncertainty and do not promise superiority based on sample size alone.",
+    "no_repartitioning_of_exposed_EHRSQL_2024_as_fresh_holdout": true
+  },
+  "old_test_policy": "Only no-API, cached-output exploratory ablations; never tune or rename the old test as independent confirmation.",
+  "paper_reference": {
+    "url": "https://aclanthology.org/2024.clinicalnlp-1.65/",
+    "RS10": 74.21,
+    "role": "Historical reference on original 1167 questions only. Never compare its numeric score directly against a score on another dataset."
+  },
+  "stop_rule": "Do not stop when score exceeds a target. Finish all predeclared arms and replicates, or retain incomplete state after provider/infrastructure failure. No null padding."
+}

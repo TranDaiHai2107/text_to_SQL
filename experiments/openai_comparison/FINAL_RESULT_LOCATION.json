@@ -1,0 +1,10 @@
+{
+  "state": "completed_elsewhere_preserving_local_checkpoints",
+  "final_results": "experiments\\openai_economy_standard_finish\\runs\\gpt6luna_none_complete_20261030_once\\RESULTS_VI.md",
+  "evaluation": "experiments\\openai_economy_standard_finish\\runs\\gpt6luna_none_complete_20261030_once\\evaluation.json",
+  "validation": "experiments\\openai_economy_standard_finish\\runs\\gpt6luna_none_complete_20261030_once\\VALIDATION.json",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "none",
+  "total_questions": 1167,
+  "completed_full_passes": 1
+}

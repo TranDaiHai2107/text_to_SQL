@@ -1,0 +1,17 @@
+{
+  "id": "v5_confirmation_20261029_v1",
+  "protocol_sha256": "de39c56432de835860cad0cbd66f18b58972f98f48ea719dfa4e36059f7ff601",
+  "registration_scope": "Local reproducible preregistration; not a third-party timestamped public registry.",
+  "implementation_sha256": {
+    "experiments/research_validation/dataset_inventory.py": "71207daff03b72706028ade07f803fdab16f2e03cbc7807fd302d97483274342",
+    "experiments/research_validation/freeze_v5.py": "4b4b6e033f754b27afcaea2a97ec478469b500cc500889dfd6e72db9c045d649",
+    "experiments/research_validation/methods.py": "e4950b1a0d551a651ff5ee7b62bc9659ca3a44946042a7cae95a0da1336317b7",
+    "experiments/research_validation/register_dataset.py": "e149c8b1de8d3ddd80782e38d79e9ede4de076c7c1c8be833171c967bc96ee9c",
+    "experiments/research_validation/replay_ablation.py": "16120af82d09eb5a66cb217a43a9e35b7b9f8c95338c8e631f0f79f577c99478",
+    "experiments/research_validation/run_confirmatory.py": "eacbc7232a40901c756366a5b46d397b328e57a0fb57cb3f3617cd22fae2c311",
+    "experiments/research_validation/score_confirmatory.py": "60da433b367c213be37ae44af51a27ac5c6ef6eec8e4b9c68f74abaa13e76d6a",
+    "experiments/research_validation/seal_protocol.py": "b6561e26463bb5c3f52a404758bcd963a17865e1fc4152d0360bb8c276bbf5e2",
+    "experiments/research_validation/statistics_tools.py": "972fe0c600477be88e50685ced5152172e0c918182a23ecab8e619837f495978",
+    "experiments/research_validation/validation_common.py": "f7aa768c214578ce0fea7a4c7db6d8a192c61bccd7afd51cdd4028274255f7bd"
+  }
+}

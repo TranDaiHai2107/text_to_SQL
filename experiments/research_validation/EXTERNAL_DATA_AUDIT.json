@@ -1,0 +1,64 @@
+{
+  "repository": "https://github.com/glee4810/EHRSQL",
+  "commit": "01241a3c55bda895561c76923251ea2421d2e892",
+  "date": "2026-10-29",
+  "files": {
+    "README.md": {
+      "sha256": "a48a00d624a7277b43c7b9fcec9edd9938dec1173983ff459813d55d836bfa24",
+      "bytes": 9460,
+      "url": "https://raw.githubusercontent.com/glee4810/EHRSQL/01241a3c55bda895561c76923251ea2421d2e892/README.md"
+    },
+    "dataset/ehrsql/CHANGELOG.md": {
+      "sha256": "cf4d1a5c7fe8991e6bdae5d1e81074715987a2c6608eab12397c4ee63a0c7666",
+      "bytes": 4594,
+      "url": "https://raw.githubusercontent.com/glee4810/EHRSQL/01241a3c55bda895561c76923251ea2421d2e892/dataset/ehrsql/CHANGELOG.md"
+    },
+    "dataset/ehrsql/tables.json": {
+      "sha256": "1f513f5966b763aed844e89f25eafad11cd589e1a7e85a781d2e5a8513ecfb83",
+      "bytes": 17674,
+      "url": "https://raw.githubusercontent.com/glee4810/EHRSQL/01241a3c55bda895561c76923251ea2421d2e892/dataset/ehrsql/tables.json"
+    },
+    "dataset/ehrsql/mimic_iii/test.json": {
+      "sha256": "fdf73447c55a18c0ea201d8a19cdf645539715add49046d41fa394d3acfe51f3",
+      "bytes": 2183393,
+      "url": "https://raw.githubusercontent.com/glee4810/EHRSQL/01241a3c55bda895561c76923251ea2421d2e892/dataset/ehrsql/mimic_iii/test.json"
+    },
+    "dataset/ehrsql/eicu/test.json": {
+      "sha256": "64dae91d50ab88140b10e994cb0f690286e8b62272101f9d911e75a588e757fa",
+      "bytes": 2225519,
+      "url": "https://raw.githubusercontent.com/glee4810/EHRSQL/01241a3c55bda895561c76923251ea2421d2e892/dataset/ehrsql/eicu/test.json"
+    }
+  },
+  "splits_audited": {
+    "mimic_iii": {
+      "questions": 1786,
+      "answerable": 1198,
+      "old_id_overlap": 0,
+      "old_normalized_question_overlap": 130,
+      "old_numeric_mask_question_overlap": 148,
+      "old_token_jaccard_ge_085": 210,
+      "unanswerable": 588,
+      "missing_official_q_tag": 588,
+      "official_q_tags_present": 167,
+      "frozen_V5_directly_compatible": false,
+      "qualification": "Candidate only. Cross-database schema/clock adapter and cluster/overlap review required; no model generation or accuracy scoring."
+    },
+    "eicu": {
+      "questions": 1792,
+      "answerable": 1204,
+      "old_id_overlap": 0,
+      "old_normalized_question_overlap": 48,
+      "old_numeric_mask_question_overlap": 49,
+      "old_token_jaccard_ge_085": 67,
+      "unanswerable": 588,
+      "missing_official_q_tag": 588,
+      "official_q_tags_present": 165,
+      "frozen_V5_directly_compatible": false,
+      "qualification": "Candidate only. Cross-database schema/clock adapter and cluster/overlap review required; no model generation or accuracy scoring."
+    }
+  },
+  "gold_handling": "Original files quarantined. No SQL error inspection, predictions or model scoring; only question-overlap and supplied annotation-count metadata audited.",
+  "API_model_calls": 0,
+  "eligible_for_current_MIMIC_IV_protocol": false,
+  "new_protocol_required_for_cross_database": true
+}
