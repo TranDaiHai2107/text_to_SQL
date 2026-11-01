@@ -1,0 +1,60 @@
+{
+  "date": "2026-11-01",
+  "status": "passed_after_two_input_integrity_fixes_with_declared_scope_limits",
+  "independent_agents": 3,
+  "new_model_API_calls": 0,
+  "original_frozen_files_unchanged": 147,
+  "comparison": {
+    "systems": 4,
+    "questions_per_system": 1167,
+    "all_historical_per_question_outcomes_match": true,
+    "RS10": {
+      "V5": 74.89288774635818,
+      "Vanna": -58.09768637532134,
+      "Vanna_GEF": -12.082262210796916,
+      "ProbGate_paper_cache": 74.20736932305056
+    }
+  },
+  "annotations": {
+    "questions": 7454,
+    "fresh_gold_SQL_executed": 6539,
+    "errors": 0,
+    "references_changed_by_this_audit": false,
+    "human_or_clinician_validated": false
+  },
+  "fixed_findings": [
+    {
+      "severity": "P2",
+      "finding": "Duplicate JSON mapping IDs/fields could silently overwrite prior values",
+      "fix": "Reject duplicate object keys during JSON/JSONL decoding",
+      "status": "independently_retested_fixed"
+    },
+    {
+      "severity": "P2",
+      "finding": "Controlled reference text could contradict its structured result_rows",
+      "fix": "Parse gold English and require agreement with answerable/result_rows before grading predictions",
+      "status": "independently_retested_fixed"
+    }
+  ],
+  "regression_validation": {
+    "pytest_test_functions": 61,
+    "successful_subtests": 5,
+    "JUnit_cases": 66,
+    "independent_metric_checks": 27,
+    "independent_DP_sequence_pairs": 961,
+    "full_corpus_scorer_self_check": "passed_NOT_model_performance"
+  },
+  "unresolved_scope_limits": [
+    "Generated controlled-English references preserve executed gold results, not clinician-approved conversational answers",
+    "Strict fact parser requires canonical spelling/order; arbitrary English paraphrases need a separate semantic validator",
+    "Full-result English keeps rows beyond100; published SQL scorer caps100, so scores are not interchangeable",
+    "No actual SQL-to-text model generation evaluation has been performed",
+    "V5 test-informed development and unequal models/budgets prevent claiming independent research superiority"
+  ],
+  "evidence_sha256": {
+    "comparison_audit.json": "b90f4ce2dd34b252da1ead6123b62c9244d20631fbba200f7528ea918a4ddccc",
+    "annotation_audit.json": "f2f0315920c7882261561473276347b036e83a5367eb94f8099fb708f12148f9",
+    "metric_audit.json": "ff5eda192ae6afbdf0c6392b847d72ceae0a3c8b89b3503002408bea82663066",
+    "DELIVERY_VALIDATION.json": "65e58b6471e35fbe7d7b4d8206833aa0e3ff271ae9887a9951997bae4c7d0a65"
+  }
+}

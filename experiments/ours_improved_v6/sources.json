@@ -1,0 +1,19 @@
+{
+  "checked_on": "2026-11-01",
+  "scope": "Primary papers, author repositories and official provider documentation; no test inputs, predictions or labels inspected",
+  "new_model_API_calls": 0,
+  "sources": [
+    {"id": "chess", "title": "CHESS: Contextual Harnessing for Efficient SQL Synthesis", "year": 2024, "url": "https://arxiv.org/html/2405.16755v3", "author_code": "https://github.com/ShayanTalaei/CHESS", "relevance": "Value grounding, modular candidate testing; schema pruning less compelling for this 17-table database"},
+    {"id": "confidence", "title": "Confidence Estimation for Text-to-SQL in Large Language Models", "year": 2025, "url": "https://arxiv.org/html/2508.14056v1", "relevance": "Consistency and execution grounding as confidence signals, not correctness guarantees"},
+    {"id": "selective_2026", "title": "What Predicts Correctness in Text-to-SQL? A Selective-Prediction Study", "year": 2026, "status": "arXiv preprint; findings not independently replicated in this project", "url": "https://arxiv.org/html/2607.06799v1", "relevance": "Limitations of black-box agreement; reasoning judges add expense and need task-specific validation"},
+    {"id": "promptmind", "title": "PromptMind Team at EHRSQL-2024: Improving Reliability of SQL Generation using Ensemble LLMs", "year": 2024, "url": "https://aclanthology.org/2024.clinicalnlp-1.34/", "relevance": "Same-task ensemble reliability precedent; not an identical implementation"},
+    {"id": "dail", "title": "DAIL-SQL author repository", "year": 2023, "url": "https://github.com/BeachWang/DAIL-SQL", "relevance": "Skeleton-aware example selection already adapted by V3; not newly introduced by V6"},
+    {"id": "chase", "title": "CHASE-SQL: Multi-Path Reasoning and Preference Optimized Candidate Selection in Text-to-SQL", "year": 2024, "url": "https://arxiv.org/html/2410.01943v1", "relevance": "Diverse candidates and selection; original pairwise selector is fine-tuned"},
+    {"id": "test_suites", "title": "Semantic Evaluation for Text-to-SQL with Distilled Test Suites", "year": 2020, "url": "https://aclanthology.org/2020.emnlp-main.29/", "relevance": "One-database execution agreement need not establish semantic equivalence"},
+    {"id": "picard", "title": "PICARD: Parsing Incrementally for Constrained Auto-Regressive Decoding from Language Models", "year": 2021, "url": "https://aclanthology.org/2021.emnlp-main.779/", "relevance": "Token-level constrained decoding is not exposed by the current provider integration"},
+    {"id": "sqlglot", "title": "SQLGlot official repository", "url": "https://github.com/tobymao/sqlglot", "relevance": "AST introspection/transformation; parsing is not SQL validation"},
+    {"id": "deepseek_pricing", "title": "DeepSeek Models & Pricing", "url": "https://api-docs.deepseek.com/quick_start/pricing/", "model_alias": "deepseek-flash", "served_version": "DeepSeek-V4.1-Flash-1017", "context_tokens": 1000000, "max_output_tokens": 384000, "USD_per_million_tokens": {"off_peak": {"input_cache_hit": 0.003, "input_cache_miss": 0.15, "output": 0.6}, "peak": {"input_cache_hit": 0.006, "input_cache_miss": 0.3, "output": 1.2}}, "note": "Public documentation snapshot, not account-specific quota or provider invoice"},
+    {"id": "deepseek_thinking", "title": "DeepSeek Thinking Mode", "url": "https://api-docs.deepseek.com/guides/thinking_mode/", "default_thinking": "enabled", "default_effort": "high", "temperature_in_thinking_mode": "ignored"},
+    {"id": "deepseek_rate", "title": "DeepSeek Rate Limit & Isolation", "url": "https://api-docs.deepseek.com/quick_start/rate_limit/", "documented_flash_concurrency_per_account": 2500, "note": "Not a throughput guarantee"}
+  ]
+}

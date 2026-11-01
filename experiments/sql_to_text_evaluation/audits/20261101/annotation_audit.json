@@ -1,0 +1,126 @@
+{
+  "date": "2026-11-01",
+  "status": "passed_with_scope_limitations",
+  "audit_kind": "Second independent full-corpus SQL execution and text facts audit",
+  "imported_previous_builder_or_renderer_or_audit": false,
+  "new_API_calls": 0,
+  "counts": {
+    "questions": 7454,
+    "executed_SQL": 6539,
+    "official_gold_equivalent": 6539,
+    "full_result_over_100_rows": 44,
+    "queries_with_duplicate_rows": 75,
+    "SQL_NULL_cells": 0,
+    "empty_results": 1,
+    "multi_column_queries": 0,
+    "max_full_result_rows": 152,
+    "independently_parsed_facts_match": 7454,
+    "CSV_and_inputs_match": 7454,
+    "unanswerable": 915,
+    "yes_no_wording_answerable": 957
+  },
+  "splits": {
+    "train": {
+      "questions": 5124,
+      "executed_SQL": 4674,
+      "official_gold_equivalent": 4674,
+      "full_result_over_100_rows": 32,
+      "queries_with_duplicate_rows": 58,
+      "SQL_NULL_cells": 0,
+      "empty_results": 0,
+      "multi_column_queries": 0,
+      "max_full_result_rows": 152,
+      "independently_parsed_facts_match": 5124,
+      "CSV_and_inputs_match": 5124,
+      "unanswerable": 450,
+      "yes_no_wording_answerable": 666
+    },
+    "validation": {
+      "questions": 1163,
+      "unanswerable": 232,
+      "independently_parsed_facts_match": 1163,
+      "CSV_and_inputs_match": 1163,
+      "executed_SQL": 931,
+      "official_gold_equivalent": 931,
+      "full_result_over_100_rows": 5,
+      "queries_with_duplicate_rows": 10,
+      "SQL_NULL_cells": 0,
+      "empty_results": 1,
+      "multi_column_queries": 0,
+      "max_full_result_rows": 125,
+      "yes_no_wording_answerable": 155
+    },
+    "test": {
+      "questions": 1167,
+      "executed_SQL": 934,
+      "official_gold_equivalent": 934,
+      "full_result_over_100_rows": 7,
+      "queries_with_duplicate_rows": 7,
+      "SQL_NULL_cells": 0,
+      "empty_results": 0,
+      "multi_column_queries": 0,
+      "max_full_result_rows": 152,
+      "independently_parsed_facts_match": 1167,
+      "CSV_and_inputs_match": 1167,
+      "unanswerable": 233,
+      "yes_no_wording_answerable": 136
+    }
+  },
+  "cross_split_ID_overlap": 0,
+  "normalized_question_text_overlap": {
+    "train_validation": 0,
+    "train_test": 0,
+    "validation_test": 0
+  },
+  "examples": {
+    "yes_no": {
+      "split": "train",
+      "id": "f0ed8bc2f755ef37eb17af6e",
+      "question": "Did patient 10021938 receive any surgery on their last hospital encounter?",
+      "output_text": "The returned value is \"1.0\".",
+      "raw_result": [
+        [
+          1
+        ]
+      ]
+    },
+    "top_k_over_100": {
+      "split": "train",
+      "id": "17de3ba481cc927f60d16233",
+      "question": "What were the top five diagnoses that had the highest 6-month mortality rate?",
+      "SQL_rank_rule": "DENSE_RANK",
+      "full_rows": 125,
+      "official_rows": 100
+    },
+    "numeric_patient_ID": {
+      "split": "test",
+      "id": "289be48fc696c588e5a69f9c",
+      "question": "Pull up the IDs of patients who were diagnosed with cataract extraction status.",
+      "raw_result": [
+        [
+          10025612
+        ]
+      ],
+      "output_text": "The returned value is \"10025612.0\"."
+    }
+  },
+  "frozen_files_verified": 147,
+  "original_artifacts_unchanged": true,
+  "reference_manifest_sha256": "a5d42186bdffd7789076822034c45bd5ec355f54be6c945c08645223393adbf3",
+  "errors": [],
+  "error_count": 0,
+  "findings": [
+    {
+      "severity": "scope",
+      "title": "Controlled value rendering, not conversational or clinical validation",
+      "details": "The labels faithfully state query values and lists. They do not independently explain the question, infer units, decode numeric IDs, convert 0/1 to Yes/No, or verify the clinical meaning of gold SQL. Thus they are a generated silver extension, not a clinician-validated English QA benchmark."
+    },
+    {
+      "severity": "scope",
+      "title": "Full-result English references intentionally differ from official cap100",
+      "details": "44 queries have more than100 result rows; full English outputs preserve up to152 rows. Do not compare English factEM numerically with published SQL execution scores as if the tasks/normalizers were identical."
+    }
+  ],
+  "elapsed_seconds": 129.219,
+  "example_extraction_correction": "The patient-ID example selector was tightened to exclude COUNT(subject_id); full-corpus validation counts are unchanged. Corrected ID example independently reexecuted read-only."
+}

@@ -1,0 +1,151 @@
+{
+  "date": "2026-11-01",
+  "audit_status": "passed",
+  "audit_method": "Independent stdlib SQLite read-only execution and numeric3/cap100 normalization; no production comparison/core scorer import",
+  "test_questions": 1167,
+  "answerable": 934,
+  "unanswerable": 233,
+  "frozen_files_verified": 147,
+  "original_database_unchanged": true,
+  "new_API_calls": 0,
+  "systems": {
+    "V5": {
+      "correct": 1084,
+      "wrong": 21,
+      "abstained_answerable": 62,
+      "execution_errors": 0,
+      "correct_answerable_sql": 862,
+      "correct_abstentions": 222,
+      "false_answers_on_unanswerable": 11,
+      "n": 1167,
+      "scores": {
+        "RS0": 92.88774635818338,
+        "RS5": 83.89031705227077,
+        "RS10": 74.89288774635818,
+        "RSN": -2007.1122536418166
+      },
+      "EX": 92.29122055674519,
+      "VSR": 75.66409597257926,
+      "coverage": 75.66409597257926,
+      "answer_precision": 97.62174405436014,
+      "prediction_sha256": "8d02f867f2ac023fa60461f52d9ecfa45dcb62dea0bf43ec4b185e20c9921d16",
+      "complete_test_ID_coverage": true,
+      "historical_per_question_exact_match": true
+    },
+    "Vanna": {
+      "correct": 992,
+      "wrong": 167,
+      "abstained_answerable": 8,
+      "execution_errors": 2,
+      "correct_answerable_sql": 802,
+      "correct_abstentions": 190,
+      "false_answers_on_unanswerable": 43,
+      "n": 1167,
+      "scores": {
+        "RS0": 85.00428449014568,
+        "RS5": 13.453299057412169,
+        "RS10": -58.09768637532134,
+        "RSN": -16614.995715509853
+      },
+      "EX": 85.86723768736617,
+      "VSR": 82.86203941730933,
+      "coverage": 83.03341902313625,
+      "answer_precision": 82.76573787409701,
+      "prediction_sha256": "8cb7e69db2404f212e683ed2a7227ad36c45cc7fe7d2967afe8672df786b0a75",
+      "complete_test_ID_coverage": true,
+      "historical_per_question_exact_match": true
+    },
+    "Vanna_GEF": {
+      "correct": 1009,
+      "wrong": 115,
+      "abstained_answerable": 43,
+      "execution_errors": 0,
+      "correct_answerable_sql": 802,
+      "correct_abstentions": 207,
+      "false_answers_on_unanswerable": 26,
+      "n": 1167,
+      "scores": {
+        "RS0": 86.46101113967438,
+        "RS5": 37.18937446443873,
+        "RS10": -12.082262210796916,
+        "RSN": -11413.538988860326
+      },
+      "EX": 85.86723768736617,
+      "VSR": 78.57754927163667,
+      "coverage": 78.57754927163667,
+      "answer_precision": 87.45910577971647,
+      "prediction_sha256": "6176932e51a054ed3d76433244b9b6f02789591b41fdbf55d9a9bdc0bbe1a478",
+      "complete_test_ID_coverage": true,
+      "historical_per_question_exact_match": true
+    },
+    "ProbGate_paper_cache": {
+      "correct": 956,
+      "wrong": 9,
+      "abstained_answerable": 202,
+      "execution_errors": 0,
+      "correct_answerable_sql": 726,
+      "correct_abstentions": 230,
+      "false_answers_on_unanswerable": 3,
+      "n": 1167,
+      "scores": {
+        "RS0": 81.91945158526136,
+        "RS5": 78.06341045415596,
+        "RS10": 74.20736932305056,
+        "RSN": -818.0805484147387
+      },
+      "EX": 77.73019271948608,
+      "VSR": 62.98200514138817,
+      "coverage": 62.98200514138817,
+      "answer_precision": 98.77551020408163,
+      "prediction_sha256": "5dde2811ef1540599326dba1822c7e47bc0de98c162e89e8968e8886fcf3f63f",
+      "complete_test_ID_coverage": true,
+      "historical_per_question_exact_match": true
+    }
+  },
+  "issues": [],
+  "model_provenance": {
+    "V5_generation_protocol_model": "deepseek-flash",
+    "V5_source_routes": [
+      "direct",
+      "structural",
+      "plan"
+    ],
+    "Vanna_model": "deepseek-flash",
+    "Vanna_success_event_model_counts": {
+      "deepseek-flash": 1167
+    },
+    "Vanna_knowledge_splits": [
+      "train",
+      "dev"
+    ],
+    "V5_knowledge_splits": [
+      "train",
+      "dev"
+    ],
+    "paper": "fine-tuned GPT-3.5-turbo; released prediction replay, not new model run"
+  },
+  "paper_primary_source_verified": {
+    "url": "https://aclanthology.org/2024.clinicalnlp-1.65.pdf",
+    "PDF_page": 6,
+    "table": 2,
+    "configuration": "gpt-3.5-turbo FT + ProbGate(t=425) + GEF",
+    "published_RS": {
+      "RS0": 81.92,
+      "RS5": 78.06,
+      "RS10": 74.21,
+      "RSN": -818.08
+    },
+    "EX_VSR": "derived from released cache; not published table columns"
+  },
+  "comparison_limitations_correctly_disclosed": [
+    "different models/fine-tuning/knowledge/inference budgets versus paper",
+    "V5 test-informed iterative development",
+    "paper replay not model reproduction",
+    "fresh host, not fresh Docker execution",
+    "no SQL-to-English generation scores attributed to paper"
+  ],
+  "research_superiority_proven": false,
+  "source_comparison_sha256": "2f238e41ab653a2c557c8ac2c37144bfbfaaa926dd75bad9921ce30d41145cdd",
+  "audit_script_sha256": "1f66af8640cb042be6a739e93cc75d6a831d0235d65ed987b6f317c700c51ce3",
+  "elapsed_seconds": 51.60899999999674
+}

@@ -1,0 +1,5 @@
+{
+  "status": "pre_review_dev_diagnostic_only_not_for_test",
+  "reason": "Projection ordinal/explicit-period safeguards strengthened before any test run; use reviewed run",
+  "new_model_API_calls": 0
+}

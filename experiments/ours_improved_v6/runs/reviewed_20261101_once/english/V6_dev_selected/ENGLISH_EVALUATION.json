@@ -1,0 +1,109 @@
+{
+  "state": "complete",
+  "task": "English_question_to_predicted_SQL_to_controlled_English",
+  "mode": "end_to_end",
+  "split": "test",
+  "questions": 1167,
+  "execution_status_counts": {
+    "executed": 884,
+    "abstained": 283
+  },
+  "generator": "deterministic_controlled_English_renderer_NOT_LLM",
+  "renderer_version": "controlled_english_values_v1",
+  "new_model_API_calls": 0,
+  "gold_SQL_used_to_generate_end_to_end_answers": false,
+  "reference_English_used_to_generate_answers": false,
+  "oracle_is_not_system_performance": false,
+  "scoring_order": [
+    "question_only_inputs_loaded",
+    "SQL_inputs_loaded_without_reference_English",
+    "English_predictions_saved_before_loading_reference_English",
+    "reference_English_loaded_for_scoring_only",
+    "all_IDs_scored_without_dropping_failed_outputs"
+  ],
+  "frozen_original_files_verified": 147,
+  "database_sha256_before_and_after": "846adb486d3803f97c6cc2b951f2236a946bafa16b7e3f041e0802cf414a8c4d",
+  "prediction_source": {
+    "kind": "system_SQL_predictions",
+    "path": "D:\\Github\\text_to_SQL\\experiments\\ours_improved_v6\\runs\\reviewed_20261101_once\\test\\V6_dev_selected.prediction.json",
+    "sha256": "7912e2e6e1d73325aed6bf4cd61c4ec9223f18c1639458e91a6650031ec1b205"
+  },
+  "input_path": "D:\\Github\\text_to_SQL\\experiments\\sql_to_text_evaluation\\data\\inputs\\test.jsonl",
+  "input_sha256": "13bc54f935027f0cb961dd817b7cbe2a6b4d745fe829728bb826a342c96cafb4",
+  "reference_path": "D:\\Github\\text_to_SQL\\experiments\\sql_to_text_evaluation\\data\\references\\test.jsonl",
+  "reference_sha256": "60e97f83b138ea6b5caa30ea67bbd144e5a230bb00f24ed0525f9f73f59a459e",
+  "English_prediction_sha256": "86af78b1ad43ea176d26d40e2fb4414730e84949b119181a6745a38cdae45a65",
+  "scores_sha256": "ba7eb9bd685e8a3d38d2344ec7a0fb82a0fb3ca007a261266f52b3c04c05919d",
+  "implementation_sha256": {
+    "english_evaluation.py": "0db19f9ca6af97e73c9a28e75ff38a1eecd5d49fb291a63b36fe9792e9950120",
+    "answer_from_sql.py": "0fdace74dcb5e87e6524b2f1d7e3d896035ea0ee924a4cb481b32fa02954a867",
+    "reference_renderer.py": "232977738d74f665d64456a216dc5e2536589a16998151dbd9cb726b390b9c28",
+    "english_metrics.py": "3244020495345b0b182411d4f5e5cf8faa9d585410dfa576404a0200bf4ce8d9"
+  },
+  "lexical": {
+    "raw_EM": 92.97343616109683,
+    "normalized_EM": 92.97343616109683,
+    "token_F1_macro": 94.19540291231435,
+    "token_F1_micro": 91.75384615384615,
+    "ROUGE_L_F1_macro": 94.17977158562903,
+    "WER": 14.285714285714286,
+    "WER_edit_distance": 3415,
+    "WER_reference_tokens": 23905,
+    "WER_prediction_tokens": 21595
+  },
+  "controlled": {
+    "fact_EM": 92.97343616109683,
+    "parse_coverage": 100.0,
+    "correct": 1085,
+    "parseable": 1167
+  },
+  "groups": {
+    "answerable": {
+      "n": 934,
+      "lexical": {
+        "raw_EM": 92.3982869379015,
+        "normalized_EM": 92.3982869379015,
+        "token_F1_macro": 93.77657948818081,
+        "token_F1_micro": 91.4555811416798,
+        "ROUGE_L_F1_macro": 93.75704869777208,
+        "WER": 14.811078503301541,
+        "WER_edit_distance": 3230,
+        "WER_reference_tokens": 21808,
+        "WER_prediction_tokens": 19447
+      },
+      "controlled": {
+        "fact_EM": 92.3982869379015,
+        "parse_coverage": 100.0,
+        "correct": 863,
+        "parseable": 934
+      }
+    },
+    "unanswerable": {
+      "n": 233,
+      "lexical": {
+        "raw_EM": 95.27896995708154,
+        "normalized_EM": 95.27896995708154,
+        "token_F1_macro": 95.8742916596994,
+        "token_F1_micro": 94.6525323910483,
+        "ROUGE_L_F1_macro": 95.8742916596994,
+        "WER": 8.822126847877922,
+        "WER_edit_distance": 185,
+        "WER_reference_tokens": 2097,
+        "WER_prediction_tokens": 2148
+      },
+      "controlled": {
+        "fact_EM": 95.27896995708154,
+        "parse_coverage": 100.0,
+        "correct": 222,
+        "parseable": 233
+      }
+    }
+  },
+  "elapsed_seconds": 13.23399999999674,
+  "interpretation": [
+    "Actual saved predicted SQL is executed and rendered; failed SQL remains an English execution failure, never a correct refusal.",
+    "English reference labels are generated silver controlled-language answers, not official paper English-answer gold or clinician review.",
+    "Fact EM evaluates full numeric3 results with no100-row cap and exact controlled grammar; it is not the paper SQL metric.",
+    "Lexical similarity and renderer oracle accuracy do not establish free-form clinical language quality."
+  ]
+}

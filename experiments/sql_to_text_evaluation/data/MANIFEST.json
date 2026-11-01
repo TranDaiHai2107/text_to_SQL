@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "dataset_name": "EHRSQL2024-derived-controlled-English-v1",
+  "annotation_method": "controlled_english_values_v1",
+  "official_English_benchmark": false,
+  "human_or_clinician_validated": false,
+  "new_API_calls": 0,
+  "clock": "2100-12-31 23:59:00",
+  "numeric_precision_decimals": 3,
+  "text_result_row_cap": null,
+  "official_SQL_scoring_row_cap": 100,
+  "row_order": "canonical unordered rows; duplicates and column order retained",
+  "use": "Reference/evaluation only; test labels must never enter retrieval or prompts",
+  "claim": "Mechanically faithful to executed gold query results, not verified clinical interpretation",
+  "frozen_original_files_verified": 147,
+  "splits": {
+    "train": {
+      "n": 5124,
+      "answerable": 4674,
+      "unanswerable": 450,
+      "empty_results": 0,
+      "full_results_over_100_rows": 32,
+      "max_result_rows": 152,
+      "SQL_missing_value_cells": 0,
+      "official_gold_matches": 5124,
+      "text_roundtrip_matches": 5124,
+      "reference_sha256": "3b5f20218ebbdd3edee893f5cd9d9b10f50f52a71325ce4e505f3de5f6ad733b",
+      "input_sha256": "6872c03c4e7dc83343791a85c4e91cb8249376d45cc86e76fd9713c51cb706c8",
+      "sql_to_text_input_sha256": "2287e896cb79bdbe72c65c056f5044be157393319286e7b168c0ccc8b888d823",
+      "csv_sha256": "d20715ecaa4f383e38061b2ec203f6f69b3e0e4a8063812f7d38ed3ef432ad9f"
+    },
+    "validation": {
+      "n": 1163,
+      "answerable": 931,
+      "unanswerable": 232,
+      "empty_results": 1,
+      "full_results_over_100_rows": 5,
+      "max_result_rows": 125,
+      "SQL_missing_value_cells": 0,
+      "official_gold_matches": 1163,
+      "text_roundtrip_matches": 1163,
+      "reference_sha256": "0e2a36916cb0e28f9206e015be3539d2c6ff88d6858ae29d1f40be9f89355bdb",
+      "input_sha256": "cbffb1edac933175e1ae6c510f984df839bd6d7a8484eab8bc326d954e1bd917",
+      "sql_to_text_input_sha256": "22a15dae45627c222356e08699c6b5ed4d268c1736cdeb15c5e0acb34ef1fedd",
+      "csv_sha256": "44fe1219e4e50d86e5e0c82b1f98df7d3f26381c92b64a32a81558dce8bd672c"
+    },
+    "test": {
+      "n": 1167,
+      "answerable": 934,
+      "unanswerable": 233,
+      "empty_results": 0,
+      "full_results_over_100_rows": 7,
+      "max_result_rows": 152,
+      "SQL_missing_value_cells": 0,
+      "official_gold_matches": 1167,
+      "text_roundtrip_matches": 1167,
+      "reference_sha256": "60e97f83b138ea6b5caa30ea67bbd144e5a230bb00f24ed0525f9f73f59a459e",
+      "input_sha256": "13bc54f935027f0cb961dd817b7cbe2a6b4d745fe829728bb826a342c96cafb4",
+      "sql_to_text_input_sha256": "de4eda88e8a0ec0044cb2edc4edccc49605b2bafa3d28aedf34f590e586df124",
+      "csv_sha256": "a4853d88a3a4848b3912f40eed39c9ace552463649b376f64a8b519818e3a1e3"
+    }
+  },
+  "source_sha256": {
+    "baselines\\probgate_ehrsql_2024\\upstream\\src\\data\\mimic_iv\\mimic_iv.sqlite": "846adb486d3803f97c6cc2b951f2236a946bafa16b7e3f041e0802cf414a8c4d",
+    "baselines\\probgate_ehrsql_2024\\data\\inputs\\train.json": "48ed72b4e8b3c6946d2e0ef629cbae16ff3af621ed4b4f065d3c1ff233917d62",
+    "baselines\\probgate_ehrsql_2024\\data\\gold\\train\\label.json": "9f6545b4850be49015c54a4956d08724bb41eb5167b018b30b77fe9b5579924d",
+    "baselines\\probgate_ehrsql_2024\\data\\gold\\train\\answer.json": "eee382e4bb03531c90a45441cfd18aee088fa04aa52052a69cacf8186d12ecdd",
+    "baselines\\probgate_ehrsql_2024\\data\\inputs\\dev.json": "eb8388c5b775d06de22ff7fa1130a802061b51789c0315daca1c4469d4984bf2",
+    "baselines\\probgate_ehrsql_2024\\data\\gold\\dev\\label.json": "a84f3834668b23f5a75451ed3956689122ce21e1b602bbd6fe8c58ef9c1fe93c",
+    "baselines\\probgate_ehrsql_2024\\data\\gold\\dev\\answer.json": "8a921ffcfb801053c6eb4b466b5cdbdc1a10d548ca146740a54ff68f24e69591",
+    "baselines\\probgate_ehrsql_2024\\data\\inputs\\test.json": "b1f527fac63b7f0bb7919d5810a009255a5a65eb0e2b8e87dee57e540f0f5dca",
+    "baselines\\probgate_ehrsql_2024\\data\\gold\\test\\label.json": "40cfea706b5c51f8aca17218580a31ad6aead977bdd512eb5daca34015b50247",
+    "baselines\\probgate_ehrsql_2024\\data\\gold\\test\\answer.json": "aa55923f5aa00c5ef007139a8869ad0117a9704958658a263b5873add607eaa7"
+  },
+  "implementation_sha256": {
+    "build_references.py": "ed6480f4e2faaec54d12d57162c4f0dedeebaa3e07e851c9176b31599f0b36b3",
+    "reference_renderer.py": "232977738d74f665d64456a216dc5e2536589a16998151dbd9cb726b390b9c28",
+    "common_io.py": "3b616f7a93ce91efca87e67cdee1dd4c615411c3ac42b5b119c45e99b9286138"
+  }
+}

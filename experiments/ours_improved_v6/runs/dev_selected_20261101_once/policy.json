@@ -1,0 +1,196 @@
+{
+  "selected_policy": "v6_strict3",
+  "selected_on": "tune300_only",
+  "selected_summary": {
+    "policy": "v6_strict3",
+    "n": 300,
+    "correct": 292,
+    "wrong": 0,
+    "abstained_answerable": 8,
+    "scores": {
+      "RS0": 97.33333333333333,
+      "RS5": 97.33333333333333,
+      "RS10": 97.33333333333333,
+      "RSN": 97.33333333333333
+    },
+    "EX": 96.66666666666667,
+    "VSR": 77.33333333333333,
+    "coverage": 77.33333333333333,
+    "answer_precision": 100.0,
+    "correct_answerable_sql": 232,
+    "correct_abstentions": 60,
+    "execution_errors": 0
+  },
+  "tune_grid": [
+    {
+      "policy": "v5_reference",
+      "n": 300,
+      "correct": 289,
+      "wrong": 0,
+      "abstained_answerable": 11,
+      "scores": {
+        "RS0": 96.33333333333333,
+        "RS5": 96.33333333333333,
+        "RS10": 96.33333333333333,
+        "RSN": 96.33333333333333
+      },
+      "EX": 95.41666666666667,
+      "VSR": 76.33333333333333,
+      "coverage": 76.33333333333333,
+      "answer_precision": 100.0,
+      "correct_answerable_sql": 229,
+      "correct_abstentions": 60,
+      "execution_errors": 0
+    },
+    {
+      "policy": "v6_strict3",
+      "n": 300,
+      "correct": 292,
+      "wrong": 0,
+      "abstained_answerable": 8,
+      "scores": {
+        "RS0": 97.33333333333333,
+        "RS5": 97.33333333333333,
+        "RS10": 97.33333333333333,
+        "RSN": 97.33333333333333
+      },
+      "EX": 96.66666666666667,
+      "VSR": 77.33333333333333,
+      "coverage": 77.33333333333333,
+      "answer_precision": 100.0,
+      "correct_answerable_sql": 232,
+      "correct_abstentions": 60,
+      "execution_errors": 0
+    },
+    {
+      "policy": "v6_pair_ast",
+      "n": 300,
+      "correct": 293,
+      "wrong": 3,
+      "abstained_answerable": 4,
+      "scores": {
+        "RS0": 97.66666666666667,
+        "RS5": 92.66666666666667,
+        "RS10": 87.66666666666667,
+        "RSN": -202.33333333333334
+      },
+      "EX": 97.5,
+      "VSR": 79.0,
+      "coverage": 79.0,
+      "answer_precision": 98.73417721518987,
+      "correct_answerable_sql": 234,
+      "correct_abstentions": 59,
+      "execution_errors": 0
+    },
+    {
+      "policy": "v6_pair_plan_ast",
+      "n": 300,
+      "correct": 291,
+      "wrong": 1,
+      "abstained_answerable": 8,
+      "scores": {
+        "RS0": 97.0,
+        "RS5": 95.33333333333333,
+        "RS10": 93.66666666666667,
+        "RSN": -3.0
+      },
+      "EX": 96.66666666666667,
+      "VSR": 77.66666666666667,
+      "coverage": 77.66666666666667,
+      "answer_precision": 99.57081545064378,
+      "correct_answerable_sql": 232,
+      "correct_abstentions": 59,
+      "execution_errors": 0
+    },
+    {
+      "policy": "v6_pair_nontrivial",
+      "n": 300,
+      "correct": 293,
+      "wrong": 4,
+      "abstained_answerable": 3,
+      "scores": {
+        "RS0": 97.66666666666667,
+        "RS5": 91.0,
+        "RS10": 84.33333333333333,
+        "RSN": -302.3333333333333
+      },
+      "EX": 97.91666666666667,
+      "VSR": 79.66666666666667,
+      "coverage": 79.66666666666667,
+      "answer_precision": 98.32635983263599,
+      "correct_answerable_sql": 235,
+      "correct_abstentions": 58,
+      "execution_errors": 0
+    },
+    {
+      "policy": "v6_pair_plan_nontrivial",
+      "n": 300,
+      "correct": 291,
+      "wrong": 2,
+      "abstained_answerable": 7,
+      "scores": {
+        "RS0": 97.0,
+        "RS5": 93.66666666666667,
+        "RS10": 90.33333333333333,
+        "RSN": -103.0
+      },
+      "EX": 97.08333333333333,
+      "VSR": 78.33333333333333,
+      "coverage": 78.33333333333333,
+      "answer_precision": 99.14893617021276,
+      "correct_answerable_sql": 233,
+      "correct_abstentions": 58,
+      "execution_errors": 0
+    },
+    {
+      "policy": "v6_pair_third_null",
+      "n": 300,
+      "correct": 291,
+      "wrong": 1,
+      "abstained_answerable": 8,
+      "scores": {
+        "RS0": 97.0,
+        "RS5": 95.33333333333333,
+        "RS10": 93.66666666666667,
+        "RSN": -3.0
+      },
+      "EX": 96.66666666666667,
+      "VSR": 77.66666666666667,
+      "coverage": 77.66666666666667,
+      "answer_precision": 99.57081545064378,
+      "correct_answerable_sql": 232,
+      "correct_abstentions": 59,
+      "execution_errors": 0
+    },
+    {
+      "policy": "v6_pair_all",
+      "n": 300,
+      "correct": 295,
+      "wrong": 4,
+      "abstained_answerable": 1,
+      "scores": {
+        "RS0": 98.33333333333333,
+        "RS5": 91.66666666666667,
+        "RS10": 85.0,
+        "RSN": -301.6666666666667
+      },
+      "EX": 98.75,
+      "VSR": 80.33333333333333,
+      "coverage": 80.33333333333333,
+      "answer_precision": 98.34024896265561,
+      "correct_answerable_sql": 237,
+      "correct_abstentions": 58,
+      "execution_errors": 0
+    }
+  ],
+  "protocol_sha256": "cfa54e57a4222cb50f249b53e02b58a288d896de0b55ef15659808c76eca7fd3",
+  "implementation_sha256": {
+    "run_v6.py": "20107e5aaa78428b7f50ff6d921cf9dc441065c2bd101971fea74b1a52a06de3",
+    "postprocess_v6.py": "4cb403fee0ff21d2bb4580b68edfc1135a9118526d193bef02f556a5b3e1e1a6",
+    "english_evaluation.py": "0db19f9ca6af97e73c9a28e75ff38a1eecd5d49fb291a63b36fe9792e9950120",
+    "english_dependency/english_metrics.py": "3244020495345b0b182411d4f5e5cf8faa9d585410dfa576404a0200bf4ce8d9",
+    "english_dependency/reference_renderer.py": "232977738d74f665d64456a216dc5e2536589a16998151dbd9cb726b390b9c28",
+    "english_dependency/answer_from_sql.py": "0fdace74dcb5e87e6524b2f1d7e3d896035ea0ee924a4cb481b32fa02954a867",
+    "english_dependency/common_io.py": "3b616f7a93ce91efca87e67cdee1dd4c615411c3ac42b5b119c45e99b9286138"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "policy_sha256": "db5ab9e34dfea5050590283aaed99ace1b8fae3dd24e8f7f4f4e8587263fec3a",
+  "protocol_sha256": "cfa54e57a4222cb50f249b53e02b58a288d896de0b55ef15659808c76eca7fd3",
+  "implementation_sha256": {
+    "run_v6.py": "20107e5aaa78428b7f50ff6d921cf9dc441065c2bd101971fea74b1a52a06de3",
+    "postprocess_v6.py": "4cb403fee0ff21d2bb4580b68edfc1135a9118526d193bef02f556a5b3e1e1a6",
+    "english_evaluation.py": "0db19f9ca6af97e73c9a28e75ff38a1eecd5d49fb291a63b36fe9792e9950120",
+    "english_dependency/english_metrics.py": "3244020495345b0b182411d4f5e5cf8faa9d585410dfa576404a0200bf4ce8d9",
+    "english_dependency/reference_renderer.py": "232977738d74f665d64456a216dc5e2536589a16998151dbd9cb726b390b9c28",
+    "english_dependency/answer_from_sql.py": "0fdace74dcb5e87e6524b2f1d7e3d896035ea0ee924a4cb481b32fa02954a867",
+    "english_dependency/common_io.py": "3b616f7a93ce91efca87e67cdee1dd4c615411c3ac42b5b119c45e99b9286138"
+  },
+  "selected_policy": "v6_strict3",
+  "test_scores_consulted_for_this_selection": false
+}
