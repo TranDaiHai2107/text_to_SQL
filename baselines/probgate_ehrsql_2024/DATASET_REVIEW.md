@@ -38,7 +38,7 @@ Kiểm tra ngày **19/10/2026**. Bằng chứng máy đọc được: `DATASET_A
 - Câu hỏi tiếng Anh, gold SQL và đáp án thực thi theo ID; các split và annotation đã đối chiếu với EHRSQL lịch sử.
 - Phiên bản đầu vào `mimic_iv_demo_1.0_*`, source ProbGate `2dcc2230ea049e7fb87160df922933b4ae2645b9`; gold từ EHRSQL `5ddaaa79e6121bf22f808df34166f6f4e03f4c86`.
 
-Đây không phải cùng bộ EHRSQL v1.0.5 đã tìm cho mẫu M3, cũng không phải bản v1.1.2 mới. Giữ nguyên phiên bản theo từng bài, không tráo các annotation giữa chúng.
+Đây không phải cùng bộ EHRSQL v1.0.5 đã khảo sát trước đây, cũng không phải bản v1.1.2 mới. Giữ nguyên phiên bản theo từng bài, không tráo các annotation giữa chúng.
 
 ## 3. Các khác biệt làm phép so sánh trực tiếp không hợp lệ
 

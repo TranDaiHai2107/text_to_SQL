@@ -7,7 +7,7 @@ Tài liệu này dùng cho Windows PowerShell. Quy trình đầy đủ và mô t
 - Python 3.12.
 - Docker Desktop.
 - Quyền truy cập hợp lệ vào MIMIC-IV 3.1.
-- Groq API key.
+- DeepSeek/OpenAI API key.
 
 ```powershell
 python -m venv .venv
@@ -16,7 +16,7 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Điền `GROQ_API_KEY`, `DB_PASS`, `DB_LOADER_PASS` và `MIMIC_DATA_DIR` trong `.env`. Ứng dụng dùng role `mimic_reader`; loader dùng role quản trị riêng.
+Điền `DEEPSEEK_API_KEY`, `DB_PASS`, `DB_LOADER_PASS` và `MIMIC_DATA_DIR` trong `.env`. Ứng dụng dùng role `mimic_reader`; loader dùng role quản trị riêng.
 
 ## 2. PostgreSQL
 
@@ -78,4 +78,4 @@ Trước khi gọi LLM, script thực thi preflight toàn bộ gold SQL. Nếu m
 - Collection thiếu hoặc sai số lượng: chạy lại `python build_vector_db.py`.
 - Sai embedding model: giữ cùng giá trị `EMBEDDING_MODEL` khi build và khi chạy app.
 - `mimic_reader` chưa tồn tại trên volume cũ: tạo role read-only thủ công hoặc khởi tạo một volume PostgreSQL mới.
-- Rate limit Groq: giảm số mode/câu đánh giá; retry ngắn trong code chỉ xử lý lỗi tạm thời, không thay đổi quota tài khoản.
+- Rate limit DeepSeek/OpenAI: giảm số mode/câu đánh giá; retry ngắn trong code chỉ xử lý lỗi tạm thời, không thay đổi quota tài khoản.

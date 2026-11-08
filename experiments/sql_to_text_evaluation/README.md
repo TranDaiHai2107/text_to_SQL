@@ -1,5 +1,7 @@
 # Kết quả chốt và bộ đánh giá câu trả lời tiếng Anh
 
+> Cập nhật 06/11/2026: hệ thống hiện tại là **V6**, xem `../ours_improved_v6/README.md`. Các đường dẫn V1–V5/Vanna trong phần lịch sử dưới đây đã chuyển vào `_archive/20261106/workspace/experiments`. Bộ chấm English đang dùng vẫn là `english_metrics.py`; dùng `../ours_improved_v6/english_evaluation.py` để đánh giá prediction hiện tại. Không chạy các lệnh replay lịch sử dưới đây như entrypoint hiện tại. Manifest/audit gốc giữ nguyên hash lịch sử; bảo trì đường dẫn ở `common_io.py` được ghi riêng trong audit ngày06/11.
+
 Phần mở rộng ngày 01/11/2026, tách hoàn toàn khỏi V5, Vanna, database và official scorer Text-to-SQL. Không đổi model, không gọi API, không dùng nhãn mới để sửa pipeline hoặc tăng điểm SQL.
 
 ## Kết quả Text-to-SQL hiện tại

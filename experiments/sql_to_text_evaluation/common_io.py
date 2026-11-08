@@ -50,8 +50,7 @@ def legacy():
 
 
 def verify_frozen():
-    lock = load(WORKSPACE / "experiments/research_validation/V5_LOCK.json")
-    for name, digest in lock["files"].items():
-        if sha(WORKSPACE / name) != digest:
-            raise ValueError("Frozen artifact changed: " + name)
-    return len(lock["files"])
+    if str(WORKSPACE) not in sys.path:
+        sys.path.insert(0, str(WORKSPACE))
+    from project_layout import verify_historical
+    return verify_historical()

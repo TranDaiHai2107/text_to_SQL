@@ -1,0 +1,704 @@
+{
+  "date": "2026-11-06",
+  "current_system": "V6",
+  "archive": "_archive/20261106",
+  "scope": "All top-level Python modules of application/current benchmark/English scorer/paper adapter structurally inspected; historical/vendored files preserved, not claimed individually line-reviewed",
+  "python_modules_inspected": 31,
+  "modules": [
+    {
+      "path": "app.py",
+      "sha256": "6f27d37b4e1686b39026537582ad7011e3699986d6fca0bc2d29ad208f176402",
+      "classes": [],
+      "functions": [
+        "_try_auto_chart",
+        "_build_chat_history_for_rewrite",
+        "process_question"
+      ],
+      "imports": [
+        "import html",
+        "import json",
+        "import time",
+        "import pandas as pd",
+        "import streamlit as st",
+        "from config import RESULTS_FILE",
+        "from rag_engine import generate_sql_with_correction, interpret_result, rewrite_question"
+      ]
+    },
+    {
+      "path": "build_mimic_mini.py",
+      "sha256": "fc89929d9ce61907dea0a23e60ed9535d79f0c1858d0744d31a5e13e01e3215b",
+      "classes": [],
+      "functions": [
+        "_concat_or_empty",
+        "_priority_icd_patterns",
+        "_sample_subject_ids",
+        "load_table",
+        "build_mimic_mini"
+      ],
+      "imports": [
+        "import json",
+        "import os",
+        "import random",
+        "import re",
+        "import sys",
+        "import pandas as pd",
+        "from sqlalchemy import Date, DateTime, create_engine, text",
+        "from sqlglot import exp, parse_one",
+        "from config import EXAMPLES_FILE, MIMIC_DATA_DIR, TEST_FILE, database_url"
+      ]
+    },
+    {
+      "path": "build_vector_db.py",
+      "sha256": "19d604c684a5567154495e602c9990b6c946ee08044298d8745033fc5d677c26",
+      "classes": [],
+      "functions": [
+        "_source_hash",
+        "_file_signature",
+        "_canonical_sql",
+        "_delete_if_exists",
+        "_atomic_build",
+        "_load_icd_from_csv",
+        "build_icd_collection",
+        "build_schema_collection",
+        "_load_examples",
+        "build_examples_collection",
+        "quick_test",
+        "main"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "import hashlib",
+        "import json",
+        "import sys",
+        "import uuid",
+        "from collections import Counter",
+        "from collections.abc import Callable",
+        "from pathlib import Path",
+        "import chromadb",
+        "import pandas as pd",
+        "from sqlalchemy import create_engine",
+        "from sqlglot import parse_one",
+        "from config import CHROMA_DIR, EXAMPLES_FILE, MIMIC_DATA_DIR, SCHEMA_FILE, TEST_FILE, database_url",
+        "from embedding_config import DEFAULT_EMBEDDING_MODEL, get_embedding_function"
+      ]
+    },
+    {
+      "path": "config.py",
+      "sha256": "d0018a5eaf673d8dd666184cc7c86311f8feb6b9af23cb137c89b009bce3dc5c",
+      "classes": [],
+      "functions": [
+        "database_url"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import os",
+        "from pathlib import Path",
+        "from dotenv import load_dotenv",
+        "from sqlalchemy import URL"
+      ]
+    },
+    {
+      "path": "embedding_config.py",
+      "sha256": "7497bcb793ba89bfc959619ec53d039e29dff4e13efbe83a48a71097f832c3d5",
+      "classes": [],
+      "functions": [
+        "get_embedding_function"
+      ],
+      "imports": [
+        "import os",
+        "from chromadb.utils import embedding_functions"
+      ]
+    },
+    {
+      "path": "evaluate.py",
+      "sha256": "691b3ad38fc095c5f0ae077e645b6601496b6ad1f1ceb7a6f94e0f1a97c8eaf2",
+      "classes": [],
+      "functions": [
+        "load_test_dataset",
+        "_normalize_value",
+        "normalize_df",
+        "preflight_gold",
+        "evaluate_one",
+        "compute_metrics",
+        "metrics_by_difficulty",
+        "print_summary",
+        "run_evaluation"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "import json",
+        "import sys",
+        "import time",
+        "from collections import Counter, defaultdict",
+        "from datetime import date, datetime",
+        "from decimal import Decimal",
+        "from numbers import Number",
+        "from typing import Any",
+        "import pandas as pd",
+        "from sqlalchemy.exc import OperationalError",
+        "from config import MAX_EVAL_ROWS, RESULTS_FILE, TEST_FILE",
+        "from rag_engine import generate_sql, generate_sql_with_correction, run_query"
+      ]
+    },
+    {
+      "path": "expand_test_dataset.py",
+      "sha256": "5109ffc5050ae49c1b6e126d7948bd955ca8eafb0371209a8a33bf3e793ec9d8",
+      "classes": [],
+      "functions": [
+        "expand_dataset"
+      ],
+      "imports": [
+        "import json",
+        "from config import TEST_FILE",
+        "import sys"
+      ]
+    },
+    {
+      "path": "project_layout.py",
+      "sha256": "877d849df4090eba19bbe1e47dd83773d85941bb81c2a91844bf529d8b538823",
+      "classes": [],
+      "functions": [
+        "historical_file",
+        "verify_historical"
+      ],
+      "imports": [
+        "from pathlib import Path"
+      ]
+    },
+    {
+      "path": "rag_engine.py",
+      "sha256": "9feaaa39e935b4aff0c46757271f58a881db05bf60d100e5f7658a0ccfaa9411",
+      "classes": [],
+      "functions": [
+        "_get_collection",
+        "_short_file_hash",
+        "_expected_source_hash",
+        "_schema_records",
+        "retrieve_icd_codes",
+        "retrieve_schema",
+        "retrieve_examples",
+        "build_prompt",
+        "_call_llm",
+        "_clean_sql",
+        "generate_sql",
+        "generate_sql_with_correction",
+        "interpret_result",
+        "_build_metadata_summary",
+        "rewrite_question",
+        "run_query",
+        "ask_medical_question"
+      ],
+      "imports": [
+        "import sys",
+        "import os",
+        "import json",
+        "import hashlib",
+        "import random",
+        "import time",
+        "from functools import lru_cache",
+        "from collections.abc import Callable",
+        "import chromadb",
+        "import pandas as pd",
+        "from groq import Groq",
+        "from sqlalchemy import create_engine, text",
+        "from sqlglot import parse_one",
+        "from config import CHROMA_DIR, EXAMPLES_FILE, LOCK_TIMEOUT_MS, MAX_QUERY_ROWS, QUERY_TIMEOUT_MS, SCHEMA_FILE, TEST_FILE, database_url",
+        "from embedding_config import DEFAULT_EMBEDDING_MODEL, get_embedding_function",
+        "from sql_validator import validate_sql_schema, get_validator_prompt_hint"
+      ]
+    },
+    {
+      "path": "sql_validator.py",
+      "sha256": "96e66c803efb79597d4860a8adcb78a3adb6ce628faa11f73efea248a4697ebf",
+      "classes": [],
+      "functions": [
+        "_load_schema",
+        "_function_name",
+        "_column_pair",
+        "_missing_join_key",
+        "_format_error",
+        "validate_sql_schema",
+        "get_validator_prompt_hint"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import json",
+        "from pathlib import Path",
+        "from typing import Any",
+        "from sqlglot import exp, parse, parse_one",
+        "from sqlglot.errors import ParseError",
+        "from sqlglot.optimizer.qualify import qualify",
+        "from sqlglot.optimizer.scope import build_scope"
+      ]
+    },
+    {
+      "path": "test_rewrite.py",
+      "sha256": "60c5cbbca549843de2ab6f43cb5b1c8d81c8503aae09783df2d13b0528b893eb",
+      "classes": [],
+      "functions": [
+        "run_multiturn_tests"
+      ],
+      "imports": [
+        "import json",
+        "import time",
+        "from rag_engine import rewrite_question",
+        "import sys",
+        "from config import BASE_DIR"
+      ]
+    },
+    {
+      "path": "experiments\\ours_improved_v6\\current.py",
+      "sha256": "2bc4acf85b6bd0f507e72f57ba1ef1fafce16748dec52bb743cfd60dd528eecf",
+      "classes": [],
+      "functions": [
+        "main"
+      ],
+      "imports": [
+        "import argparse",
+        "import json",
+        "from pathlib import Path",
+        "from run_v6 import BASELINE, DEFAULT_RUN, frozen_check, load, score_mapping"
+      ]
+    },
+    {
+      "path": "experiments\\ours_improved_v6\\english_evaluation.py",
+      "sha256": "0db19f9ca6af97e73c9a28e75ff38a1eecd5d49fb291a63b36fe9792e9950120",
+      "classes": [],
+      "functions": [
+        "sha",
+        "dump",
+        "_inputs",
+        "_sql_mapping",
+        "evaluate",
+        "main"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "from collections import Counter",
+        "import hashlib",
+        "import json",
+        "import math",
+        "from pathlib import Path",
+        "import sys",
+        "import time",
+        "from experiments.sql_to_text_evaluation.answer_from_sql import verbalize",
+        "from experiments.sql_to_text_evaluation.common_io import DATABASE, verify_frozen",
+        "from experiments.sql_to_text_evaluation.english_metrics import load_records, score_records",
+        "from experiments.sql_to_text_evaluation.reference_renderer import RENDERER_VERSION"
+      ]
+    },
+    {
+      "path": "experiments\\ours_improved_v6\\evaluate_english_runs.py",
+      "sha256": "cf6558b6a1088fd3aba04a2378580c5dc8b08e60990d926672fa60f07fbde812",
+      "classes": [],
+      "functions": [
+        "main"
+      ],
+      "imports": [
+        "from pathlib import Path",
+        "from english_evaluation import evaluate",
+        "from report_v6 import report",
+        "from run_v6 import DEFAULT_RUN, load, sha"
+      ]
+    },
+    {
+      "path": "experiments\\ours_improved_v6\\FINAL_AUDIT.py",
+      "sha256": "3045d390c8db610e29dd116ee153520b3a6be95226bd9bb8bf137531fcda5d3b",
+      "classes": [],
+      "functions": [
+        "_object",
+        "load",
+        "lines",
+        "sha",
+        "check",
+        "close",
+        "sql_cell",
+        "official_answer",
+        "full_rows",
+        "execute",
+        "independent_score",
+        "parse_English",
+        "original_hash_check",
+        "audit"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "import ast",
+        "from collections import Counter",
+        "import hashlib",
+        "import importlib.util",
+        "import json",
+        "import math",
+        "from pathlib import Path",
+        "import re",
+        "import sqlite3",
+        "import sys",
+        "import time",
+        "import xml.etree.ElementTree as ET"
+      ]
+    },
+    {
+      "path": "experiments\\ours_improved_v6\\postprocess_v6.py",
+      "sha256": "cbdf89158891640f01cc0f216737537d24e9c5f4f21e36488a1b14d863c08e19",
+      "classes": [],
+      "functions": [
+        "_unaliased",
+        "_sql_key",
+        "_period_expression",
+        "_aggregate_kind",
+        "_projection_repair",
+        "_organism_repair",
+        "_casefold_code_repairs",
+        "compile_v6",
+        "enhance_candidate",
+        "enhance_v6"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "from copy import deepcopy",
+        "import importlib.util",
+        "from pathlib import Path",
+        "import re",
+        "import sys",
+        "from sqlglot import exp, parse_one",
+        "from project_layout import HISTORICAL_EXPERIMENTS"
+      ]
+    },
+    {
+      "path": "experiments\\ours_improved_v6\\report_v6.py",
+      "sha256": "a363bf655574991099f104d14a66c0c7498821c024442d47b59d8fd3d602f47b",
+      "classes": [],
+      "functions": [
+        "compact_sql",
+        "report"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "from collections import Counter",
+        "import json",
+        "from pathlib import Path",
+        "from run_v6 import DEFAULT_RUN, EXPERIMENTS, HERE, dump, frozen_check, load, read_rows, sha"
+      ]
+    },
+    {
+      "path": "experiments\\ours_improved_v6\\run_v6.py",
+      "sha256": "9b81f4c5ee1fd197c67d3cd207cff2acc3f74edad5454ce30b3dc956732eeff4",
+      "classes": [],
+      "functions": [
+        "load",
+        "dump",
+        "sha",
+        "read_rows",
+        "write_rows",
+        "frozen_check",
+        "implementation",
+        "freeze",
+        "eligible",
+        "choose",
+        "score_mapping",
+        "transform",
+        "sqls_for",
+        "dev",
+        "test"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "from copy import deepcopy",
+        "import hashlib",
+        "import json",
+        "from pathlib import Path",
+        "import sys",
+        "import time",
+        "from project_layout import HISTORICAL_EXPERIMENTS, verify_historical",
+        "from baseline_core import execute_readonly, score_answers",
+        "from postprocess_v5 import load_metadata, select_v5",
+        "from risk_v3 import structure_signature"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\__init__.py",
+      "sha256": "5ac08290af21646e94a05fdb2b9d0b9db23e912e44c3ab8e64fa39cb4c0c32d9",
+      "classes": [],
+      "functions": [],
+      "imports": []
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\answer_from_sql.py",
+      "sha256": "0fdace74dcb5e87e6524b2f1d7e3d896035ea0ee924a4cb481b32fa02954a867",
+      "classes": [],
+      "functions": [
+        "verbalize"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "from pathlib import Path"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\audit_references.py",
+      "sha256": "dd23d1e7fe5a7a141bfccb756568412abbd803bd4ebea7ca231f790ea6dac847",
+      "classes": [],
+      "functions": [
+        "load",
+        "sha",
+        "read_jsonl",
+        "normalize_value",
+        "normalize_full",
+        "independent_parse",
+        "audit"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "import ast",
+        "from collections import Counter",
+        "import csv",
+        "import hashlib",
+        "import importlib.util",
+        "import json",
+        "import math",
+        "from pathlib import Path",
+        "import re",
+        "import sqlite3",
+        "import time"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\audit_source.py",
+      "sha256": "c811530dbfe5b5bc4fc8159e58061a840840c76eacb46005f1f014f6d490b200",
+      "classes": [],
+      "functions": [
+        "load",
+        "digest",
+        "cell",
+        "canonical",
+        "object_digest",
+        "processed_sql",
+        "audit"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "import ast",
+        "from collections import Counter",
+        "import hashlib",
+        "import importlib.util",
+        "import json",
+        "import math",
+        "from pathlib import Path",
+        "import re",
+        "import sqlite3",
+        "import time"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\build_references.py",
+      "sha256": "ed6480f4e2faaec54d12d57162c4f0dedeebaa3e07e851c9176b31599f0b36b3",
+      "classes": [],
+      "functions": [
+        "build"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "import csv",
+        "import json",
+        "from pathlib import Path"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\common_io.py",
+      "sha256": "0f1e70ef4809952cb38a7de4900a2ee28c6894d1697d5fc6511b25f9467019d5",
+      "classes": [],
+      "functions": [
+        "load",
+        "dump",
+        "sha",
+        "jsonl",
+        "write_jsonl",
+        "legacy",
+        "verify_frozen"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import hashlib",
+        "import importlib.util",
+        "import json",
+        "from pathlib import Path",
+        "import sys"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\compare_frozen_results.py",
+      "sha256": "d2158f0cfb46058cf2eac6506d377a475b728ee84c450912325c88a5ebb75faf",
+      "classes": [],
+      "functions": [
+        "load",
+        "sha",
+        "main"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import hashlib",
+        "import json",
+        "from pathlib import Path",
+        "import sqlite3",
+        "import sys",
+        "import time",
+        "from baseline_core import execute_readonly, score_answers"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\english_metrics.py",
+      "sha256": "3244020495345b0b182411d4f5e5cf8faa9d585410dfa576404a0200bf4ce8d9",
+      "classes": [],
+      "functions": [
+        "normalize_text",
+        "tokenize",
+        "edit_distance",
+        "lcs_length",
+        "_f1",
+        "lexical_pair",
+        "_records",
+        "_controlled_tools",
+        "_controlled_pair",
+        "_aggregate",
+        "score_records",
+        "_unique_json_object",
+        "load_records",
+        "main"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "from collections import Counter",
+        "import json",
+        "from pathlib import Path",
+        "import unicodedata",
+        "from typing import Callable, Mapping"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\reference_renderer.py",
+      "sha256": "232977738d74f665d64456a216dc5e2536589a16998151dbd9cb726b390b9c28",
+      "classes": [],
+      "functions": [
+        "canonical_cell",
+        "canonical_rows",
+        "render_answer",
+        "parse_controlled_answer"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import json",
+        "import math",
+        "import re"
+      ]
+    },
+    {
+      "path": "experiments\\sql_to_text_evaluation\\validate_delivery.py",
+      "sha256": "11907705d20f775ef5a5241c70d25cc9f03052fd18ff09a4f79dc0966d51572d",
+      "classes": [],
+      "functions": [
+        "main"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import json",
+        "from pathlib import Path",
+        "import subprocess",
+        "import sys",
+        "import uuid",
+        "import xml.etree.ElementTree as ET"
+      ]
+    },
+    {
+      "path": "baselines\\probgate_ehrsql_2024\\baseline_core.py",
+      "sha256": "fefbe01fb972b8d62a812bf10b66ccab46e7401b4149645c98ddcafe1ece18e8",
+      "classes": [],
+      "functions": [
+        "post_process_sql",
+        "bottom_logprob",
+        "apply_probgate",
+        "apply_entropy",
+        "apply_classifier",
+        "process_item",
+        "process_answer",
+        "author_process_answer",
+        "execute_readonly",
+        "apply_gef",
+        "score_answers"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "from ast import literal_eval",
+        "import importlib.util",
+        "import math",
+        "from pathlib import Path",
+        "import sqlite3",
+        "import time"
+      ]
+    },
+    {
+      "path": "baselines\\probgate_ehrsql_2024\\docker_runner.py",
+      "sha256": "527bd3567c22bffaee469c0e915722dcab083a4012083d31d79d6b1a6d9c20ee",
+      "classes": [],
+      "functions": [
+        "database_path",
+        "inspect_runtime",
+        "main"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import json",
+        "from pathlib import Path",
+        "import platform",
+        "import signal",
+        "import sqlite3",
+        "import sys",
+        "import time"
+      ]
+    },
+    {
+      "path": "baselines\\probgate_ehrsql_2024\\reproduce.py",
+      "sha256": "0ca13b31c1e84475e2bde397113a684bafbb36f0507fc1ac05b2b7eb26e7f456",
+      "classes": [],
+      "functions": [
+        "load",
+        "write_new",
+        "provenance",
+        "registry",
+        "get_experiment",
+        "verify",
+        "preflight",
+        "summarize",
+        "predictions_from",
+        "main"
+      ],
+      "imports": [
+        "from __future__ import annotations",
+        "import argparse",
+        "import hashlib",
+        "import json",
+        "import platform",
+        "from pathlib import Path",
+        "import sqlite3",
+        "import sys",
+        "import time",
+        "from datetime import datetime, timezone",
+        "from baseline_core import apply_classifier, apply_entropy, apply_gef, apply_probgate, author_process_answer, execute_readonly, post_process_sql, score_answers"
+      ]
+    }
+  ],
+  "historical_locked_files_verified": 147,
+  "tests": "109 passed + 5 subtests",
+  "fresh_V6_SQL_replay": "1167 outcomes and all RS match",
+  "old_runs_and_audit_hashes": "preserved as historical evidence; maintenance changed path code, not old locks",
+  "new_model_API_calls": 0
+}

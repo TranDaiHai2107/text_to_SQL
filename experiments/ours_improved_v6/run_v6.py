@@ -16,16 +16,18 @@ import time
 HERE = Path(__file__).resolve().parent
 WORKSPACE = HERE.parents[1]
 EXPERIMENTS = HERE.parent
-V5 = EXPERIMENTS / "ours_improved_v5"
+sys.path.insert(0, str(WORKSPACE))
+from project_layout import HISTORICAL_EXPERIMENTS, verify_historical
+V5 = HISTORICAL_EXPERIMENTS / "ours_improved_v5"
 V5_RUN = V5 / "runs/deepseek_flash_v5_20261029_r1"
 BASELINE = WORKSPACE / "baselines/probgate_ehrsql_2024"
-for folder in (HERE, V5, EXPERIMENTS / "ours_improved_v4", EXPERIMENTS / "ours_improved_v3", BASELINE):
+for folder in (HERE, HERE / "runtime", BASELINE):
     if str(folder) not in sys.path:
         sys.path.append(str(folder))
 
 from baseline_core import execute_readonly, score_answers
-from postprocess_v5 import load_metadata, select_v5
-from risk_v3 import structure_signature
+from namespace import load_metadata, select_v5
+from selection import structure_signature
 
 DB = BASELINE / "upstream/src/data/mimic_iv/mimic_iv.sqlite"
 DEFAULT_RUN = HERE / "runs/reviewed_20261101_once"
@@ -64,16 +66,14 @@ def write_rows(path, rows):
 
 
 def frozen_check():
-    lock = load(EXPERIMENTS / "research_validation/V5_LOCK.json")
-    for name, digest in lock["files"].items():
-        if sha(WORKSPACE / name) != digest:
-            raise ValueError("Frozen original changed: " + name)
-    return len(lock["files"])
+    return verify_historical()
 
 
 def implementation():
     names = ("run_v6.py", "postprocess_v6.py", "english_evaluation.py")
     values = {name: sha(HERE / name) for name in names}
+    values.update({"runtime/" + path.name: sha(path)
+                   for path in sorted((HERE / "runtime").glob("*.py"))})
     english = EXPERIMENTS / "sql_to_text_evaluation"
     values.update({"english_dependency/" + name: sha(english / name)
                    for name in ("english_metrics.py", "reference_renderer.py", "answer_from_sql.py", "common_io.py")})

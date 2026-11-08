@@ -6,7 +6,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import run_v6 as runner
-from postprocess_v4 import FINGERPRINT_METHOD
+from normalization import FINGERPRINT_METHOD
 
 
 def candidate(index, value="same", sql="SELECT 3", *, trivial=False, genuine_null=False):

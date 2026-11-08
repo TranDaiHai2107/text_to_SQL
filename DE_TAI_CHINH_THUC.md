@@ -63,7 +63,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
           Tiếng Anh          Tiếng Việt
           (EHRSQL,            ??? 
            BiomedSQL,        ╔═════════════════════════╗
-           M3 System)        ║    ĐỒ ÁN NÀY            ║ ← BẠN ĐANG Ở ĐÂY
+           ProbGate)        ║    ĐỒ ÁN NÀY            ║ ← BẠN ĐANG Ở ĐÂY
                              ║ (5 Điểm mới khoa học)   ║
                              ╚═════════════════════════╝
 ```
@@ -115,7 +115,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
  ════════════════════════════════╪═════════════════════════════════════════════════
                                  ▼
   Ghép: System Prompt (gồm Subquery Rule) + ICD + Schema DDL + Examples + Câu hỏi
-  → Gửi qua Groq API (Qwen 2.5 27B / Llama 3.3 70B, max_tokens=900 chống 429)
+  → Gửi qua DeepSeek/OpenAI API (provider/model cấu hình qua .env; giới hạn output không thay đổi quota API)
   → Sinh câu lệnh SQL ứng viên
                                  │
  ════════════════════════════════╪═════════════════════════════════════════════════
@@ -158,7 +158,7 @@ Tại các bệnh viện và viện nghiên cứu, dữ liệu bệnh nhân (h�
 | 6 | Agentic Self-Correction Loop (Vòng lặp tự sửa lỗi) | ✅ Hoàn thành | `rag_engine.py` (`generate_sql_with_correction`) |
 | 7 | Context-Aware Multi-turn Query Rewriter (Kèm Subquery Logic) | ✅ Hoàn thành | `rag_engine.py` (`rewrite_question`), quy tắc Rule 8 |
 | 8 | Diễn giải kết quả hai chiều (SQL-to-Text Clinical Interpretation) | ✅ Hoàn thành | `rag_engine.py` (`interpret_result`) |
-| 9 | Tối ưu hóa hạn mức gọi LLM (Chống 429 Groq Rate Limit) | ✅ Hoàn thành | Cấu hình `max_tokens=900/256` trong `rag_engine.py` |
+| 9 | Tối ưu hóa hạn mức gọi LLM (Chống 429 DeepSeek/OpenAI Rate Limit) | ✅ Hoàn thành | Cấu hình `max_tokens=900/256` trong `rag_engine.py` |
 | 10 | Chuẩn hóa bộ dữ liệu kiểm thử (180 Test Cases có Gold SQL) | ✅ Hoàn thành | `test_dataset.json` (4 cấp độ Easy, Medium, Hard, Complex) |
 | 11 | Giao diện Chatbot tương tác thông minh (Streamlit UI) | ✅ Hoàn thành | `app.py` (Visual RAG tags, khung tím gradient, Dashboard Ablation) |
 | 12 | Script đo lường thực nghiệm khoa học tự động (Ablation Study) | ✅ Hoàn thành | `evaluate.py` (Hỗ trợ cờ `--quick` và `--modes`) |

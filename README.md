@@ -1,6 +1,8 @@
+> **Benchmark hiện tại: V6 / DeepSeek Flash.** [Hướng dẫn V6](experiments/ours_improved_v6/README.md) · [Paper ProbGate](baselines/probgate_ehrsql_2024/PAPER_REVIEW_VI.md). Các phiên bản nghiên cứu cũ nằm trong `_archive/20261106`; phần ứng dụng tiếng Việt bên dưới có phạm vi riêng.
+
 # MIMIC-IV Vietnamese Text-to-SQL
 
-Hệ thống chuyển câu hỏi y tế tiếng Việt thành PostgreSQL cho một subset MIMIC-IV. Pipeline gồm truy hồi mã ICD, schema và SQL mẫu; sinh SQL bằng Groq; kiểm tra AST; thực thi trong transaction chỉ đọc; tự sửa khi truy vấn lỗi; và giao diện hội thoại Streamlit.
+Hệ thống chuyển câu hỏi y tế tiếng Việt thành PostgreSQL cho một subset MIMIC-IV. Pipeline gồm truy hồi mã ICD, schema và SQL mẫu; sinh SQL bằng DeepSeek/OpenAI; kiểm tra AST; thực thi trong transaction chỉ đọc; tự sửa khi truy vấn lỗi; và giao diện hội thoại Streamlit.
 
 ## Trạng thái dữ liệu
 
@@ -20,7 +22,7 @@ flowchart LR
     W --> I[ICD retrieval]
     W --> S[Schema retrieval]
     W --> E[Example retrieval]
-    I --> L[Groq LLM]
+    I --> L[DeepSeek / OpenAI]
     S --> L
     E --> L
     L --> V[SQLGlot validator]
@@ -43,7 +45,7 @@ python -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
-Điền `GROQ_API_KEY`, mật khẩu PostgreSQL và `MIMIC_DATA_DIR` trong `.env`. Tài khoản `DB_USER` dùng bởi ứng dụng nên là `mimic_reader`; `DB_LOADER_USER` chỉ dùng khi dựng dữ liệu.
+Chọn `LLM_PROVIDER=deepseek` và điền `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`; hoặc chọn `LLM_PROVIDER=openai` và điền `OPENAI_API_KEY`, `OPENAI_MODEL`. Sau đó điền mật khẩu PostgreSQL và `MIMIC_DATA_DIR` trong `.env`. Tài khoản `DB_USER` dùng bởi ứng dụng nên là `mimic_reader`; `DB_LOADER_USER` chỉ dùng khi dựng dữ liệu.
 
 Khởi động PostgreSQL mới:
 
@@ -91,7 +93,7 @@ python evaluate.py --quick --modes base full full_agentic
 
 ## Quyền riêng tư
 
-Mặc định `SEND_RESULTS_TO_LLM=false`: dữ liệu hàng từ MIMIC chỉ hiển thị cục bộ và không được gửi lại cho LLM để diễn giải. Bật tùy chọn này chỉ sau khi đã kiểm tra điều khoản sử dụng dữ liệu và chính sách lưu giữ của nhà cung cấp. Câu hỏi và prompt tạo SQL vẫn được gửi đến Groq.
+Mặc định `SEND_RESULTS_TO_LLM=false`: dữ liệu hàng từ MIMIC chỉ hiển thị cục bộ và không được gửi lại cho LLM để diễn giải. Bật tùy chọn này chỉ sau khi đã kiểm tra điều khoản sử dụng dữ liệu và chính sách lưu giữ của nhà cung cấp. Câu hỏi và prompt tạo SQL vẫn được gửi đến DeepSeek/OpenAI.
 
 ## Các file chính
 

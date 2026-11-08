@@ -26,15 +26,13 @@ import sys
 import os
 import json
 import hashlib
-import random
-import time
 from functools import lru_cache
 from collections.abc import Callable
 import chromadb
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import pandas as pd
-from groq import Groq
+from llm_client import LLM_MODEL, LLM_PROVIDER, call_llm
 from sqlalchemy import create_engine, text
 from sqlglot import parse_one
 from config import (
@@ -53,9 +51,7 @@ from sql_validator import validate_sql_schema, get_validator_prompt_hint
 # ── Kết nối PostgreSQL ────────────────────────────────────────
 engine = create_engine(database_url(), pool_pre_ping=True, connect_args={"connect_timeout": 5})
 
-# ── Groq LLM ────────────────────────────────────────────────
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
-LLM_MODEL = os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
+# ── DeepSeek / OpenAI ───────────────────────────────────────
 ICD_MAX_DISTANCE = float(os.getenv("ICD_MAX_DISTANCE", "0.90"))
 SCHEMA_MAX_DISTANCE = float(os.getenv("SCHEMA_MAX_DISTANCE", "0.95"))
 EXAMPLE_MAX_DISTANCE = float(os.getenv("EXAMPLE_MAX_DISTANCE", "0.85"))
@@ -441,26 +437,7 @@ def build_prompt(
 # LLM CALL + SQL CLEAN (helper nội bộ)
 # ══════════════════════════════════════════════════════════════
 def _call_llm(messages: list[dict], max_tokens: int = 900) -> str:
-    """Call Groq with short exponential backoff for transient failures."""
-    last_error: Exception | None = None
-    for attempt in range(3):
-        try:
-            response = client.chat.completions.create(
-                model=LLM_MODEL,
-                messages=messages,
-                temperature=0,
-                max_tokens=max_tokens,
-            )
-            content = response.choices[0].message.content
-            if not content:
-                raise RuntimeError("LLM trả về nội dung rỗng.")
-            return content.strip()
-        except Exception as exc:
-            last_error = exc
-            if attempt == 2:
-                break
-            time.sleep((0.8 * (2**attempt)) + random.uniform(0, 0.25))
-    raise RuntimeError(f"Gọi Groq thất bại sau 3 lần: {last_error}") from last_error
+    return call_llm(messages, max_tokens)
 
 
 def _clean_sql(raw: str) -> str:

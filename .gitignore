@@ -8,6 +8,8 @@ mimic_chroma_db/
 
 # ===== Python =====
 __pycache__/
+.pytest_cache/
+.pytest_cleanup_*/
 *.py[cod]
 *$py.class
 *.egg-info/

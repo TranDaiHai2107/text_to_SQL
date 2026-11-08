@@ -101,13 +101,13 @@ with st.sidebar:
 
     st.divider()
     with st.expander("📊 Thông tin hệ thống"):
-        from rag_engine import LLM_MODEL
+        from rag_engine import LLM_MODEL, LLM_PROVIDER
         st.markdown(f"""
         | Thành phần | Chi tiết |
         |---|---|
         | **Database** | PostgreSQL (MIMIC-IV Subset) |
         | **Vector DB** | ChromaDB – 3 production + 1 evaluation |
-        | **LLM** | {LLM_MODEL} (Groq LPU) |
+        | **LLM** | {LLM_MODEL} ({LLM_PROVIDER}) |
         | **Self-Correction** | Tối đa {max_retries} lần retry |
         | **Multi-turn** | Query Rewriting via LLM |
         | **SQL-to-Text** | Natural Language Generation |

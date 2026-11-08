@@ -1,3 +1,70 @@
+# Nghiên cứu EHRSQL 2024 cho V6 không fine-tune — 07/11/2026
+
+Đã đối chiếu phương pháp, kết quả, ablation, giới hạn và các phụ lục liên quan của đủ8 paper đội thi và bài overview. Đã tải9 PDF từ ACL (89trang cả references/phụ lục), lưu text từng trang và SHA-256 tại `research/sources/ehrsql2024_papers/manifest.json`. Không lấy abstract làm toàn bộ phương pháp; không tuyên bố đã chạy hoặc tái hiện code của cả8 đội.
+
+Ràng buộc hiện tại: không fine-tune, kể cả LoRA/QLoRA/self-training, không train classifier khác. Embedding/model có sẵn được dùng inference không đổi trọng số. V6 và kết quả74,9786 giữ nguyên; lượt này chỉ nghiên cứu, không đọc lỗi test mới, không gọi model/API, không sửa pipeline.
+
+## Công nghệ của đủ8 đội
+
+- **LG AI Research & KAIST / PLUQ — RS10 81.32.** GPT-3.5-Turbo-0125. Công nghệ: seed fine-tuning; unlabeled dev/test null pseudo-labeling; second fine-tuning; max token entropy; execution filtering. Không áp dụng PLUQ nguyên bản khi cấm fine-tune; chỉ mượn hướng dẫn answerability và filtering. [Paper](https://aclanthology.org/2024.clinicalnlp-1.61/); nguồn chi tiết: Sections3–4;Table1,3,4.
+
+- **PromptMind — RS10 74.89.** GPT-4, Claude-3 Opus, FT GPT-3.5. Công nghệ: AnglE + PubMedBERT; z-normalization retrieval fusion; column sample values; execution unanimity across models; RAFT branch. Nhánh GPT-4+Opus không fine-tune RS10=65.72; không gán74.89 cho no-FT. [Paper](https://aclanthology.org/2024.clinicalnlp-1.34/); nguồn chi tiết: Sections4–6;Table2–4.
+
+- **ProbGate — RS10 74.21.** FT GPT-3.5-turbo-0125. Công nghệ: bottom10 non-reserved token logprobs; rank-based abstention; GEF. Lọc logprob cần provider trả dữ liệu thật và calibration mới; cache V6 không có logits để phục dựng. [Paper](https://aclanthology.org/2024.clinicalnlp-1.65/); nguồn chi tiết: Section3.3–3.5;Algorithm1;Table1–2.
+
+- **KU-DMIS — RS10 59.21.** FT GPT-3.5 + GPT-4-turbo. Công nghệ: masked-neighbor retrieval; question templatization; two-step schema detail/self-reflection; value-based table-column verification; intent check + voting. Rewrite và intent verification có thể chuyển sang prompting; giữ nguyên ràng buộc câu gốc. [Paper](https://aclanthology.org/2024.clinicalnlp-1.64/); nguồn chi tiết: Section3;Table3,5;Appendices.
+
+- **AIRI NLP — RS10 44.04.** FT T5-3B + logistic regression; GPT ICL/debugger experiments. Công nghệ: schema overlap and wording features; query correspondence classifier; SQL result inspector; 5-shot SentenceBERT retrieval; DIN-SQL debugger experiment. Không train classifier; debugger của paper làm điểm giảm, không sao chép lọc mọi aggregate0. [Paper](https://aclanthology.org/2024.clinicalnlp-1.43/); nguồn chi tiết: Sections3–5;Table1.
+
+- **LTRC-IIITH — RS10 43.70.** SQLCoder-7b-2. Công nghệ: separate abstention and SQL models; schema comments PK/FK; confidence threshold; execution errors; vLLM serving. QLoRA vẫn là fine-tune; lấy ý tưởng schema rõ nghĩa và guard, không copy threshold-0.4. [Paper](https://aclanthology.org/2024.clinicalnlp-1.66/); nguồn chi tiết: Sections4–6;Table1.
+
+- **Saama / SCAS — RS10 36.08.** LoRA CodeLlama-7b-Instruct + Azure GPT-3.5 selector. Công nghệ: TF-IDF NB/SGD/CatBoost ensemble; LoRA answerability classifier; ICL selector; LoRA SQL generation; retrieved few-shot via MPNet. Không train bất kỳ classifier; selector API thử được nhưng early rejection có false negatives. Paper ghi36.07, overview36.08. [Paper](https://aclanthology.org/2024.clinicalnlp-1.63/); nguồn chi tiết: Sections3–5;Table1;AppendicesA–E.
+
+- **TEAM_optimist / Project PRIMUS — RS10 -713.37.** SQLCoder / sqlcoders. Công nghệ: schema-in-prompt; task instructions; SQL-or-null output. Paper nêu fine-tune tổng quát nhưng không pin quy trình EHR FT; overview đánh dấu không FT. Không ưu tiên đổi model. [Paper](https://aclanthology.org/2024.clinicalnlp-1.41/); nguồn chi tiết: Section3–5;Table1.
+
+## Điểm cần sửa khi diễn giải nguồn
+
+- Overview Table3 đánh dấu PLUQ không fine-tune, nhưng paper PLUQ mô tả rõ hai lượt fine-tune. Dùng mô tả phương pháp chi tiết;81,32 không phải mốc no-FT.
+- PromptMind65,72 là cấu hình hai model không FT;74,89 có FT. Không cộng các mức cải thiện của các paper hoặc dùng chúng làm dự báo V6.
+- Saama53,21 là RS0, không phải RS10. Điểm RS10 final overview36,08; paper team36,07, giữ riêng khác biệt báo cáo.
+- PRIMUS là paper liên kết với TEAM_optimist trong overview. Lời bàn chung về training của pretrained model không chứng minh đã EHR-fine-tune; recipe/checkpoint thiếu.
+- Các thí nghiệm dev/train/custom split hoặc pseudo-labeling test không nhãn phải phân biệt với một lần suy luận trên test chưa dùng thích nghi.
+
+## Đối chiếu với code V6 hiện tại
+
+Đã có:3 nguồn RAG; dense MiniLM+BM25 và masked-question/AST reranking; full17-table schema; dictionary/value grounding;3 route cùng DeepSeek; plan route thinking; bounded execution repair; guard; fingerprint fullrows/numeric3; strict3 selection; compiler metadata/AST; renderer/scorer English.
+
+Do đó, RAG, execution voting, schema, dictionary, thinking và kiểm tra syntax không phải thành phần mới cần thêm lần nữa. Chưa có multi-embedding lâm sàng riêng, canonical-question LLM branch có kiểm tra bảo toàn nghĩa, hoặc verifier ngữ nghĩa độc lập. Ba route cùng model không tương đương ensemble ba model khác nhau của PromptMind.
+
+## Các hướng nên thử, theo thứ tự
+
+**1. Kiểm tra question–SQL contract có bằng chứng, giữ nguồn bất biến.** Dựa ý tưởng verification của KU-DMIS, mở rộng cách phân tích câu hỏi thành slots: đối tượng, đại lượng, aggregate, điều kiện, khoảng thời gian, visit scope, đơn vị, output columns. So với SQL AST; nếu bất đồng thì chỉ từ chối hoặc tạo proposal riêng khi có evidence. Ví dụ COUNT thay AVG, first admission thay current admission hoặc bỏ điều kiện thời gian. Rule AST đã có phải được tái sử dụng, không viết lại dưới tên mới. Phần hard constraints rõ có thể chạy offline; giải nghĩa mới bằng LLM sẽ thêm call. Không cho reviewer tự xoá điều kiện để query chạy được.
+
+**2. Retrieval ngữ nghĩa lâm sàng riêng.** Theo PromptMind, thử thêm pretrained clinical encoder, kết hợp với dense hiện tại+BM25+masked skeleton; không fine-tune encoder. Chuẩn hoá/fusion rank, chọn theo dev; không trộn trực tiếp cosine khác model hay coi PubMedBERT raw mặc nhiên là sentence embedder tốt. Tách tác động clinicalretrieval khỏi việc chỉ tăng few-shot/token. Nguồn dictionary metadata và bệnh nhân được giữ phân biệt.
+
+**3. Nhánh canonical-question có guard.** Theo KU-DMIS, lấy template từ train, viết lại câu hỏi rồi sinh một candidate riêng. Bảo toàn patientID, giá trị/số, phủ định, điều kiện, first/last/current, time interval/calendar và đại lượng. Nếu guard không chứng minh tương đương thì bỏ rewrite, giữ nguyên câu gốc. Không thay mọi câu bằng template gần nhất hoặc ép câu unanswerable thành answerable. Nhánh này khác rewrite hội thoại tiếng Việt của ứng dụng.
+
+**4. Verifier/ensemble API độc lập có ngân sách.** Theo PromptMind và CAS, thử một pretrained verifier/model khác cho câu rủi ro hoặc disagreement; yêu cầu đối chiếu cụ thể từng claim câu hỏi với biểu thức SQL. Ban đầu verifier chỉ approve/abstain, không sửa SQL tự do. Trường hợp cả3route cùng sai vẫn có thể qua voting; thay đổi prompt của cùng model không bảo đảm độc lập. Cần ablation cùng ngân sách hoặc báo đầy đủ sốcall/tokens/cost; không tự chuyển model tài khoản.
+
+**5. Confidence filtering nếu API thực sự cung cấp token logprobs.** ProbGate/LTRC/PLUQ cần dữ liệu xác suất thật. V6 cache generation đang không lưu logprobs; không suy diễn logits/entropy từ văn bản hoặc biến consensus thành xác suất. Top-k logprobs không tự là entropy đầy đủ vocabulary; phải nêu định nghĩa ước lượng. Không copy425,-0.4 hoặc7% từ paper. Nếu không có API support, bỏ arm này.
+
+Các hướng trên là đề xuất kỹ thuật từ nghiên cứu, chưa có điểm V6 chứng minh tăng. Không dùng classifier kiểu length/first-word làm hardgate; không lọc mọi COUNT=0 vì0 có thể là đáp án đúng; không thêm vòng self-correction không giới hạn. AIRI và Saama cung cấp bằng chứng thực nghiệm trực tiếp cho các rủi ro này.
+
+## Thiết kế thí nghiệm tiếp theo chỉ trên dataset paper
+
+- Giữ V6 làm control, không đổi metric/scorer/database/split; không cần tải thêm dataset.
+- Dùng train làm nguồn ví dụ, dev làm phát triển/soablation với self-exclusion; dev hiện đã tiếp xúc nên không gọi là holdout độc lập.
+- So từng thành phần trước, rồi mới thử kết hợp: contract verifier; clinicalretrieval; guardedrewrite; independentverifier. Không cộng dồn số điểm paper để dự báo.
+- Báo RS10 chính, EX, wrong, false abstention, coverage, precision, tokens/cost. Với lựa chọn không giữ LLM training, train chỉ làm retrieval/metadata evidence.
+- Khóa policy/prompt/code trước một lần test đủ1.167câu. Không điều chỉnh theo lỗi test; test cũ có exposure lịch sử phải công bố.
+- English→SQL→English tiếp tục dùng predictionSQL thật; renderer theo mẫu và metric tự xây báo riêng, không gán cho các paper điểm English họ không công bố.
+
+**Ưu tiên triển khai:** contract verification rõ nghĩa → clinicalretrieval → guardedrewrite; model diversity chỉ sau khi dev cho bằng chứng và ngân sách phù hợp. Chưa có cơ sở cam kết vượt81,32 hoặc thêm công nghệ là tự tăng điểm.
+
+Chi tiết máy đọc: `EHRSQL_2024_PAPER_TECHNOLOGIES.json`. Nội dung bên dưới là nghiên cứu lịch sử ngày01/11, bao gồm giá/provider thời điểm đó; không dùng làm thông tin giá hiện hành.
+
+---
+
 # Nghiên cứu cải thiện V5 trên EHRSQL 2024 — 01/11/2026
 
 Phạm vi của lượt nghiên cứu này: giữ dataset/database/scorer của paper; không fine-tune; không đọc câu hỏi, prediction, gold hoặc lỗi test để thiết kế thay đổi. Tài liệu này đề xuất hướng thử nghiệm, không dự đoán hoặc bảo đảm điểm tăng. Không gọi API model; chỉ đọc tài liệu công khai và code hậu xử lý hiện có.

@@ -10,7 +10,7 @@ Hệ thống nhận câu hỏi y tế tiếng Việt, truy hồi tri thức liê
 2. ICD retrieval kết hợp ánh xạ trực tiếp cho các thuật ngữ Việt phổ biến với semantic retrieval cho trường hợp còn lại.
 3. Schema retrieval lọc theo cosine distance và mở rộng các bảng liên kết trực tiếp cần cho JOIN.
 4. Example retrieval lấy tối đa ba SQL mẫu. Evaluation dùng collection riêng đã loại trùng gold SQL.
-5. Groq `qwen/qwen3.8-27b` sinh SQL với temperature bằng 0 và retry ngắn cho lỗi tạm thời.
+5. DeepSeek/OpenAI (cấu hình qua `LLM_PROVIDER`) sinh SQL với temperature bằng 0 và retry ngắn cho lỗi tạm thời.
 6. SQLGlot validator phân tích AST và kiểm tra schema.
 7. PostgreSQL thực thi trong transaction read-only với timeout và giới hạn số dòng.
 8. Self-correction đưa lỗi validator/runtime về LLM, tối đa theo cấu hình UI.
@@ -71,7 +71,7 @@ Các mode là `base`, `icd`, `schema`, `examples`, `full`, `full_agentic`. `full
 
 ## Quyền riêng tư
 
-Với `SEND_RESULTS_TO_LLM=false`, các hàng dữ liệu kết quả không rời máy để phục vụ SQL-to-text. UI dùng diễn giải cục bộ ngắn và vẫn hiển thị DataFrame. Nếu bật tùy chọn này, tối đa 20 dòng được gửi tới Groq; người vận hành phải tự kiểm tra quyền sử dụng dữ liệu và chính sách của nhà cung cấp.
+Với `SEND_RESULTS_TO_LLM=false`, các hàng dữ liệu kết quả không rời máy để phục vụ SQL-to-text. UI dùng diễn giải cục bộ ngắn và vẫn hiển thị DataFrame. Nếu bật tùy chọn này, tối đa 20 dòng được gửi tới DeepSeek/OpenAI; người vận hành phải tự kiểm tra quyền sử dụng dữ liệu và chính sách của nhà cung cấp.
 
 ## Giới hạn còn lại
 

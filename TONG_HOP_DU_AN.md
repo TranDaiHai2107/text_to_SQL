@@ -43,7 +43,7 @@ Hệ thống đã được lập trình hoàn chỉnh, kiểm thử end-to-end t
 - Tự động tóm lược xu hướng, làm nổi bật số liệu quan trọng và hiển thị trong khung thông báo nổi bật trên giao diện.
 
 ### 2.7. Tối ưu hóa Hạn mức Token (Rate Limit & OTPM Protection)
-- Giảm `max_tokens` cho sinh SQL/rewrite và retry ngắn khi lỗi tạm thời. Quota Groq phụ thuộc tài khoản và vẫn có thể phát sinh `429 RateLimitError`.
+- Giảm `max_tokens` cho sinh SQL/rewrite và retry ngắn khi lỗi tạm thời. Quota DeepSeek/OpenAI phụ thuộc tài khoản và vẫn có thể phát sinh `429 RateLimitError`.
 
 ### 2.8. Bộ Dữ liệu Đánh giá Chuẩn Hóa (180 Test Cases với Gold SQL)
 - File `test_dataset.json` chứa 180 câu hỏi tiếng Việt kèm Gold SQL, phân tầng: **Easy 66 (36,7%)**, **Medium 60 (33,3%)**, **Hard 22 (12,2%)**, **Complex 32 (17,8%)**. Có 28 SQL trùng với tập few-shot production; evaluation loại các ví dụ này qua collection riêng.

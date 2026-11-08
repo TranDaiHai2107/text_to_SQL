@@ -14,12 +14,13 @@ import sys
 
 from sqlglot import exp, parse_one
 
-V5 = Path(__file__).resolve().parents[1] / "ours_improved_v5"
-if str(V5) not in sys.path:
-    sys.path.insert(1, str(V5))
-_SPEC = importlib.util.spec_from_file_location("_v6_frozen_v5_compiler", V5 / "postprocess_v5.py")
-V5_MODULE = importlib.util.module_from_spec(_SPEC)
-_SPEC.loader.exec_module(V5_MODULE)
+_WORKSPACE = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_WORKSPACE))
+sys.path.append(str(_WORKSPACE / "baselines/probgate_ehrsql_2024"))
+RUNTIME = Path(__file__).resolve().parent / "runtime"
+if str(RUNTIME) not in sys.path:
+    sys.path.insert(1, str(RUNTIME))
+import namespace as V5_MODULE
 V4_MODULE = V5_MODULE.V4_MODULE
 
 

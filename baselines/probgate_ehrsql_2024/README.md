@@ -54,9 +54,9 @@ probgate_ehrsql_2024/
 
 Source ProbGate: `2dcc2230ea049e7fb87160df922933b4ae2645b9`.
 
-Đầu vào giữ đúng `mimic_iv_demo_1.0_{train,valid,test}` tác giả đã dùng: 5.124 train, 1.163 dev, 1.167 test. Gold dev/test bổ sung từ commit EHRSQL ghi trong manifest; đã đối chiếu đúng từng ID/câu hỏi với source tác giả. Database là đúng file đi kèm repo ProbGate, không thay bằng database Mini hoặc bản M3 khác.
+Đầu vào giữ đúng `mimic_iv_demo_1.0_{train,valid,test}` tác giả đã dùng: 5.124 train, 1.163 dev, 1.167 test. Gold dev/test bổ sung từ commit EHRSQL ghi trong manifest; đã đối chiếu đúng từng ID/câu hỏi với source tác giả. Database là đúng file đi kèm repo ProbGate, không thay bằng database Mini hoặc snapshot khác.
 
-Không dùng EHRSQL v1.0.5/v1.1.2 đã khảo sát cho M3 để âm thầm thay dữ liệu của ProbGate.
+Không dùng EHRSQL v1.0.5/v1.1.2 đã khảo sát trước đây để âm thầm thay dữ liệu của ProbGate.
 
 ## Các thao tác chỉ kiểm tra chuẩn bị
 

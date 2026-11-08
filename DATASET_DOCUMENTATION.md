@@ -211,8 +211,8 @@ MIMIC được dùng rộng rãi cho dự đoán lâm sàng, clinical NLP và h�
    - Benchmark gốc dùng MIMIC-III và eICU, không phải MIMIC-IV.
    - Đóng góp quan trọng gồm Execution Accuracy và câu hỏi không thể trả lời. Đây là đối chứng phù hợp về bài toán EHR Text-to-SQL, nhưng khác schema và ngôn ngữ với dự án này.
 
-2. **Các hệ thống MIMIC-IV gần đây như M3**
-   - Có thể dùng làm nhóm đối chứng gần hơn về phiên bản dữ liệu. Cần ghi đúng tên, năm, bộ dữ liệu và protocol đánh giá sau khi kiểm tra bài báo gốc.
+2. **ProbGate at EHRSQL 2024**
+   - Đối chứng hiện tại dùng EHRSQL 2024/MIMIC-IV demo và Reliability Score; xem baselines/probgate_ehrsql_2024/PAPER_REVIEW_VI.md.
 
 3. **BiomedSQL**
    - Thuộc hướng truy vấn cơ sở tri thức y sinh/BigQuery, không phải benchmark EHR trên MIMIC-IV. Chỉ nên dùng như tài liệu liên quan rộng, không mô tả như hệ thống trực tiếp cùng bài toán.
