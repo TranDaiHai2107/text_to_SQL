@@ -40,3 +40,6 @@ backups/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Large local V6 candidate audit log (keep on disk, exclude from GitHub).
+/experiments/ours_improved_v6/runs/reviewed_20261101_once/test/records.jsonl
