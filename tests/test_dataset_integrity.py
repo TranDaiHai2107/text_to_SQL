@@ -3,8 +3,8 @@ import unittest
 
 from sqlglot import parse_one
 
-from config import EXAMPLES_FILE, SCHEMA_FILE, TEST_FILE
-from sql_validator import validate_sql_schema
+from ehrqa.config import EXAMPLES_FILE, SCHEMA_FILE, TEST_FILE
+from ehrqa.sql_validator import validate_sql_schema
 
 
 def canonical_sql(sql: str) -> str:

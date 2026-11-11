@@ -1,107 +1,24 @@
-> **Benchmark hiện tại: V6 / DeepSeek Flash.** [Hướng dẫn V6](experiments/ours_improved_v6/README.md) · [Paper ProbGate](baselines/probgate_ehrsql_2024/PAPER_REVIEW_VI.md). Các phiên bản nghiên cứu cũ nằm trong `_archive/20261106`; phần ứng dụng tiếng Việt bên dưới có phạm vi riêng.
+# Hệ thống MIMIC-IV và hướng nghiên cứu CLINSQL
 
-# MIMIC-IV Vietnamese Text-to-SQL
+## Định hướng triển khai
 
-Hệ thống chuyển câu hỏi y tế tiếng Việt thành PostgreSQL cho một subset MIMIC-IV. Pipeline gồm truy hồi mã ICD, schema và SQL mẫu; sinh SQL bằng DeepSeek/OpenAI; kiểm tra AST; thực thi trong transaction chỉ đọc; tự sửa khi truy vấn lỗi; và giao diện hội thoại Streamlit.
+- **Đích chung:** MIMIC-IV v3.1 trên BigQuery cho hệ thống đề xuất và đánh giá CLINSQL 2026.
+- **Trạng thái code:** ứng dụng Streamlit hiện vẫn kết nối PostgreSQL/MIMIC Mini; đây là đường chạy cũ. Nền BigQuery/English tại `src/ehrqa/clinsql/` mới ở mức offline, chưa có kết nối, lượt chạy model hoặc điểm benchmark.
 
-## Trạng thái dữ liệu
+Code tiếng Việt được giữ cho nhánh thực nghiệm riêng sau này; MIMIC Mini không còn là database mục tiêu. Benchmark runner không dịch câu hỏi hoặc diễn giải kết quả sang tiếng Việt. Nhánh tiếng Việt sẽ được đánh giá riêng sau.
 
-- Schema logic: **31 bảng** (`22 hosp + 9 icu`).
-- Few-shot production: **101** ví dụ.
-- Few-shot dành cho evaluation: **73** ví dụ sau khi loại **28** SQL trùng gold test.
-- Benchmark: **180** câu, có nhãn `easy`, `medium`, `hard`, `complex`.
-- Chroma: `icd_dictionary=10000`, `schema_dictionary=31`, `sql_examples=101`, `sql_examples_eval=73` sau khi build đầy đủ.
+## Phương pháp so sánh
 
-Dữ liệu MIMIC-IV gốc và vector database không được commit. Người chạy phải có quyền truy cập MIMIC-IV hợp lệ và tự đặt dữ liệu trong thư mục được cấu hình bởi `MIMIC_DATA_DIR`.
+Hệ thống đề xuất là pipeline full agentic hiện tại được chuyển sang BigQuery/English. Ba baseline dự kiến: CLINSQL CoT + Self-Refinement, MAC-SQL với Selector/Decomposer/Refiner, và SDE-SQL zero-shot với SQL probes. Chỉ CLINSQL CoT có khung offline; MAC-SQL và SDE-SQL chưa tích hợp. Không fine-tuning. Mọi hệ thống phải dùng chung dữ liệu, model, dialect, nguồn tri thức hợp lệ, evaluator và chính sách chống leakage; số agent, retrieval và số API calls được đo như đặc trưng phương pháp.
 
-## Luồng xử lý
+Xem [protocol](EXPERIMENT_PROTOCOL.md), [nhật ký thích nghi baseline](BASELINE_ADAPTATION.md), [kiến trúc](docs/system/FULL_AGENTIC_ARCHITECTURE.md) và [hướng dẫn ứng dụng](docs/guides/HUONG_DAN_CHAY.md).
 
-```mermaid
-flowchart LR
-    Q[Câu hỏi tiếng Việt] --> W[Rewrite ngữ cảnh]
-    W --> I[ICD retrieval]
-    W --> S[Schema retrieval]
-    W --> E[Example retrieval]
-    I --> L[DeepSeek / OpenAI]
-    S --> L
-    E --> L
-    L --> V[SQLGlot validator]
-    V -->|hợp lệ| R[PostgreSQL read-only]
-    V -->|lỗi| F[Self-correction]
-    R --> A[Kết quả và bảng]
-    F --> L
-```
-
-Validator chỉ chấp nhận một `SELECT` hoặc `WITH ... SELECT`, hiểu alias/CTE/subquery, kiểm tra bảng và cột theo `mimic_schema.json`, chặn truy cập schema ngoài `public`, hàm hệ thống nguy hiểm và JOIN ICD/eMAR thiếu khóa. `run_query()` luôn kiểm tra lại SQL, đặt `statement_timeout`, `lock_timeout`, transaction read-only và giới hạn số dòng trả về.
-
-## Cài đặt
-
-Yêu cầu Python 3.12, Docker Desktop và dữ liệu MIMIC-IV 3.1 đã giải nén.
+## Lệnh hiện có
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-Copy-Item .env.example .env
+python run.py test -q --basetemp .pytest_run
+python run.py clinsql-inspect --questions <validation.json>
+python run.py app
 ```
 
-Chọn `LLM_PROVIDER=deepseek` và điền `DEEPSEEK_API_KEY`, `DEEPSEEK_MODEL`; hoặc chọn `LLM_PROVIDER=openai` và điền `OPENAI_API_KEY`, `OPENAI_MODEL`. Sau đó điền mật khẩu PostgreSQL và `MIMIC_DATA_DIR` trong `.env`. Tài khoản `DB_USER` dùng bởi ứng dụng nên là `mimic_reader`; `DB_LOADER_USER` chỉ dùng khi dựng dữ liệu.
-
-Khởi động PostgreSQL mới:
-
-```powershell
-docker compose up -d postgres
-```
-
-Init script tạo role `mimic_reader` khi volume PostgreSQL được tạo lần đầu. Với volume cũ, cần tự tạo role read-only hoặc tạo volume mới trước khi chạy ứng dụng.
-
-## Dựng dữ liệu và vector
-
-```powershell
-python build_mimic_mini.py
-python build_vector_db.py
-```
-
-Loader chọn 500 bệnh nhân theo seed cố định, đồng thời giữ độ bao phủ cho mã ICD xuất hiện trong benchmark và cho cohort ICU. Các cột ngày/giờ được tạo đúng kiểu PostgreSQL. Có thể đổi kích thước bằng `N_PATIENTS` trong môi trường.
-
-Nếu PostgreSQL chưa chạy nhưng dữ liệu CSV gốc đã có, có thể dựng riêng ICD từ CSV:
-
-```powershell
-python build_vector_db.py --collections icd_dictionary --icd-source csv
-```
-
-Collection mới được dựng dưới tên tạm, kiểm tra số lượng, rồi mới thay collection cũ. Có thể dựng chọn lọc:
-
-```powershell
-python build_vector_db.py --collections schema_dictionary sql_examples sql_examples_eval
-```
-
-## Chạy và kiểm thử
-
-```powershell
-python -m unittest discover -s tests -v
-python -m streamlit run app.py
-```
-
-Đánh giá nhanh hoặc chạy một số mode:
-
-```powershell
-python evaluate.py --quick --modes base full full_agentic
-```
-
-`evaluate.py` chạy preflight toàn bộ gold SQL trước khi gọi LLM. EX dùng multiset của các dòng nên giữ được bản ghi trùng, không phụ thuộc thứ tự hàng hay alias cột; vẫn giữ thứ tự giá trị trong mỗi hàng và phân biệt chính xác chuỗi. Mẫu số EX gồm tất cả câu có gold không rỗng: sinh SQL lỗi hoặc thực thi lỗi được tính sai. Gold trả về rỗng được báo riêng và không tính vào EX. Kết quả từ phiên bản đánh giá 2 ghi rõ định nghĩa này; không so ngang điểm cũ trước khi chạy lại. Đây là đánh giá nội bộ trên tiếng Việt/PostgreSQL, không phải điểm benchmark EHRSQL. Kết quả gồm metric tổng và metric theo độ khó.
-
-## Quyền riêng tư
-
-Mặc định `SEND_RESULTS_TO_LLM=false`: dữ liệu hàng từ MIMIC chỉ hiển thị cục bộ và không được gửi lại cho LLM để diễn giải. Bật tùy chọn này chỉ sau khi đã kiểm tra điều khoản sử dụng dữ liệu và chính sách lưu giữ của nhà cung cấp. Câu hỏi và prompt tạo SQL vẫn được gửi đến DeepSeek/OpenAI.
-
-## Các file chính
-
-- `rag_engine.py`: retrieval, prompt, LLM, self-correction và thực thi SQL.
-- `sql_validator.py`: kiểm tra AST và schema.
-- `build_mimic_mini.py`: dựng PostgreSQL subset.
-- `build_vector_db.py`: dựng bốn collection Chroma.
-- `evaluate.py`: benchmark VSR/EX.
-- `mimic_schema.json`: schema nguồn dùng chung bởi RAG và validator.
-- `mimic_examples.json`: 101 few-shot examples.
-- `test_dataset.json`: 180 test cases.
+`clinsql-inspect` chỉ đọc câu hỏi và chia validation; không gọi BigQuery hay API. Chỉ chạy pilot validation sau khi kiểm tra quyền dữ liệu, kết nối, scorer và chi phí. Test chính thức chỉ chạy khi cấu hình đã khóa.

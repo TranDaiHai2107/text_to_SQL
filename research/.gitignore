@@ -1,3 +1,0 @@
-# Preserve downloaded upstream snapshots locally; do not vendor their databases,
-# nested Git repositories, or large published inference outputs into this project.
-/sources/

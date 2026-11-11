@@ -1,6 +1,6 @@
 import unittest
 
-from sql_validator import validate_sql_schema
+from ehrqa.sql_validator import validate_sql_schema
 
 
 class SqlValidatorTests(unittest.TestCase):

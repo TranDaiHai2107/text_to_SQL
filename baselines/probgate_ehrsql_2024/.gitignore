@@ -1,9 +1,0 @@
-/upstream/
-/data/
-/runs/
-/checkpoints/
-/.venv/
-/.env
-/.test-*/
-__pycache__/
-*.pyc

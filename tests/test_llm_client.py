@@ -3,7 +3,7 @@ import json
 import httpx
 import pytest
 
-import llm_client
+from ehrqa import llm_client
 
 
 @pytest.mark.parametrize("provider,host,token_field", [

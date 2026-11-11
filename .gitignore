@@ -1,6 +1,9 @@
 # ===== MIMIC Database =====
 # Dữ liệu MIMIC-IV gốc (không được phép public theo license)
 mimic-iv-3.1/
+data/raw/
+data/vectorstores/
+data/backups/
 mimic_chroma_db
 
 # ChromaDB vector database (build lại được bằng build_vector_db.py)
@@ -9,7 +12,15 @@ mimic_chroma_db/
 # ===== Python =====
 __pycache__/
 .pytest_cache/
+.pytest_*/
+/external/clinsql_official/
 .pytest_cleanup_*/
+.pytest_restructure_*/
+.pytest_run/
+.pytest_agentic*/
+results/agentic_runs/
+results/agentic_traces/
+_archive/retired_20261109/
 *.py[cod]
 *$py.class
 *.egg-info/
@@ -40,6 +51,3 @@ backups/
 .DS_Store
 Thumbs.db
 desktop.ini
-
-# Large local V6 candidate audit log (keep on disk, exclude from GitHub).
-/experiments/ours_improved_v6/runs/reviewed_20261101_once/test/records.jsonl

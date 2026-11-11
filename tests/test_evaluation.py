@@ -4,7 +4,7 @@ from decimal import Decimal
 import pandas as pd
 
 from unittest.mock import patch
-from evaluate import compute_metrics, evaluate_one, normalize_df
+from ehrqa.cli.evaluate import compute_metrics, evaluate_one, normalize_df
 
 
 class EvaluationNormalizationTests(unittest.TestCase):
@@ -36,8 +36,8 @@ class EvaluationNormalizationTests(unittest.TestCase):
 
     def test_generation_failure_stays_in_ex_denominator(self):
         item = {"id": "a", "question_vi": "test"}
-        with patch("evaluate.generate_sql", side_effect=RuntimeError("generation failed")):
-            failed = evaluate_one(item, "base", pd.DataFrame([[1]]))
+        with patch("ehrqa.cli.evaluate.generate_sql_with_correction", side_effect=RuntimeError("generation failed")):
+            failed = evaluate_one(item, "full_agentic", pd.DataFrame([[1]]))
         self.assertIs(failed["execution_match"], False)
         passed = {**failed, "id": "b", "valid_sql": True, "execution_match": True, "error": None}
         metrics = compute_metrics([passed, failed])

@@ -1,0 +1,474 @@
+"""
+Giao diện Streamlit – Chat-based Text-to-SQL Y tế (MIMIC-IV)
+Tính năng:
+  - RAG đa tầng (ICD + Schema + Examples)
+  - Agentic Self-Correction (tự sửa SQL lỗi)
+  - Multi-turn Context (viết lại câu hỏi từ lịch sử chat)
+Chạy: python run.py app
+"""
+
+import html
+import json
+import time
+import pandas as pd
+import streamlit as st
+
+from ehrqa.config import RESULTS_FILE
+from ehrqa.rag_engine import (
+    generate_sql_with_correction,
+)
+
+# ── Cấu hình trang ────────────────────────────────────────────
+st.set_page_config(
+    page_title="MIMIC-IV Text-to-SQL RAG",
+    page_icon="🏥",
+    layout="wide",
+)
+
+# ── CSS ────────────────────────────────────────────────────────
+st.markdown("""
+<style>
+.rag-tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-right: 4px;
+}
+.tag-icd     { background:#fde68a; color:#92400e; }
+.tag-schema  { background:#bfdbfe; color:#1e3a5f; }
+.tag-example { background:#bbf7d0; color:#14532d; }
+.tag-rewrite { background:#e9d5ff; color:#581c87; }
+.tag-fix     { background:#fed7aa; color:#9a3412; }
+</style>
+""", unsafe_allow_html=True)
+
+# ── Session State ─────────────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# ── Sidebar ───────────────────────────────────────────────────
+with st.sidebar:
+    st.header("🏥 MIMIC-IV Text-to-SQL")
+    st.caption("RAG đa tầng · Self-Correction · Multi-turn")
+
+    st.divider()
+    st.subheader("⚙️ Cấu hình")
+    st.write("Chế độ: **Full agentic**")
+    max_retries = st.slider("Số lần tự sửa tối đa", 0, 3, 2)
+
+    st.divider()
+    st.subheader("📐 Kiến trúc Pipeline")
+    st.markdown("""
+    ```
+    Câu hỏi (tiếng Việt)
+         │
+         ├► [Rewrite] Viết lại nếu
+         │   thiếu ngữ cảnh multi-turn
+         │
+         ├► [RAG-1] Schema + JOIN paths
+         ├► [RAG-2] Clinical Dictionary
+         ├► Schema Linking + DAG
+         ├► [RAG-3] SQL Examples (3)
+         │
+         ▼
+       LLM → 3 cách sinh SQL
+         │
+         ├► PostgreSQL
+         │     ├─ OK → Kết quả
+         │     └─ Error → Self-Correction
+         │
+         ├► Kiểm tra ngữ nghĩa
+         ├► So sánh cặp, chọn SQL
+         ▼
+       [SQL-to-Text từ kết quả]
+       Diễn giải kết quả → Tiếng Việt
+         │
+         ▼
+       Câu trả lời + SQL + Bảng + Biểu đồ
+    ```
+    """)
+
+    st.divider()
+    with st.expander("📊 Thông tin hệ thống"):
+        from ehrqa.rag_engine import LLM_MODEL, LLM_PROVIDER
+        st.markdown(f"""
+        | Thành phần | Chi tiết |
+        |---|---|
+        | **Database** | PostgreSQL (MIMIC-IV Subset) |
+        | **Vector DB** | ChromaDB – 3 production + 1 evaluation |
+        | **LLM** | {LLM_MODEL} ({LLM_PROVIDER}) |
+        | **Self-Correction** | Tối đa {max_retries} lần retry |
+        | **Multi-turn** | Query Rewriting via LLM |
+        | **SQL-to-Text** | Natural Language Generation |
+        """)
+
+    st.divider()
+    if st.button("🗑️ Xóa lịch sử chat", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+
+# ── Header ────────────────────────────────────────────────────
+st.title("🏥 Trợ lý Truy vấn Dữ liệu Y tế (MIMIC-IV)")
+st.caption(
+    f"Text-to-SQL chuyên biệt · RAG đa tầng · Self-Correction · Multi-turn | "
+    "Mode: **FULL_AGENTIC**"
+)
+
+# ── Câu hỏi mẫu ──────────────────────────────────────────────
+SAMPLE_QUESTIONS = [
+    "Có bao nhiêu bệnh nhân bị viêm phổi trong database?",
+    "Tính tỷ lệ tử vong của bệnh nhân suy tim.",
+    "Liệt kê 10 loại thuốc được kê nhiều nhất.",
+    "Tìm bệnh nhân nữ trên 65 tuổi bị đái tháo đường type 2.",
+    "Tính thời gian nằm viện trung bình theo loại nhập viện.",
+    "Có bao nhiêu bệnh nhân tái nhập viện trong vòng 30 ngày?",
+]
+
+def _try_auto_chart(df: pd.DataFrame):
+    """Tự động vẽ bar chart nếu DataFrame có 1 cột chữ + 1-2 cột số, max 20 hàng."""
+    if df is None or df.empty or len(df) > 20 or len(df) < 2:
+        return
+    num_cols = df.select_dtypes(include="number").columns.tolist()
+    str_cols = df.select_dtypes(exclude="number").columns.tolist()
+    if len(str_cols) == 1 and 1 <= len(num_cols) <= 3:
+        chart_df = df.set_index(str_cols[0])[num_cols]
+        st.bar_chart(chart_df, use_container_width=True)
+
+
+# ── Hiển thị lịch sử chat ────────────────────────────────────
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"], avatar="🧑‍⚕️" if msg["role"] == "user" else "🤖"):
+        # Hiển thị câu hỏi (user) hoặc NL answer (assistant)
+        if msg["role"] == "assistant" and msg.get("nl_answer"):
+            st.markdown(f"""
+            <div style="
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 16px 20px;
+                border-radius: 12px;
+                margin: 8px 0 16px 0;
+                font-size: 1.05rem;
+                line-height: 1.6;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            ">
+                💬 {html.escape(str(msg["nl_answer"]))}
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown(msg["display"])
+
+        if msg.get("rewritten_q"):
+            st.markdown(
+                f'<span class="rag-tag tag-rewrite">REWRITE</span> '
+                f'Câu hỏi đã mở rộng: <em>{html.escape(str(msg["rewritten_q"]))}</em>',
+                unsafe_allow_html=True,
+            )
+
+        if msg.get("rag_info"):
+            with st.expander("🔍 Chi tiết RAG Retrieval"):
+                st.markdown(msg["rag_info"], unsafe_allow_html=True)
+
+        if msg.get("correction_info"):
+            st.markdown(msg["correction_info"], unsafe_allow_html=True)
+
+        if msg.get("sql"):
+            with st.expander("🔍 Xem câu SQL đã sinh"):
+                st.code(msg["sql"], language="sql")
+
+        if msg.get("df") is not None:
+            df_display = msg["df"]
+            if not df_display.empty:
+                st.dataframe(df_display, use_container_width=True, height=min(350, 40 + 35 * len(df_display)))
+
+                # Tự động vẽ biểu đồ nếu phù hợp
+                _try_auto_chart(df_display)
+
+                csv = df_display.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "⬇️ Tải CSV",
+                    data=csv,
+                    file_name="query_result.csv",
+                    mime="text/csv",
+                    key=f"dl_{msg.get('ts', 0)}",
+                )
+            else:
+                st.warning("Truy vấn thành công nhưng không có dữ liệu phù hợp.")
+
+
+# ── Xử lý câu hỏi mới ───────────────────────────────────────
+def _build_chat_history_for_rewrite() -> list[dict]:
+    """Chuyển session messages thành context cho full agentic rewrite.
+    
+    Bao gồm SQL đã sinh và tóm tắt kết quả để rewriter hiểu ngữ cảnh
+    chính xác (VD: câu trước hỏi về nữ → 'trong đó' = trong nhóm nữ).
+    """
+    out = []
+    for m in st.session_state.messages:
+        if m["role"] == "user":
+            entry = {"role": "user", "content": m["display"]}
+        else:
+            entry = {"role": "assistant", "content": m["display"][:200]}
+            # Thêm SQL đã sinh (quan trọng cho ngữ cảnh)
+            if m.get("sql"):
+                entry["sql"] = m["sql"]
+            # Tạo tóm tắt kết quả (số dòng, giá trị chính)
+            df = m.get("df")
+            if df is not None and not df.empty:
+                if len(df) == 1 and len(df.columns) == 1:
+                    entry["result_summary"] = f"Kết quả: {df.iloc[0, 0]}"
+                else:
+                    entry["result_summary"] = (
+                        f"{len(df)} dòng, {len(df.columns)} cột. "
+                        f"Cột: {', '.join(df.columns[:5].tolist())}"
+                    )
+            elif m.get("nl_answer"):
+                entry["result_summary"] = m["nl_answer"][:150]
+        out.append(entry)
+    return out
+
+
+def process_question(question: str):
+    t_start = time.time()
+
+    # ── BƯỚC 0: Multi-turn Rewrite ─────────────────────────────
+    chat_history = _build_chat_history_for_rewrite()
+    # ── Thêm message user vào chat ─────────────────────────────
+    user_msg = {"role": "user", "display": question, "ts": time.time()}
+    st.session_state.messages.append(user_msg)
+
+    with st.chat_message("user", avatar="🧑‍⚕️"):
+        st.markdown(question)
+
+    # ── BƯỚC 1-3: RAG + LLM + Self-Correction ─────────────────
+    with st.chat_message("assistant", avatar="🤖"):
+        with st.status("Đang xử lý...", expanded=True) as status:
+
+            # LLM + Self-Correction
+            st.markdown("**🤖 LLM đang sinh SQL...**")
+            try:
+                result = generate_sql_with_correction(
+                    question,
+                    max_retries=max_retries,
+                    chat_history=chat_history,
+                )
+                contextualized = result.get("rewritten_question",question)
+                if contextualized.strip().casefold()!=question.strip().casefold():
+                    user_msg["rewritten_q"]=contextualized
+                    st.caption("Câu hỏi theo ngữ cảnh: "+contextualized)
+            except Exception as exc:
+                message = f"Không thể xử lý truy vấn: {str(exc).splitlines()[0]}"
+                status.update(label="Có lỗi xảy ra", state="error", expanded=True)
+                st.error(message)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "display": message,
+                    "ts": time.time(),
+                })
+                return
+
+            # Reuse the exact context used to generate SQL instead of querying
+            # all vector collections a second time for the preview.
+            rag_lines = []
+            context = result.get("ctx", {})
+            icd_r = context.get("icd")
+            if icd_r and icd_r.get("found"):
+                for code in icd_r["codes"]:
+                    rag_lines.append(
+                        '<span class="rag-tag tag-icd">ICD</span> '
+                        f'<code>{html.escape(str(code["icd_code"]))}</code> '
+                        f'(v{html.escape(str(code["icd_version"]))}) – '
+                        f'{html.escape(str(code["long_title"])[:60])}'
+                    )
+            schema_r = context.get("schema")
+            if schema_r:
+                tables_str = ", ".join(
+                    f"<code>{html.escape(str(table))}</code>" for table in schema_r["tables"]
+                )
+                rag_lines.append(
+                    f'<span class="rag-tag tag-schema">SCHEMA</span> Bảng: {tables_str}'
+                )
+            examples_r = context.get("examples")
+            if examples_r and examples_r.get("found"):
+                for index, example in enumerate(examples_r["items"][:3], 1):
+                    rag_lines.append(
+                        f'<span class="rag-tag tag-example">EX-{index}</span> '
+                        f'{html.escape(str(example["question_vi"])[:60])}'
+                    )
+            if rag_lines:
+                st.markdown("**🔍 RAG Retrieval:**")
+                for line in rag_lines:
+                    st.markdown(line, unsafe_allow_html=True)
+            rag_info_str = "<br>".join(rag_lines) if rag_lines else ""
+
+            # Hiển thị correction history
+            correction_info = ""
+            if result["attempts"] > 1:
+                correction_parts = []
+                for h in result["history"]:
+                    if h["error"]:
+                        correction_parts.append(
+                            f'<span class="rag-tag tag-fix">LẦN {h["attempt"]}</span> '
+                            f'SQL lỗi → <code>{html.escape(str(h["error"])[:120])}...</code>'
+                        )
+                correction_parts.append(
+                    f'<span class="rag-tag tag-fix">LẦN {result["attempts"]}</span> '
+                    f'{"Đã tự sửa thành công!" if result["success"] else "Vẫn lỗi sau khi sửa."}'
+                )
+                correction_info = "<br>".join(correction_parts)
+                st.markdown("**🔧 Self-Correction:**")
+                st.markdown(correction_info, unsafe_allow_html=True)
+
+            with st.expander("Các bước phân tích và kiểm tra SQL", expanded=False):
+                st.json({"schema_linking":context.get("linking"),
+                         "decomposition":context.get("decomposition"),
+                         "decision":result.get("reason"),"model_calls":result.get("model_calls")})
+                st.download_button("Tải log từng bước", json.dumps(result.get("trace",[]),ensure_ascii=False,indent=2),
+                                   file_name="agentic_trace.json",mime="application/json",key=f"trace_{time.time()}")
+
+            if result.get("status") == "abstained":
+                status.update(label="Chưa đủ thông tin",state="complete",expanded=False)
+            elif result["success"]:
+                elapsed = round(time.time() - t_start, 2)
+                attempt_note = ""
+                if result["attempts"] > 1:
+                    attempt_note = f" (tự sửa {result['attempts']-1} lần)"
+                status.update(
+                    label=f"Hoàn tất trong {elapsed}s{attempt_note}",
+                    state="complete",
+                    expanded=True,
+                )
+            else:
+                status.update(label="Có lỗi xảy ra", state="error", expanded=True)
+
+        # Hiển thị SQL + kết quả
+        sql = result["sql"]
+        df = result.get("df")
+        nl_answer = None
+
+        display_text = ""
+        if result["success"] and df is not None:
+            if df.empty:
+                nl_answer = "Truy vấn thành công nhưng không có dữ liệu phù hợp."
+                display_text = nl_answer
+                st.warning(display_text)
+            else:
+                # Reuse the traced answer; rendering must not issue another API call.
+                nl_answer = result["answer"]
+
+                # Hiển thị câu trả lời tự nhiên NỔI BẬT nhất
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 16px 20px;
+                    border-radius: 12px;
+                    margin: 8px 0 16px 0;
+                    font-size: 1.05rem;
+                    line-height: 1.6;
+                    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                ">
+                    💬 {html.escape(str(nl_answer))}
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Hiển thị SQL (co lại trong expander)
+                with st.expander("🔍 Xem câu SQL đã sinh", expanded=False):
+                    st.code(sql, language="sql")
+
+                elapsed = round(time.time() - t_start, 2)
+                c1, c2, c3 = st.columns(3)
+                c1.metric("Số dòng", f"{len(df):,}")
+                c2.metric("Số cột", len(df.columns))
+                c3.metric("Thời gian", f"{elapsed}s")
+
+                st.dataframe(df, use_container_width=True, height=min(350, 40 + 35 * len(df)))
+                _try_auto_chart(df)
+
+                csv = df.to_csv(index=False).encode("utf-8")
+                st.download_button(
+                    "⬇️ Tải CSV",
+                    data=csv,
+                    file_name="query_result.csv",
+                    mime="text/csv",
+                    key=f"dl_new_{time.time()}",
+                )
+
+                display_text = nl_answer
+        elif result.get("status") == "abstained":
+            display_text = "Chưa đủ bằng chứng để trả lời chính xác từ cơ sở dữ liệu."
+            nl_answer = display_text
+            st.info(display_text)
+        else:
+            last_err = (result["history"][-1].get("error") if result["history"] else None) or result.get("reason", "Unknown")
+            display_text = f"Lỗi sau {result['attempts']} lần thử: {str(last_err)[:200]}"
+            st.code(sql, language="sql")
+            st.error(display_text)
+
+        # Lưu assistant message
+        st.session_state.messages.append({
+            "role": "assistant",
+            "display": display_text,
+            "nl_answer": nl_answer,
+            "sql": sql,
+            "df": df,
+            "rag_info": rag_info_str,
+            "correction_info": correction_info,
+            "ts": time.time(),
+        })
+
+
+# ── Chat Input ────────────────────────────────────────────────
+sample_col1, sample_col2, sample_col3 = st.columns(3)
+cols = [sample_col1, sample_col2, sample_col3]
+for i, sq in enumerate(SAMPLE_QUESTIONS[:6]):
+    col = cols[i % 3]
+    if col.button(sq[:40] + "...", key=f"sample_{i}", use_container_width=True):
+        process_question(sq)
+        st.rerun()
+
+st.divider()
+
+if prompt := st.chat_input("Đặt câu hỏi y khoa (hỗ trợ hội thoại đa lượt)..."):
+    process_question(prompt)
+    st.rerun()
+
+# ── Kết quả đánh giá (nếu có) ────────────────────────────────
+try:
+    with RESULTS_FILE.open(encoding="utf-8") as f:
+        eval_data = json.load(f)
+
+    with st.expander("📊 Kết quả ứng dụng cũ — không phải điểm full agentic mới"):
+        st.caption("Số liệu lưu trước đây, giữ để đối chiếu lịch sử; không phải kết quả của pipeline vừa cập nhật.")
+        if eval_data.get("evaluation_version", 1) < 2:
+            st.warning(
+                "Kết quả cũ dùng cách tính EX trước bản sửa ngày 23/10/2026; "
+                "hãy chạy lại evaluate.py trước khi dùng số liệu cho báo cáo."
+            )
+        st.caption(f"Thời điểm: {eval_data.get('timestamp', 'N/A')} · "
+                   f"Dataset: {eval_data.get('dataset_size', '?')} câu")
+
+        metrics = eval_data.get("metrics", {})
+        if metrics:
+            rows = []
+            for mode_name, m in metrics.items():
+                rows.append({
+                    "Mode": mode_name.upper(),
+                    "VSR (%)": m.get("vsr"),
+                    "EX (%)": m.get("ex"),
+                    "EX đúng/tổng": f"{m.get('ex_count', 0)}/{m.get('ex_eligible', 0)}",
+                    "Latency TB (s)": m.get("avg_latency_s"),
+                })
+            st.dataframe(
+                pd.DataFrame(rows).set_index("Mode"),
+                use_container_width=True,
+            )
+            chart_df = pd.DataFrame({
+                "VSR (%)": {r["Mode"]: r["VSR (%)"] for r in rows},
+                "EX (%)":  {r["Mode"]: r["EX (%)"]  for r in rows if r["EX (%)"] is not None},
+            })
+            st.bar_chart(chart_df, use_container_width=True)
+
+except FileNotFoundError:
+    pass
