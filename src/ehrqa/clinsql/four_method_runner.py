@@ -158,7 +158,8 @@ def execute_method(method, question, model, database, *, variant, schema_index=N
         result = Execution(tuple(value.columns), tuple(value.rows), value.complete,
                            column_types=value.column_types, job_id=value.job_id)
     return {'sql': output['sql'], 'status': output['status'], 'result': result,
-            'reason': output['reason'], 'trace_path': output['trace_path']}
+            'reason': output['reason'], 'trace_path': output['trace_path'],
+            'fallbacks': list(output.get('fallbacks') or ())}
 
 
 def _checkpoint(state, method, case_id):
@@ -242,6 +243,9 @@ def run_case(question, *, state, approval, pilot, schema_index, store, output_ro
         record.update(sql=sql, inference_status=status, trace_path=prediction.get('trace_path'))
         if prediction.get('attempts') is not None:
             record['attempts'] = prediction['attempts']
+        if method == 'ours':
+            record['fallbacks'] = prediction.get('fallbacks', [])
+            record['inference_reason'] = prediction.get('reason')
         if status in {'corrected_unexecuted', 'judge_modified_unexecuted'}:
             stage = 'evaluation_execution'
             log.add(stage, sql=sql)

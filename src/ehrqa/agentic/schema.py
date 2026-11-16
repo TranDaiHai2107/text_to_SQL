@@ -78,6 +78,39 @@ def _missing_join_key(scopes, event, dictionary, tables_by_scope):
     return not found
 
 
+def _literal_value(node):
+    while isinstance(node, exp.Paren):
+        node = node.this
+    if isinstance(node, exp.Boolean):
+        return ('bool', bool(node.this))
+    if isinstance(node, exp.Literal):
+        return ('str', node.this) if node.is_string else ('num', float(node.this))
+    return None
+
+
+def _constant_false(node):
+    """True when a filter can never hold, independent of the data."""
+    while isinstance(node, exp.Paren):
+        node = node.this
+    if isinstance(node, exp.Boolean):
+        return node.this is False or str(node.this).lower() == 'false'
+    if isinstance(node, exp.And):
+        return _constant_false(node.this) or _constant_false(node.expression)
+    if isinstance(node, exp.Or):
+        return _constant_false(node.this) and _constant_false(node.expression)
+    if isinstance(node, exp.Not):
+        inner = node.this
+        while isinstance(inner, exp.Paren):
+            inner = inner.this
+        return isinstance(inner, exp.Boolean) and str(inner.this).lower() == 'true'
+    if isinstance(node, (exp.EQ, exp.NEQ)):
+        left, right = _literal_value(node.this), _literal_value(node.expression)
+        if left is None or right is None:
+            return False
+        return (left == right) is isinstance(node, exp.NEQ)
+    return False
+
+
 def _scope_tables(scopes):
     tables_by_scope = {}
     for scope in scopes:
@@ -253,6 +286,17 @@ class Schema:
             for a,b in [('diagnoses_icd','d_icd_diagnoses'),('procedures_icd','d_icd_procedures')]:
                 if self.has_ref(a+'.icd_version') and self.has_ref(b+'.icd_version'):
                     if _missing_join_key(scopes,a,b,tables_by_scope):raise ValueError('Missing composite icd_version JOIN')
+            # A placeholder filter (WHERE FALSE, 1=0) silently empties a cohort.
+            # Unreferenced CTEs cannot change the result and are ignored.
+            referenced={t.name.lower() for t in tree.find_all(exp.Table)}
+            def used(node):
+                cte=node.find_ancestor(exp.CTE)
+                return cte is None or cte.alias_or_name.lower() in referenced
+            for clause in (*tree.find_all(exp.Where), *tree.find_all(exp.Having)):
+                if used(clause) and _constant_false(clause.this):raise ValueError('Constant-false filter: '+clause.this.sql(dialect=self.dialect))
+            for join in tree.find_all(exp.Join):
+                on=join.args.get('on')
+                if on is not None and used(join) and _constant_false(on):raise ValueError('Constant-false filter: '+on.sql(dialect=self.dialect))
             projections=[e.sql(dialect=self.dialect) for e in tree.expressions] if isinstance(tree,exp.Select) else []
             result.update(valid=True,tables=sorted(tables),used_refs=sorted(refs),output_columns=projections,
                 ast_sql=tree.sql(dialect=self.dialect),has_distinct=bool(tree.find(exp.Distinct)),

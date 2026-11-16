@@ -119,12 +119,17 @@ def validated_decisions(catalog, candidates, decisions):
         record = expected.get(key)
         if not record:
             continue
+        dictionary = catalog.records.get(f'{PROCEDURE_TABLE}:{key[0]}:{key[1]}')
+        allowed_sources = set(record['official_sources'])
+        if decision['decision'] != 'INCLUDE':
+            allowed_sources.add(record['dictionary_source'])
         if (key in bound or type(key[0]) is not int or
-                f'{PROCEDURE_TABLE}:{key[0]}:{key[1]}' not in catalog.records or
+                not dictionary or dictionary['label'] != record['label'] or
+                CODE_SYSTEMS.get(key[0]) != record['code_system'] or
                 decision['candidate_label'] != record['label'] or
                 decision['decision'] not in {'INCLUDE', 'EXCLUDE', 'AMBIGUOUS'} or
                 not decision['reason'].strip() or not decision['evidence_source_ids'] or
-                not set(decision['evidence_source_ids']) <= set(record['official_sources']) or
+                not set(decision['evidence_source_ids']) <= allowed_sources or
                 (record['status'] == 'AMBIGUOUS_LEGACY_CODE' and decision['decision'] != 'AMBIGUOUS')):
             raise CodeSetBlocked(REVIEW, candidates)
         bound[key] = {**record, 'decision': decision['decision'], 'reason': decision['reason'],

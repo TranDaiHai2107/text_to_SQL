@@ -11,7 +11,10 @@ from ehrqa.clinsql.public_terminology import PublicClinicalCatalog, PublicTermin
 
 def test_public_cms_transport_matches_pinned_records_and_preserves_wire_prompt(monkeypatch):
     catalog = PublicClinicalCatalog(Path(__file__).resolve().parents[1] / 'data/clinsql/public_terminology')
-    assert len(catalog.records) == 91_199
+    # 91,199 ICD-10-CM / ICD-9-CM rows plus 78,227 ICD-10-PCS FY2022 procedures.
+    assert len(catalog.records) == 169_426
+    pcs = catalog.records['d_icd_procedures:10:5A02210']
+    assert pcs['label'] == 'Assistance with Cardiac Output using Balloon Pump, Continuous'
     entries = catalog.search('cholera', {'tables': ['d_icd_diagnoses']})
     assert entries
     request = []

@@ -46,6 +46,7 @@ class FullAgentic:
         self.trace=trace
         calls=0
         ctx={};candidates=[];interface_failures=[]
+        fallbacks=[]
         procedure_sets = {}
         schema=self.db.schema
         history=[{k:str(r[k])[:(1000 if k=='sql' else 500)] for k in ['role','content','sql','result_summary'] if k in r}
@@ -194,7 +195,7 @@ class FullAgentic:
                        selected_candidate=selected['id'] if selected else None)
             return {'status':status,'sql':sql,'reason':reason,'ctx':ctx,'candidates':candidates,
                     'selected':selected,'model_calls':calls,'trace':trace.events,'trace_path':str(trace.path) if trace.path else None,
-                    'branch_interface_failures':interface_failures,
+                    'branch_interface_failures':interface_failures,'fallbacks':fallbacks,
                     'prompt_version':self.config.run_version or prompts.VERSION,
                     'mode':'full_agentic','rewritten_question':retrieval_question}
 
@@ -237,9 +238,19 @@ class FullAgentic:
                 'records':[], 'found':False}
             ctx['clinical']=clinical;ctx['icd']=clinical.get('legacy_icd',{})
             trace.emit('rag.clinical',context=clinical)
+            link_fallback=False
             if saved_linking is None:
-                links=ask('link',{'schema':schema.payload(),'schema_candidates':ctx['schema'],
-                                  'catalog':clinical['records']},lambda obj:contracts.linking(question,obj,schema,clinical['records']),tokens=8192)
+                try:
+                    links=ask('link',{'schema':schema.payload(),'schema_candidates':ctx['schema'],
+                                      'catalog':clinical['records']},lambda obj:contracts.linking(question,obj,schema,clinical['records']),tokens=8192)
+                except StageInterfaceError as error:
+                    if self.config.profile!='clinsql':raise
+                    # Fail open: an invalid linker interface must not prevent an
+                    # answer. Full-schema branches still run; the case is flagged.
+                    link_fallback=True
+                    fallbacks.append('link_fallback')
+                    links={'requirements':[],'links':[],'joins':[],'ambiguities':[]}
+                    trace.emit('pipeline.fallback',kind='link_fallback',error=str(error))
             else:
                 if self.config.profile != 'clinsql' or history:
                     raise ValueError('Saved linker is restricted to single-turn CLINSQL')
@@ -254,10 +265,14 @@ class FullAgentic:
                     trace.emit('clinical.procedure_grounding',status=str(error),
                                candidate_count=len(error.candidates))
                     return finish('abstained','null',str(error))
-            plan=ask('decompose',{'requirements':links['requirements'],'links':links['links'],
-                     'relationships':schema.edges,'ambiguities':links['ambiguities']},
-                     lambda obj:contracts.decomposition(obj,links['requirements'],schema),tokens=8192)
+            if link_fallback:
+                plan={'steps':[],'output_step':None}
+            else:
+                plan=ask('decompose',{'requirements':links['requirements'],'links':links['links'],
+                         'relationships':schema.edges,'ambiguities':links['ambiguities']},
+                         lambda obj:contracts.decomposition(obj,links['requirements'],schema),tokens=8192)
             ctx['decomposition']=plan;trace.emit('query.decomposition',plan=plan)
+            verify_enabled=self.config.requirement_verification and not link_fallback
             if not self.config.multi_layer_rag:
                 ctx['examples']={'items':[]}
             elif self.config.profile=='clinsql':
@@ -274,6 +289,7 @@ class FullAgentic:
                 common['procedure_set_instruction'] = ('Use exactly the verified code/version pairs '
                     'in each named selector CTE. Do not insert extra codes or an empty fallback.')
             for index,strategy in enumerate(['direct_full_schema','decomposed_linked_schema','independent_full_schema']):
+                if link_fallback and index==1:continue
                 backward={r for c in candidates if c.get('inspection',{}).get('valid') for r in c['inspection']['used_refs']}
                 if index==1:
                     linked=schema.join_closure(set(linked)|{r.split('.')[0] for r in backward})
@@ -294,7 +310,7 @@ class FullAgentic:
                     candidate=execute_proposal(cid,proposal,{**common,'schema':schema.payload()})
                     candidates.append(candidate)
                     if candidate['status']!='executed':continue
-                    if not self.config.requirement_verification:continue
+                    if not verify_enabled:continue
                     check=verify(candidate)
                     candidate['verification']=check
                     trace.emit('semantic.verification',candidate_id=candidate['id'],verification=check)
@@ -318,7 +334,7 @@ class FullAgentic:
                     # A malformed branch cannot invalidate another fully
                     # checked candidate. Provider/budget/DB failures still abort.
                     continue
-            if not self.config.requirement_verification:
+            if not verify_enabled:
                 executed=next((c for c in candidates if c['status']=='executed'),None)
                 if executed:return finish('answered',executed['sql'],'First executable candidate',executed)
             eligible=[c for c in candidates if c.get('verification',{}).get('verdict')=='supported']
@@ -329,15 +345,43 @@ class FullAgentic:
             eligible=list(unique.values())
             trace.emit('selection.eligibility',eligible_ids=[c['id'] for c in eligible],
                        result_groups={c['id']:c['result'].fingerprint() for c in eligible},agreement_is_semantic_proof=False)
+            if not eligible and self.config.profile=='clinsql':
+                # Fail open with flags: a benchmark answer is always produced when
+                # any candidate executed (unknown verdict preferred over contradicted),
+                # otherwise the last generated SQL is returned unexecuted.
+                rank={'unknown':0,'contradicted':1}
+                executed=[c for c in candidates if c['status']=='executed']
+                if executed:
+                    best=min(executed,key=lambda c:rank.get(c.get('verification',{}).get('verdict'),2))
+                    verdict=best.get('verification',{}).get('verdict')
+                    fallbacks.append('unverified_selection')
+                    trace.emit('pipeline.fallback',kind='unverified_selection',candidate_id=best['id'],verdict=verdict)
+                    return finish('answered',best['sql'],f'Fallback: no supported candidate; selected {best["id"]} with verdict {verdict}',best)
+                attempted=[c for c in candidates if c.get('sql') and c['sql']!='null']
+                if attempted:
+                    fallbacks.append('unexecuted_sql')
+                    trace.emit('pipeline.fallback',kind='unexecuted_sql',candidate_id=attempted[-1]['id'])
+                    return finish('unresolved',attempted[-1]['sql'],'Fallback: no executable candidate; last generated SQL returned')
             if not eligible:
                 if interface_failures:return finish('error','','No supported candidate; unresolved branch interface failures')
                 if any(c['status']=='technical_failure' for c in candidates) and not any(c['status']=='executed' for c in candidates):
                     return finish('error','','No executable candidate; technical failure is not a correct refusal')
                 return finish('abstained','null','No candidate has evidence satisfying all original obligations')
             if len(eligible)==1:return finish('answered',eligible[0]['sql'],'One evidence-supported SQL',eligible[0])
-            decision=select(eligible)
+            try:
+                decision=select(eligible)
+            except StageInterfaceError as error:
+                if self.config.profile!='clinsql':raise
+                fallbacks.append('selection_fallback')
+                trace.emit('pipeline.fallback',kind='selection_fallback',error=str(error))
+                return finish('answered',eligible[0]['sql'],'Fallback: selector interface failed; first supported candidate',eligible[0])
             trace.emit('selection.resolution',decision=decision)
-            if decision['selected_id'] is None:return finish('abstained','null',decision['reason'])
+            if decision['selected_id'] is None:
+                if self.config.profile=='clinsql':
+                    fallbacks.append('selection_fallback')
+                    trace.emit('pipeline.fallback',kind='selection_fallback',reason=decision['reason'])
+                    return finish('answered',eligible[0]['sql'],'Fallback: selector refused; first supported candidate',eligible[0])
+                return finish('abstained','null',decision['reason'])
             winner=next(c for c in eligible if c['id']==decision['selected_id'])
             return finish('answered',winner['sql'],decision['reason'],winner)
         except Exception as error:

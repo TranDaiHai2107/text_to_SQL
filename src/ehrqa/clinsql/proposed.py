@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
+import inspect
 import re
 from sqlglot import exp, parse_one
 from sqlglot.optimizer.scope import traverse_scope
@@ -114,6 +115,46 @@ class PipelineDatabase:
                 + ungrounded_join_keys(sql, self.schema))
 
 
+# Event tables imply the dictionary that grounds their codes. Retrieval is
+# question-generic; no concept-specific aliases or codes are supplied here.
+DICTIONARY_FOR_TABLE = {
+    'd_icd_diagnoses': 'd_icd_diagnoses', 'diagnoses_icd': 'd_icd_diagnoses',
+    'd_icd_procedures': 'd_icd_procedures', 'procedures_icd': 'd_icd_procedures',
+    'd_labitems': 'd_labitems', 'labevents': 'd_labitems',
+    'd_items': 'd_items', 'chartevents': 'd_items', 'inputevents': 'd_items',
+    'outputevents': 'd_items', 'procedureevents': 'd_items', 'datetimeevents': 'd_items',
+    'ingredientevents': 'd_items',
+}
+CATALOG_LIMIT = 24
+
+
+def dictionary_search(icd_catalog, question, context, *, limit=CATALOG_LIMIT):
+    """Share the evidence budget across dictionaries implied by the retrieved schema.
+
+    A single global top-k lets one large dictionary (ICD diagnoses) fill every
+    slot, so procedure or lab evidence is never shown. Each implied dictionary
+    is searched separately and merged round-robin; unused slots flow to the
+    dictionaries that still have candidates.
+    """
+    tables = []
+    for table in context.get('tables', ()):
+        dictionary = DICTIONARY_FOR_TABLE.get(table)
+        if dictionary and dictionary not in tables:
+            tables.append(dictionary)
+    if not tables or 'table' not in inspect.signature(icd_catalog.search).parameters:
+        return icd_catalog.search(question, context)
+    # The unfiltered ranking keeps evidence for dictionaries the schema step missed.
+    ranked = [*(icd_catalog.search(question, context, table=table, limit=limit) for table in tables),
+              icd_catalog.search(question, context, limit=limit)]
+    merged, seen = [], set()
+    for position in range(limit):
+        for rows in ranked:
+            if position < len(rows) and len(merged) < limit and rows[position]['id'] not in seen:
+                seen.add(rows[position]['id'])
+                merged.append(rows[position])
+    return merged
+
+
 def _schema_context(index, schema, question):
     entries = index.retrieve(question)
     tables = [entry['table'] for entry in entries]
@@ -147,9 +188,10 @@ def build_pipeline(adapter, model, *, log_dir=None, few_shot_index=None, icd_cat
             return few_shot_index.retrieve(question, query_id=query_id)
         return {'items': [], 'found': False, 'few_shot_count': 3, 'source': 'no_approved_examples'}
     def catalog(question, context):
-        return [row for row in icd_catalog.search(question, context)
+        rows = [row for row in dictionary_search(icd_catalog, question, context)
                 if db.schema.has_ref(f"{row['table']}.{row['column']}")
                 and db.schema.has_ref(f"{row['table']}.{row['code_column']}")]
+        return rows
 
     return FullAgentic(db, SequentialRAG(db, examples, schema_callback=schema_callback,
                                        catalog_callback=catalog if icd_catalog is not None else None), model,

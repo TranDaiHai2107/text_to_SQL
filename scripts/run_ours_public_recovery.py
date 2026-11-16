@@ -18,6 +18,9 @@ from ehrqa.clinsql.public_terminology import (
 EASY_058 = 'Diagnostic_Procedures/easy_level_queries/058'
 APPROVAL_SUFFIX = '20261122_0900'
 V4_TRACE_SHA256 = '3b42d3526d436342971099403e2cf48fb60346c1a5adb104d315814216798fa3'
+# v5: public ICD-10-PCS, per-dictionary retrieval quota, constant-false filter
+# check, and fail-open fallbacks recorded per case.
+V5_REVISION = 'ours_fail_open_v5_20261116'
 
 
 def procedure_recovery(store, master, pilot, manifest, index):
@@ -140,11 +143,15 @@ def main():
                         help='Run the four other pinned cases after Easy/058 completes')
     parser.add_argument('--procedure-recovery', action='store_true',
                         help='Replay Easy/058 and check local procedure grounding')
+    parser.add_argument('--all-five', action='store_true',
+                        help='v5: run all five pinned cases in manifest order without the Easy/058 gate')
     args = parser.parse_args()
+    if args.all_five and args.remaining_four:
+        parser.error('--all-five already includes the remaining four cases')
     load_research_env(cli.ROOT / '.env', os.environ)
     master, pilot, manifest, index = cli._scope()
     if args.procedure_recovery:
-        if args.execute or args.remaining_four:
+        if args.execute or args.remaining_four or args.all_five:
             parser.error('Procedure recovery is an offline checkpoint replay')
         store = cli.ResultArtifactStore(cli.STORE, verify_private_acl=cli._private_acl)
         return procedure_recovery(store, master, pilot, manifest, index)
@@ -179,6 +186,7 @@ def main():
                'pinned_ours_implementation': cli.configuration('ours', original.variant, catalog.sha256),
                'public_provider_sha256': cli.sha256_file(cli.ROOT / 'src/ehrqa/clinsql/public_terminology.py'),
                'link_interface': 'question_token_ranges_with_reserved_output_id_v3',
+               **({'pipeline_revision': V5_REVISION} if args.all_five else {}),
                'runner_sha256': cli.sha256_file(Path(__file__)), 'original_058_comparison': counts,
                'public_catalog_size': len(catalog.records)}
     profile_sha = cli.digest(profile)
@@ -188,7 +196,7 @@ def main():
     if not args.execute:
         return 0
     cli.verify_reader_adc()
-    root = cli.STATE / 'ours/public_terminology_anchored_v4'
+    root = cli.STATE / ('ours/public_terminology_v5' if args.all_five else 'ours/public_terminology_anchored_v4')
     cli._protected_root(store, root)
     pin_profile(root / 'profile.json', profile)
     state = cli.ExperimentState(root / 'state.sqlite', master)
@@ -207,7 +215,7 @@ def main():
                 or cli.sha256_file(easy_path) != easy.artifact_sha256):
             raise PermissionError('Remaining runs require the completed Easy/058 checkpoint')
     for question in cli._questions(pilot, master):
-        if (question.query_id == EASY_058) == args.remaining_four:
+        if not args.all_five and (question.query_id == EASY_058) == args.remaining_four:
             continue
         record = cli.run_case(question, state=state, approval=approved_profile, pilot=pilot,
                               schema_index=index, store=store, output_root=root, model=model,
@@ -215,8 +223,8 @@ def main():
                               database=cli._database(original, manifest, index, question.query_id, sql_ledger, config))
         print(json.dumps({'case_id': question.query_id, 'status': record['status'],
                           'final_sql': bool(record.get('sql')), 'artifact': record.get('artifact'),
-                          'usage': record['usage']}), flush=True)
-        if question.query_id == EASY_058 and record['status'] != 'EXECUTED':
+                          'usage': record['usage'], 'fallbacks': record.get('fallbacks')}), flush=True)
+        if not args.all_five and question.query_id == EASY_058 and record['status'] != 'EXECUTED':
             return 2
         if record['status'] not in {'EXECUTED', 'MODEL_SQL_ERROR', 'MODEL_ABSTAINED', 'MODEL_GENERATION_FAILURE'}:
             return 2

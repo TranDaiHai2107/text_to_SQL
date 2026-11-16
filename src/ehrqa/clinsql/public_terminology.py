@@ -13,13 +13,16 @@ from .proposed_runner import ProposedModelProvider
 
 
 PROFILE = 'PUBLIC_CLINICAL_TERMINOLOGY_SOURCE_ADAPTATION'
-SOURCE = 'CMS public ICD-10-CM FY2022 and ICD-9-CM v32'
+SOURCE = 'CMS public ICD-10-CM FY2022, ICD-10-PCS FY2022 and ICD-9-CM v32'
 ARCHIVES = {
     'icd10cm_fy2022.zip': '423206a194dd6db8384c3b39699ad3c1efa19718677fa81690557732a31bf560',
+    # CMS "2022 ICD-10-PCS Codes File" (updated December 1, 2021).
+    'icd10pcs_fy2022.zip': 'cb6de4050bd0f374bb684440ff5aa47da782b743cee8b593fa39004c93f5f183',
     'icd9cm_v32.zip': '45a7d05ddcadf124af88375b64cdf068bb1e3f999ce7fdacb91f65f4e6d55f08',
 }
 MEMBERS = (
     ('icd10cm_fy2022.zip', 'Code Descriptions/icd10cm_codes_2022.txt', 'd_icd_diagnoses', 10, 'ascii'),
+    ('icd10pcs_fy2022.zip', 'icd10pcs_codes_2022.txt', 'd_icd_procedures', 10, 'ascii'),
     ('icd9cm_v32.zip', 'CMS32_DESC_LONG_DX.txt', 'd_icd_diagnoses', 9, 'cp1252'),
     ('icd9cm_v32.zip', 'CMS32_DESC_LONG_SG.txt', 'd_icd_procedures', 9, 'ascii'),
 )

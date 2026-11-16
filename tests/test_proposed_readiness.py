@@ -99,20 +99,21 @@ def model_for(sqls, checks=(), repairs=()):
     })
 
 
-def test_linker_coverage_feedback_uses_same_question_and_stops_after_two_attempts():
+def test_linker_coverage_feedback_uses_same_question_then_fails_open_after_two_attempts():
     missing_window = {'requirements': [
         {'id': 'r1', 'span': 'Count admissions', 'kind': 'output', 'description': 'Count admissions'}],
         'links': [], 'joins': [], 'ambiguities': []}
-    model = MockLLM({'link': [missing_window, missing_window]})
+    model = MockLLM({'link': [missing_window, missing_window],
+                     'generate': [{'sql': CORRECT}, {'sql': CORRECT}]})
     db = MockBigQuery(RECORDS)
     output = build_pipeline(db, model).run(QUESTION)
-    assert output['status'] == 'error'
-    assert [call['stage'] for call in model.calls] == ['link', 'link']
-    first, second = [json.loads(call['prompt'][-1]['content']) for call in model.calls]
+    # v5 fail-open: the linked branch is skipped, full-schema branches still answer.
+    assert output['status'] == 'answered' and output['fallbacks'] == ['link_fallback']
+    assert [call['stage'] for call in model.calls] == ['link', 'link', 'generate', 'generate']
+    first, second = [json.loads(call['prompt'][-1]['content']) for call in model.calls[:2]]
     assert first['original_question'] == second['original_question'] == QUESTION
     assert 'Uncovered question literal: 48' in second['interface_validation_error']
     assert json.loads(second['previous_invalid_output'])['requirements'] == missing_window['requirements']
-    assert not db.calls
 
 
 def verification(cid, supported=True):

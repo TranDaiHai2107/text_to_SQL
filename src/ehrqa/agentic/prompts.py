@@ -64,5 +64,14 @@ def system(profile, stage):
             'Use matching ICD version and measurement source. Do not equate similar labels or units. '
             'Only apply these obligations where the question warrants them.'
         )
+    if profile == 'clinsql' and stage in {'generate','repair'}:
+        specific = (
+            '\nWhen supplied catalog records do not establish the complete code or itemid set for a '
+            'clinical concept, select the codes inside the query from the dictionary table '
+            '(d_icd_diagnoses, d_icd_procedures, d_labitems or d_items) with explicit, reviewable '
+            'conditions on its label column and the matching icd_version, then join on code and version. '
+            'Never use a placeholder or constant-false predicate such as WHERE FALSE or 1=0, and never '
+            'leave a required concept unfiltered.'
+        )
     return base + '\n' + STAGES[stage] + specific
 
