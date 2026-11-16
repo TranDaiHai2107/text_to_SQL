@@ -1,0 +1,1105 @@
+{
+ "nodes": [
+  {
+   "id": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "label": "MAC-SQL: A Multi-Agent Collaborative Framework for Text-to-SQL (COLING 2025)",
+   "file_type": "paper",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p1",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_mac_sql",
+   "label": "MAC-SQL Framework",
+   "file_type": "rationale",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p2-3",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "LLM-based Text-to-SQL degrades on huge databases and complex multi-step questions, and existing methods neglect external tools and model collaboration; MAC-SQL uses a core Decomposer plus auxiliary Selector and Refiner agents activated as needed, extensible to new tools."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_selector_agent",
+   "label": "Selector Agent",
+   "file_type": "rationale",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p3 S3.2, App A.1",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Too many irrelevant schema items raise the chance of irrelevant items in SQL and full schemas inflate API cost/context length; activated only when schema tokens > 0.8*max context (25k for GPT-4-32k); keeps top-6 columns per table, keep_all for <=10 columns, drop_all for irrelevant tables, JSON output with one-shot example."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "label": "Decomposer Agent",
+   "file_type": "rationale",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p3-4 S3.3, App A.2",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Chain-of-thought chosen over least-to-most because iterative least-to-most is inefficient and needs stopping criteria; dynamically judges difficulty, emits 1-5 sub-questions with sub-SQLs in a single pass, up to 2 few-shot demonstrations."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_refiner_agent",
+   "label": "Refiner Agent",
+   "file_type": "rationale",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p4 S3.4, App A.3",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Executes SQL via external SQLite tool, diagnoses syntax errors, schema hallucinations, and empty results, then repairs; up to 3 correction rounds for efficiency. Limitation: cannot fix SQL that runs and returns non-empty but semantically wrong results."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_algorithm_1",
+   "label": "Algorithm 1: MAC-SQL agent collaboration loop",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p3",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Optional LLMSelector -> getDbRepresentation -> LLMDecomposer -> take last sub-SQL -> executeAndAnalyze / LLMRefiner loop until ok or maxTryTimes."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_sql_llama",
+   "label": "SQL-Llama (Code Llama 7B fine-tuned)",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5 S4",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Fills gap in open-source agent-instruction-following models for Text-to-SQL; reaches 43.94 EX on BIRD dev vs 46.35 for vanilla GPT-4 despite far fewer parameters."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_agent_instruct_dataset",
+   "label": "Agent-Instruct Dataset",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5 S4.1",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "10,000 GPT-4-generated instruction samples over 3 agent tasks from BIRD and Spider training sets, filtered to drop incorrect SQL."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_multi_task_sft",
+   "label": "Multi-task Supervised Fine-tuning",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5 S4.2",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_code_llama",
+   "label": "Code Llama",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_gpt_4",
+   "label": "GPT-4",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5-6",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_bird_benchmark",
+   "label": "BIRD Benchmark",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5 S5.1",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_spider_benchmark",
+   "label": "Spider Benchmark",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5 S5.1",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_execution_accuracy",
+   "label": "Execution Accuracy (EX)",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_valid_efficiency_score",
+   "label": "Valid Efficiency Score (VES)",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_exact_match_accuracy",
+   "label": "Exact Match Accuracy (EM)",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_din_sql",
+   "label": "DIN-SQL",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p6",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_dail_sql",
+   "label": "DAIL-SQL",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p6",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_c3_sql",
+   "label": "C3-SQL",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p6",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_bird_sota_result",
+   "label": "MAC-SQL+GPT-4 59.59 EX on BIRD test (SOTA at writing)",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p6 Table 1",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_spider_result",
+   "label": "MAC-SQL+GPT-4 86.75 EX on Spider dev",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p6 Table 2",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_ablation_study",
+   "label": "Ablation Study (w/o Selector/Decomposer/Refiner)",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p6 Table 3",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Removing Selector drops BIRD dev EX 59.39 -> 57.28, Decomposer -> 55.54, Refiner -> 54.76; every agent contributes."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_few_shot_analysis",
+   "label": "Few-shot Demonstration Analysis (0-2 shots)",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p7 Table 4",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "EX/VES/EM rise steadily from 0 to 2 shots; capped at 2 shots due to GPT-4 token cost (~6M Spider, ~10M BIRD tokens per dev run)."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_oracle_schema",
+   "label": "Oracle Schema setting",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p6 Table 1",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_error_analysis",
+   "label": "Error Analysis / Error Taxonomy",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p7 S5.5, App C",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Gold Error most common (30% BIRD, 22% Spider), then Semantic Correct; 8 BIRD error types: Gold Error, Database Misunderstand, Semantic Correct, Question Misunderstand, Dirty Database Values, Wrong Schema Linking, Evidence Misunderstand, Other."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_selector_prompt",
+   "label": "Selector Prompt",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "App B.1",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_decomposer_prompt",
+   "label": "Decomposer Prompt",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "App B.2",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_refiner_prompt",
+   "label": "Refiner Prompt",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "App B.3",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_sql_generation_constraints",
+   "label": "SQL Generation Constraints block",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "App B.2-B.3",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Shared prompt constraints: select only needed columns, no unnecessary tables, JOIN before MAX/MIN, handle None values with JOIN/IS NOT NULL, GROUP BY before ORDER BY."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_schema_representation",
+   "label": "Database schema representation with value examples",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "App A.2",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null,
+   "rationale": "Includes db id, table/column names, descriptions, high-frequency cell values; skips numeric-only and URL/email columns."
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_chain_of_thought",
+   "label": "Chain-of-Thought Prompting",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p4",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_least_to_most",
+   "label": "Least-to-Most Prompting",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p4",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_chatdev",
+   "label": "ChatDev",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p4",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_autogpt",
+   "label": "AutoGPT",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p8",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_openagents",
+   "label": "OpenAgents",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p8",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_autogen",
+   "label": "AutoGen",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p8",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_structgpt",
+   "label": "StructGPT",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p7",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_test_suite_evaluation",
+   "label": "Test-suite Evaluation (Zhong et al. 2020)",
+   "file_type": "concept",
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "p5",
+   "source_url": null,
+   "captured_at": null,
+   "author": null,
+   "contributor": null
+  }
+ ],
+ "edges": [
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql",
+   "target": "paper_baseline_2025_coling_main_36_selector_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql",
+   "target": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql",
+   "target": "paper_baseline_2025_coling_main_36_refiner_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql",
+   "target": "paper_baseline_2025_coling_main_36_algorithm_1",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_mac_sql",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_sql_llama",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_selector_agent",
+   "target": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "relation": "shares_data_with",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "Algorithm 1",
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "target": "paper_baseline_2025_coling_main_36_refiner_agent",
+   "relation": "shares_data_with",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": "Algorithm 1",
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_algorithm_1",
+   "target": "paper_baseline_2025_coling_main_36_selector_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_algorithm_1",
+   "target": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_algorithm_1",
+   "target": "paper_baseline_2025_coling_main_36_refiner_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "target": "paper_baseline_2025_coling_main_36_chain_of_thought",
+   "relation": "implements",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "target": "paper_baseline_2025_coling_main_36_least_to_most",
+   "relation": "conceptually_related_to",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_refiner_agent",
+   "target": "paper_baseline_2025_coling_main_36_chatdev",
+   "relation": "conceptually_related_to",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_selector_agent",
+   "target": "paper_baseline_2025_coling_main_36_selector_prompt",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "target": "paper_baseline_2025_coling_main_36_decomposer_prompt",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_refiner_agent",
+   "target": "paper_baseline_2025_coling_main_36_refiner_prompt",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_decomposer_prompt",
+   "target": "paper_baseline_2025_coling_main_36_sql_generation_constraints",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_refiner_prompt",
+   "target": "paper_baseline_2025_coling_main_36_sql_generation_constraints",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "target": "paper_baseline_2025_coling_main_36_schema_representation",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_selector_agent",
+   "target": "paper_baseline_2025_coling_main_36_schema_representation",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_sql_llama",
+   "target": "paper_baseline_2025_coling_main_36_code_llama",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_sql_llama",
+   "target": "paper_baseline_2025_coling_main_36_multi_task_sft",
+   "relation": "implements",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_multi_task_sft",
+   "target": "paper_baseline_2025_coling_main_36_agent_instruct_dataset",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_agent_instruct_dataset",
+   "target": "paper_baseline_2025_coling_main_36_gpt_4",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_agent_instruct_dataset",
+   "target": "paper_baseline_2025_coling_main_36_bird_benchmark",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_agent_instruct_dataset",
+   "target": "paper_baseline_2025_coling_main_36_spider_benchmark",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_sql_llama",
+   "target": "paper_baseline_2025_coling_main_36_mac_sql",
+   "relation": "implements",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_execution_accuracy",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_valid_efficiency_score",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_exact_match_accuracy",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_exact_match_accuracy",
+   "target": "paper_baseline_2025_coling_main_36_test_suite_evaluation",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_din_sql",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_dail_sql",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_c3_sql",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_gpt_4",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_chatdev",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_autogpt",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_openagents",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_autogen",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_structgpt",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_chain_of_thought",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_least_to_most",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_code_llama",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_bird_benchmark",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_spider_benchmark",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql_paper",
+   "target": "paper_baseline_2025_coling_main_36_test_suite_evaluation",
+   "relation": "cites",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_bird_sota_result",
+   "target": "paper_baseline_2025_coling_main_36_bird_benchmark",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_bird_sota_result",
+   "target": "paper_baseline_2025_coling_main_36_execution_accuracy",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_bird_sota_result",
+   "target": "paper_baseline_2025_coling_main_36_mac_sql",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_spider_result",
+   "target": "paper_baseline_2025_coling_main_36_spider_benchmark",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_spider_result",
+   "target": "paper_baseline_2025_coling_main_36_mac_sql",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_ablation_study",
+   "target": "paper_baseline_2025_coling_main_36_selector_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_ablation_study",
+   "target": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_ablation_study",
+   "target": "paper_baseline_2025_coling_main_36_refiner_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_few_shot_analysis",
+   "target": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_oracle_schema",
+   "target": "paper_baseline_2025_coling_main_36_selector_agent",
+   "relation": "conceptually_related_to",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_error_analysis",
+   "target": "paper_baseline_2025_coling_main_36_bird_benchmark",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_error_analysis",
+   "target": "paper_baseline_2025_coling_main_36_spider_benchmark",
+   "relation": "references",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_din_sql",
+   "target": "paper_baseline_2025_coling_main_36_decomposer_agent",
+   "relation": "semantically_similar_to",
+   "confidence": "INFERRED",
+   "confidence_score": 0.75,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_c3_sql",
+   "target": "paper_baseline_2025_coling_main_36_selector_agent",
+   "relation": "semantically_similar_to",
+   "confidence": "INFERRED",
+   "confidence_score": 0.75,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  },
+  {
+   "source": "paper_baseline_2025_coling_main_36_mac_sql",
+   "target": "paper_baseline_2025_coling_main_36_autogen",
+   "relation": "semantically_similar_to",
+   "confidence": "INFERRED",
+   "confidence_score": 0.65,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf",
+   "source_location": null,
+   "weight": 1.0
+  }
+ ],
+ "hyperedges": [
+  {
+   "id": "paper_baseline_2025_coling_main_36_three_agent_pipeline",
+   "label": "MAC-SQL Selector-Decomposer-Refiner pipeline",
+   "nodes": [
+    "paper_baseline_2025_coling_main_36_selector_agent",
+    "paper_baseline_2025_coling_main_36_decomposer_agent",
+    "paper_baseline_2025_coling_main_36_refiner_agent",
+    "paper_baseline_2025_coling_main_36_algorithm_1"
+   ],
+   "relation": "form",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf"
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_agent_prompt_set",
+   "label": "MAC-SQL agent prompts with shared constraints",
+   "nodes": [
+    "paper_baseline_2025_coling_main_36_selector_prompt",
+    "paper_baseline_2025_coling_main_36_decomposer_prompt",
+    "paper_baseline_2025_coling_main_36_refiner_prompt",
+    "paper_baseline_2025_coling_main_36_sql_generation_constraints"
+   ],
+   "relation": "participate_in",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf"
+  },
+  {
+   "id": "paper_baseline_2025_coling_main_36_llm_baselines",
+   "label": "LLM prompting baselines compared against MAC-SQL",
+   "nodes": [
+    "paper_baseline_2025_coling_main_36_din_sql",
+    "paper_baseline_2025_coling_main_36_dail_sql",
+    "paper_baseline_2025_coling_main_36_c3_sql",
+    "paper_baseline_2025_coling_main_36_gpt_4"
+   ],
+   "relation": "participate_in",
+   "confidence": "EXTRACTED",
+   "confidence_score": 1.0,
+   "source_file": "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf"
+  }
+ ],
+ "input_tokens": 0,
+ "output_tokens": 0,
+ "coverage": {
+  "D:\\Github\\text_to_SQL\\paper baseline\\2025.coling-main.36.pdf": 18
+ }
+}

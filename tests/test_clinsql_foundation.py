@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from ehrqa.clinsql.dataset import load_questions, validation_partition
+from ehrqa.clinsql.dataset import load_official_questions, load_questions, validation_partition
 from ehrqa.clinsql.bigquery_adapter import BigQueryAdapter, Limits
 from ehrqa.clinsql.cot import generation_prompt, refinement_prompt, extract_sql
 from ehrqa.clinsql.proposed import build_pipeline
@@ -26,6 +26,27 @@ def test_question_loader_exposes_only_input_fields_and_locks_test(tmp_path):
     with pytest.raises(PermissionError): load_questions(path)
 
 
+def test_official_tree_adapter_reads_only_question_and_locks_test(tmp_path, monkeypatch):
+    root = tmp_path / 'official' / 'data' / 'splits'
+    sample = root / 'validation' / 'Labs' / 'easy_level_queries' / '001'
+    sample.mkdir(parents=True)
+    (sample / 'query_001.txt').write_text('How many admissions?\n', encoding='utf-8')
+    (sample / 'sql_001.sql').write_text('SECRET GOLD SQL', encoding='utf-8')
+    (sample / 'sql_rubric_tree.json').write_text('SECRET RUBRIC', encoding='utf-8')
+    original = type(sample).read_bytes
+    accessed = []
+    def monitored_read(path):
+        accessed.append(path.name)
+        return original(path)
+    monkeypatch.setattr(type(sample), 'read_bytes', monitored_read)
+    rows, digest = load_official_questions(tmp_path / 'official', expected_count=1)
+    assert rows[0].query_id == 'Labs/easy_level_queries/001'
+    assert rows[0].text == 'How many admissions?'
+    assert accessed == ['query_001.txt']
+    assert len(digest) == 64
+    with pytest.raises(PermissionError): load_official_questions(tmp_path / 'official', split='test')
+
+
 class FakeClient:
     def __init__(self): self.executions = 0
     def dry_run(self, sql, *, timeout_seconds): return 25
@@ -36,20 +57,21 @@ class FakeClient:
 
 def test_bigquery_guard_blocks_mutation_external_table_and_data_access():
     client = FakeClient()
-    adapter = BigQueryAdapter(client, [], Limits(100), allowed_datasets=('physionet-data.mimiciv_3_1_hosp',))
+    adapter = BigQueryAdapter(client, [{'dataset': 'mimiciv_3_1_hosp', 'table': 'patients'}],
+                              Limits(100), allowed_datasets=('physionet-data.mimiciv_3_1_hosp',))
     good = 'SELECT subject_id FROM `physionet-data.mimiciv_3_1_hosp.patients` LIMIT 1'
     assert adapter.dry_run(good).estimated_bytes == 25
     with pytest.raises(PermissionError): adapter.probe(good)
     assert client.executions == 0
-    with pytest.raises(ValueError): adapter.dry_run('DELETE FROM `physionet-data.mimiciv_3_1_hosp.patients` WHERE TRUE')
-    with pytest.raises(ValueError): adapter.dry_run('SELECT * FROM `other.secret.patients`')
+    with pytest.raises(PermissionError): adapter.dry_run('DELETE FROM `physionet-data.mimiciv_3_1_hosp.patients` WHERE TRUE')
+    with pytest.raises(PermissionError): adapter.dry_run('SELECT * FROM `other.secret.patients`')
 
 
 def test_cot_prompt_shape_and_proposed_profile_are_english():
     prompt = generation_prompt('How many admissions?', 'CREATE TABLE admissions (hadm_id INT64)')
     assert 'Reasoning:' in prompt and 'BigQuery' in prompt
     assert 'BigQuery error message:' in refinement_prompt('q','schema','SELECT 1','redacted syntax error')
-    assert extract_sql('Reasoning: ...\nSQL:\n```sql\nSELECT 1\n```') == 'SELECT 1'
+    assert extract_sql('Reasoning: ...\nSQL:\n```sql\nSELECT 1\n```') == 'SELECT 1;'
     class Adapter:
         def schema_metadata(self): return [{'table':'admissions','ddl':'CREATE TABLE admissions (hadm_id INT64)'}]
     pipeline = build_pipeline(Adapter(), object())

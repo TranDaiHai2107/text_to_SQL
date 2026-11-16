@@ -1,0 +1,35 @@
+{
+  "approval_id": "",
+  "approver": "",
+  "authority": "",
+  "risk_acknowledged": false,
+  "iam_status": "READ_ONLY_LIKELY_WITH_APPROVED_RISK",
+  "valid_from_utc": "",
+  "valid_until_utc": "",
+  "principal": "kltn-sql-reader@kltn-text-to-sql.iam.gserviceaccount.com",
+  "project_id": "kltn-text-to-sql",
+  "datasets": [
+    "kltn-text-to-sql.mimiciv_3_1_hosp",
+    "kltn-text-to-sql.mimiciv_3_1_icu"
+  ],
+  "location": "US",
+  "manifest_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+  "pilot_manifest_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+  "model_id": "gpt-5-mini-2025-08-07",
+  "case_ids": [
+    "Diagnostic_Procedures/easy_level_queries/058",
+    "Vital_Signs_Monitoring/easy_level_queries/044",
+    "Laboratory_Results_Analysis/medium_level_queries/079",
+    "Medication_Management/medium_level_queries/012",
+    "Patient_Demographics_and_Admissions/hard_level_queries/058"
+  ],
+  "max_bytes_billed_per_sql": 0,
+  "timeout_seconds": 0,
+  "max_rows": 0,
+  "max_result_bytes": 0,
+  "api_budget_sha256": "",
+  "sql_budget_sha256": "",
+  "result_storage_policy_reference": "",
+  "artifact_retention_days": 0,
+  "phase": "phase_c1_validation_pilot"
+}

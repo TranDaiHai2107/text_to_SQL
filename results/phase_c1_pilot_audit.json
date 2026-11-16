@@ -1,0 +1,112 @@
+{
+  "status": "PILOT_5_TECHNICAL_EXECUTION_PASS",
+  "pilot_manifest_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+  "case_count": 5,
+  "cases": {
+    "Diagnostic_Procedures/easy_level_queries/058": {
+      "run_log": "D:\\Github\\text_to_SQL\\results\\phase_c1_runs_e4cb022c47e1_phase_c1_v4_20261113T185128Z_ef381a50\\Diagnostic_Procedures__easy_level_queries__058.json",
+      "job_id": "0e124c1a-4552-442a-bcc0-d3b9eb1efcac",
+      "row_count": 1,
+      "bytes_billed": 44040192,
+      "bytes_processed": 43634760,
+      "api_calls": 1,
+      "input_tokens": 3733,
+      "output_tokens": 2641,
+      "reasoning_tokens": 1728,
+      "estimated_api_cost_usd": 0.00621525,
+      "end_to_end_latency_seconds": 27.73399999999674,
+      "artifact_sha256": "d0923b86fe3402f0ce9e94b634c96fa7d189d01af623b35cd834c07f868e3bb2",
+      "artifact_expires_at_utc": "2026-11-20T18:52:16.106775+00:00"
+    },
+    "Patient_Demographics_and_Admissions/hard_level_queries/058": {
+      "run_log": "D:\\Github\\text_to_SQL\\results\\phase_c1_runs_e4cb022c47e1_phase_c1_v4_20261113T185128Z_ef381a50\\Patient_Demographics_and_Admissions__hard_level_queries__058.json",
+      "job_id": "d278ae1b-0862-48f6-b0be-f5d6549c2033",
+      "row_count": 2,
+      "bytes_billed": 208666624,
+      "bytes_processed": 208002458,
+      "api_calls": 1,
+      "input_tokens": 3761,
+      "output_tokens": 3063,
+      "reasoning_tokens": 1536,
+      "estimated_api_cost_usd": 0.00706625,
+      "end_to_end_latency_seconds": 35.95299999997951,
+      "artifact_sha256": "3410233ce523b2d96c0b995d40101c41a2081b21f094b2a7484b6bbf5812ad92",
+      "artifact_expires_at_utc": "2026-11-20T18:54:50.149343+00:00"
+    },
+    "Laboratory_Results_Analysis/medium_level_queries/079": {
+      "run_log": "D:\\Github\\text_to_SQL\\results\\phase_c1_runs_e4cb022c47e1_phase_c1_v5_20261114T005101Z_55f1fb96\\Laboratory_Results_Analysis__medium_level_queries__079.json",
+      "job_id": "e5d8b375-cfb5-43e2-a919-b4fd7143a7b3",
+      "row_count": 1,
+      "bytes_billed": 5212471296,
+      "bytes_processed": 5211664442,
+      "api_calls": 1,
+      "input_tokens": 3756,
+      "output_tokens": 3612,
+      "reasoning_tokens": 2496,
+      "estimated_api_cost_usd": 0.008163,
+      "end_to_end_latency_seconds": 49.687999999994645,
+      "artifact_sha256": "9872759465aac9019e681abada352b7ddf7ac8f9ce2433803093e042bce20a63",
+      "artifact_expires_at_utc": "2026-11-21T00:55:53.697368+00:00"
+    },
+    "Medication_Management/medium_level_queries/012": {
+      "run_log": "D:\\Github\\text_to_SQL\\results\\phase_c1_runs_e4cb022c47e1_phase_c1_v5_20261114T005101Z_55f1fb96\\Medication_Management__medium_level_queries__012.json",
+      "job_id": "f2793279-ab7e-44aa-8da1-5c060d47f966",
+      "row_count": 1,
+      "bytes_billed": 2854223872,
+      "bytes_processed": 2853824088,
+      "api_calls": 2,
+      "input_tokens": 9677,
+      "output_tokens": 9718,
+      "reasoning_tokens": 4544,
+      "estimated_api_cost_usd": 0.02185525,
+      "end_to_end_latency_seconds": 115.71900000001187,
+      "artifact_sha256": "a82a8988c0df732138d4835d10fb74e319c91adfe1b0d18962f96d9d31309b57",
+      "artifact_expires_at_utc": "2026-11-21T00:54:37.114644+00:00"
+    },
+    "Vital_Signs_Monitoring/easy_level_queries/044": {
+      "run_log": "D:\\Github\\text_to_SQL\\results\\phase_c1_runs_e4cb022c47e1_phase_c1_v5_20261114T005101Z_55f1fb96\\Vital_Signs_Monitoring__easy_level_queries__044.json",
+      "job_id": "e50c9005-7901-4aed-b3de-be8e7b4871d8",
+      "row_count": 1,
+      "bytes_billed": 11761876992,
+      "bytes_processed": 11761516459,
+      "api_calls": 1,
+      "input_tokens": 3733,
+      "output_tokens": 2148,
+      "reasoning_tokens": 1344,
+      "estimated_api_cost_usd": 0.00522925,
+      "end_to_end_latency_seconds": 32.625,
+      "artifact_sha256": "043b5f63c56b1b76fdf7e8d6e0f61239204b3edc389aff7852cd7d003474c26d",
+      "artifact_expires_at_utc": "2026-11-21T00:52:20.886075+00:00"
+    }
+  },
+  "aggregate": {
+    "api_calls": 6,
+    "input_tokens": 24660,
+    "output_tokens": 21182,
+    "reasoning_tokens": 11648,
+    "bytes_billed": 20081278976,
+    "estimated_api_cost_usd": "0.04852900",
+    "estimated_sql_cost_usd": "0.1141488552093505859375",
+    "end_to_end_latency_seconds": 261.71899999998277
+  },
+  "model_id": "gpt-5-mini-2025-08-07",
+  "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+  "schema_index_sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318",
+  "runtime_code_sha256": "52f98b21a7dd86beea243f7bfa5dfb85a94fe5f81bd6a4a2a0607e7a63042818",
+  "api_budget_sha256": "e4cb022c47e150a4c2758236f5edbab0875edf9bb37f8ae5d6f9f77ee15e97b1",
+  "sql_budget_sha256_by_case": {
+    "Diagnostic_Procedures/easy_level_queries/058": "0f4a97a9134682be4b438b61aec2a1dcc9bfe548524e427cb970c71c68def5f3",
+    "Patient_Demographics_and_Admissions/hard_level_queries/058": "0f4a97a9134682be4b438b61aec2a1dcc9bfe548524e427cb970c71c68def5f3",
+    "Laboratory_Results_Analysis/medium_level_queries/079": "25515e9fd030302f886391d50e11729c593a8200d0e08ffeca1158bcb29bb13c",
+    "Medication_Management/medium_level_queries/012": "25515e9fd030302f886391d50e11729c593a8200d0e08ffeca1158bcb29bb13c",
+    "Vital_Signs_Monitoring/easy_level_queries/044": "25515e9fd030302f886391d50e11729c593a8200d0e08ffeca1158bcb29bb13c"
+  },
+  "excluded_calibration": [
+    {
+      "run_log": "D:\\Github\\text_to_SQL\\results\\phase_c1_runs_e4cb022c47e1_phase_c1_v4_20261113T185128Z_ef381a50\\Medication_Management__medium_level_queries__012.json",
+      "case_id": "Medication_Management/medium_level_queries/012",
+      "status": "BUDGET_EXCEEDED"
+    }
+  ],
+  "official_score_status": "NOT_RUN"
+}

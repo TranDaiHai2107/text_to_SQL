@@ -81,10 +81,10 @@ class SequentialRAG:
                 'retrieval_kind':'lexical_plus_dense_dictionary' if self.catalog_callback else 'catalog_plus_legacy_semantic_icd',
                 'schema_tables_used':schema_context['tables'],'found':bool(records) or legacy.get('found',False)}
 
-    def examples(self,question):
+    def examples(self,question,*,query_id=None):
         # Original or contextualized multi-turn question, same fixed count;
         # no self-taught examples or test-label-based selection.
-        return self.examples_callback(question)
+        return self.examples_callback(question) if query_id is None else self.examples_callback(question,query_id=query_id)
 
 
 

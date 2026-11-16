@@ -5,8 +5,89 @@ import re
 
 from sqlglot import exp, parse, parse_one
 from sqlglot.optimizer.qualify import qualify
-from sqlglot.optimizer.scope import traverse_scope
+from sqlglot.optimizer.scope import Scope, traverse_scope
 from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+
+
+def _direct_column_origin(scope, column, seen=frozenset()):
+    """Return the physical table occurrence and name of a direct column."""
+    if not isinstance(column, exp.Column) or not column.table:
+        return None
+    source = scope.sources.get(column.table)
+    if isinstance(source, exp.Table):
+        return source, column.name
+    if not isinstance(source, Scope) or source in seen or not isinstance(source.expression, exp.Select):
+        return None
+    projections = [item for item in source.expression.selects if item.alias_or_name == column.name]
+    if len(projections) != 1:
+        return None
+    return _direct_column_origin(source, projections[0].unalias(), seen | {source})
+
+
+def _join_conjuncts(predicate):
+    if isinstance(predicate, exp.Paren):
+        yield from _join_conjuncts(predicate.this)
+    elif isinstance(predicate, exp.And):
+        yield from _join_conjuncts(predicate.this)
+        yield from _join_conjuncts(predicate.expression)
+    elif isinstance(predicate, exp.EQ):
+        yield predicate
+
+
+def _missing_join_key(scopes, event, dictionary, tables_by_scope):
+    """Require the two keys within the same conjunctive JOIN and source pair."""
+    keyed_tables = {event, dictionary}
+    if not keyed_tables <= set().union(*tables_by_scope.values()):
+        return False
+    found = False
+    for scope in scopes:
+        if not isinstance(scope.expression, exp.Select):
+            continue
+        visible = set()
+        from_ = scope.expression.args.get('from_')
+        if from_:
+            visible.add(from_.this.alias_or_name)
+        source_tables = {
+            alias: {source.name} if isinstance(source, exp.Table) else tables_by_scope[source]
+            for alias, (_, source) in scope.selected_sources.items()
+        }
+        for join in scope.expression.args.get('joins', ()):
+            incoming = join.this.alias_or_name
+            right_tables = source_tables.get(incoming, set())
+            left_tables = set().union(*(source_tables.get(alias, set()) for alias in visible))
+            relevant = ((event in left_tables and dictionary in right_tables)
+                        or (dictionary in left_tables and event in right_tables))
+            if relevant:
+                keys_by_pair = {}
+                for eq in _join_conjuncts(join.args.get('on')):
+                    left, right = eq.this, eq.expression
+                    if not isinstance(left, exp.Column) or not isinstance(right, exp.Column):
+                        continue
+                    if left.table == incoming:
+                        left, right = right, left
+                    if right.table != incoming or left.table not in visible:
+                        continue
+                    a, b = _direct_column_origin(scope, left), _direct_column_origin(scope, right)
+                    if (a and b and {a[0].name, b[0].name} == keyed_tables and a[1] == b[1]):
+                        pair = (left.table, right.table, id(a[0]), id(b[0]))
+                        keys_by_pair.setdefault(pair, set()).add(a[1])
+                if not any({'icd_code', 'icd_version'} <= keys for keys in keys_by_pair.values()):
+                    return True
+                found = True
+            visible.add(incoming)
+    return not found
+
+
+def _scope_tables(scopes):
+    tables_by_scope = {}
+    for scope in scopes:
+        tables = {source.name for _, source in scope.selected_sources.values()
+                  if isinstance(source, exp.Table)}
+        dependencies = [source for _, source in scope.selected_sources.values()
+                        if isinstance(source, Scope)]
+        tables_by_scope[scope] = tables.union(
+            *(tables_by_scope[child] for child in (*dependencies, *scope.set_operation_scopes)))
+    return tables_by_scope
 
 TABLE_MEANINGS={
     'patients':'Patient demographics and mortality',
@@ -128,8 +209,8 @@ class Schema:
             tree=normalize_identifiers(trees[0],dialect=self.dialect)
             forbidden=(exp.Insert,exp.Update,exp.Delete,exp.Merge,exp.Create,exp.Drop,exp.Alter,exp.Into,exp.Lock)
             if any(tree.find(t) for t in forbidden):raise ValueError('Mutating/locking query denied')
-            from ehrqa.sql_validator import DENIED_FUNCTIONS
-            denied=DENIED_FUNCTIONS|{'load_extension','readfile','writefile','sqlite_readfile','sqlite_writefile'}
+            from ehrqa.text2sql.security import DENIED_FUNCTIONS
+            denied=DENIED_FUNCTIONS
             for f in tree.find_all(exp.Func):
                 name=(f.name if isinstance(f,exp.Anonymous) else f.sql_name()).lower()
                 if name in denied:raise ValueError('Unsafe function: '+name)
@@ -145,7 +226,8 @@ class Schema:
             qualified=qualify(tree.copy(),dialect=self.dialect,schema=self.tables,expand_stars=False,
                 infer_schema=False,validate_qualify_columns=True,quote_identifiers=False,identify=False,allow_partial_qualification=False)
             refs=set()
-            for scope in traverse_scope(qualified):
+            scopes = traverse_scope(qualified)
+            for scope in scopes:
                 for c in scope.columns:
                     parent=scope
                     while parent is not None:
@@ -167,10 +249,10 @@ class Schema:
                         if isinstance(value,exp.Literal) and str(value.this).isdigit() and str(value.this) not in qnums:
                             raise ValueError('Introduced patient identifier in IN list')
             # Composite dictionary keys must be honored in every explicit JOIN.
+            tables_by_scope = _scope_tables(scopes)
             for a,b in [('diagnoses_icd','d_icd_diagnoses'),('procedures_icd','d_icd_procedures')]:
-                if a in tables and b in tables and self.has_ref(a+'.icd_version') and self.has_ref(b+'.icd_version'):
-                    from ehrqa.sql_validator import _missing_join_key
-                    if _missing_join_key(tree,a,b,'icd_version'):raise ValueError('Missing composite icd_version JOIN')
+                if self.has_ref(a+'.icd_version') and self.has_ref(b+'.icd_version'):
+                    if _missing_join_key(scopes,a,b,tables_by_scope):raise ValueError('Missing composite icd_version JOIN')
             projections=[e.sql(dialect=self.dialect) for e in tree.expressions] if isinstance(tree,exp.Select) else []
             result.update(valid=True,tables=sorted(tables),used_refs=sorted(refs),output_columns=projections,
                 ast_sql=tree.sql(dialect=self.dialect),has_distinct=bool(tree.find(exp.Distinct)),

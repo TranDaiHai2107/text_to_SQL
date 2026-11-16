@@ -1,0 +1,194 @@
+{
+  "index_version": 1,
+  "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+  "project_id": "kltn-text-to-sql",
+  "entries": [
+    {
+      "table": "admissions",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `admittime` DATETIME,\n  `dischtime` DATETIME,\n  `deathtime` DATETIME,\n  `admission_type` STRING,\n  `admit_provider_id` STRING,\n  `admission_location` STRING,\n  `discharge_location` STRING,\n  `insurance` STRING,\n  `language` STRING,\n  `marital_status` STRING,\n  `race` STRING,\n  `edregtime` DATETIME,\n  `edouttime` DATETIME,\n  `hospital_expire_flag` INT64\n)",
+      "description_en": "admissions"
+    },
+    {
+      "table": "d_hcpcs",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.d_hcpcs` (\n  `code` STRING,\n  `category` INT64,\n  `long_description` STRING,\n  `short_description` STRING\n)",
+      "description_en": "d hcpcs"
+    },
+    {
+      "table": "d_icd_diagnoses",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_diagnoses` (\n  `icd_code` STRING,\n  `icd_version` INT64,\n  `long_title` STRING\n)",
+      "description_en": "d icd diagnoses"
+    },
+    {
+      "table": "d_icd_procedures",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_procedures` (\n  `icd_code` STRING,\n  `icd_version` INT64,\n  `long_title` STRING\n)",
+      "description_en": "d icd procedures"
+    },
+    {
+      "table": "d_labitems",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.d_labitems` (\n  `itemid` INT64,\n  `label` STRING,\n  `fluid` STRING,\n  `category` STRING\n)",
+      "description_en": "d labitems"
+    },
+    {
+      "table": "diagnoses_icd",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.diagnoses_icd` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `seq_num` INT64,\n  `icd_code` STRING,\n  `icd_version` INT64\n)",
+      "description_en": "diagnoses icd"
+    },
+    {
+      "table": "drgcodes",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.drgcodes` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `drg_type` STRING,\n  `drg_code` STRING,\n  `description` STRING,\n  `drg_severity` INT64,\n  `drg_mortality` INT64\n)",
+      "description_en": "drgcodes"
+    },
+    {
+      "table": "emar",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.emar` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `emar_id` STRING,\n  `emar_seq` INT64,\n  `poe_id` STRING,\n  `pharmacy_id` INT64,\n  `enter_provider_id` STRING,\n  `charttime` DATETIME,\n  `medication` STRING,\n  `event_txt` STRING,\n  `scheduletime` DATETIME,\n  `storetime` DATETIME\n)",
+      "description_en": "emar"
+    },
+    {
+      "table": "emar_detail",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.emar_detail` (\n  `subject_id` INT64,\n  `emar_id` STRING,\n  `emar_seq` INT64,\n  `parent_field_ordinal` STRING,\n  `administration_type` STRING,\n  `pharmacy_id` INT64,\n  `barcode_type` STRING,\n  `reason_for_no_barcode` STRING,\n  `complete_dose_not_given` STRING,\n  `dose_due` STRING,\n  `dose_due_unit` STRING,\n  `dose_given` STRING,\n  `dose_given_unit` STRING,\n  `will_remainder_of_dose_be_given` STRING,\n  `product_amount_given` STRING,\n  `product_unit` STRING,\n  `product_code` STRING,\n  `product_description` STRING,\n  `product_description_other` STRING,\n  `prior_infusion_rate` STRING,\n  `infusion_rate` STRING,\n  `infusion_rate_adjustment` STRING,\n  `infusion_rate_adjustment_amount` STRING,\n  `infusion_rate_unit` STRING,\n  `route` STRING,\n  `infusion_complete` STRING,\n  `completion_interval` STRING,\n  `new_iv_bag_hung` STRING,\n  `continued_infusion_in_other_location` STRING,\n  `restart_interval` STRING,\n  `side` STRING,\n  `site` STRING,\n  `non_formulary_visual_verification` STRING\n)",
+      "description_en": "emar detail"
+    },
+    {
+      "table": "hcpcsevents",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.hcpcsevents` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `chartdate` DATE,\n  `hcpcs_cd` STRING,\n  `seq_num` INT64,\n  `short_description` STRING\n)",
+      "description_en": "hcpcsevents"
+    },
+    {
+      "table": "labevents",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.labevents` (\n  `labevent_id` INT64,\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `specimen_id` INT64,\n  `itemid` INT64,\n  `order_provider_id` STRING,\n  `charttime` DATETIME,\n  `storetime` DATETIME,\n  `value` STRING,\n  `valuenum` FLOAT64,\n  `valueuom` STRING,\n  `ref_range_lower` FLOAT64,\n  `ref_range_upper` FLOAT64,\n  `flag` STRING,\n  `priority` STRING,\n  `comments` STRING\n)",
+      "description_en": "labevents"
+    },
+    {
+      "table": "microbiologyevents",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.microbiologyevents` (\n  `microevent_id` INT64,\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `micro_specimen_id` INT64,\n  `order_provider_id` STRING,\n  `chartdate` DATETIME,\n  `charttime` DATETIME,\n  `spec_itemid` INT64,\n  `spec_type_desc` STRING,\n  `test_seq` INT64,\n  `storedate` DATETIME,\n  `storetime` DATETIME,\n  `test_itemid` INT64,\n  `test_name` STRING,\n  `org_itemid` INT64,\n  `org_name` STRING,\n  `isolate_num` INT64,\n  `quantity` STRING,\n  `ab_itemid` INT64,\n  `ab_name` STRING,\n  `dilution_text` STRING,\n  `dilution_comparison` STRING,\n  `dilution_value` FLOAT64,\n  `interpretation` STRING,\n  `comments` STRING\n)",
+      "description_en": "microbiologyevents"
+    },
+    {
+      "table": "omr",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.omr` (\n  `subject_id` INT64,\n  `chartdate` DATE,\n  `seq_num` INT64,\n  `result_name` STRING,\n  `result_value` STRING\n)",
+      "description_en": "omr"
+    },
+    {
+      "table": "patients",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.patients` (\n  `subject_id` INT64,\n  `gender` STRING,\n  `anchor_age` INT64,\n  `anchor_year` INT64,\n  `anchor_year_group` STRING,\n  `dod` STRING\n)",
+      "description_en": "patients"
+    },
+    {
+      "table": "pharmacy",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.pharmacy` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `pharmacy_id` INT64,\n  `poe_id` STRING,\n  `starttime` DATETIME,\n  `stoptime` DATETIME,\n  `medication` STRING,\n  `proc_type` STRING,\n  `status` STRING,\n  `entertime` DATETIME,\n  `verifiedtime` DATETIME,\n  `route` STRING,\n  `frequency` STRING,\n  `disp_sched` STRING,\n  `infusion_type` STRING,\n  `sliding_scale` STRING,\n  `lockout_interval` STRING,\n  `basal_rate` FLOAT64,\n  `one_hr_max` STRING,\n  `doses_per_24_hrs` FLOAT64,\n  `duration` FLOAT64,\n  `duration_interval` STRING,\n  `expiration_value` INT64,\n  `expiration_unit` STRING,\n  `expirationdate` DATETIME,\n  `dispensation` STRING,\n  `fill_quantity` STRING\n)",
+      "description_en": "pharmacy"
+    },
+    {
+      "table": "poe",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.poe` (\n  `poe_id` STRING,\n  `poe_seq` INT64,\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `ordertime` DATETIME,\n  `order_type` STRING,\n  `order_subtype` STRING,\n  `transaction_type` STRING,\n  `discontinue_of_poe_id` STRING,\n  `discontinued_by_poe_id` STRING,\n  `order_provider_id` STRING,\n  `order_status` STRING\n)",
+      "description_en": "poe"
+    },
+    {
+      "table": "poe_detail",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.poe_detail` (\n  `poe_id` STRING,\n  `poe_seq` INT64,\n  `subject_id` INT64,\n  `field_name` STRING,\n  `field_value` STRING\n)",
+      "description_en": "poe detail"
+    },
+    {
+      "table": "prescriptions",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.prescriptions` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `pharmacy_id` INT64,\n  `poe_id` STRING,\n  `poe_seq` INT64,\n  `order_provider_id` STRING,\n  `starttime` DATETIME,\n  `stoptime` DATETIME,\n  `drug_type` STRING,\n  `drug` STRING,\n  `formulary_drug_cd` STRING,\n  `gsn` STRING,\n  `ndc` STRING,\n  `prod_strength` STRING,\n  `form_rx` STRING,\n  `dose_val_rx` STRING,\n  `dose_unit_rx` STRING,\n  `form_val_disp` STRING,\n  `form_unit_disp` STRING,\n  `doses_per_24_hrs` FLOAT64,\n  `route` STRING\n)",
+      "description_en": "prescriptions"
+    },
+    {
+      "table": "procedures_icd",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.procedures_icd` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `seq_num` INT64,\n  `chartdate` DATE,\n  `icd_code` STRING,\n  `icd_version` INT64\n)",
+      "description_en": "procedures icd"
+    },
+    {
+      "table": "provider",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.provider` (\n  `provider_id` STRING\n)",
+      "description_en": "provider"
+    },
+    {
+      "table": "services",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.services` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `transfertime` DATETIME,\n  `prev_service` STRING,\n  `curr_service` STRING\n)",
+      "description_en": "services"
+    },
+    {
+      "table": "transfers",
+      "dataset": "mimiciv_3_1_hosp",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_hosp.transfers` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `transfer_id` INT64,\n  `eventtype` STRING,\n  `careunit` STRING,\n  `intime` DATETIME,\n  `outtime` DATETIME\n)",
+      "description_en": "transfers"
+    },
+    {
+      "table": "caregiver",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.caregiver` (\n  `caregiver_id` INT64\n)",
+      "description_en": "caregiver"
+    },
+    {
+      "table": "chartevents",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.chartevents` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `stay_id` INT64,\n  `caregiver_id` INT64,\n  `charttime` DATETIME,\n  `storetime` DATETIME,\n  `itemid` INT64,\n  `value` STRING,\n  `valuenum` FLOAT64,\n  `valueuom` STRING,\n  `warning` INT64\n)",
+      "description_en": "chartevents"
+    },
+    {
+      "table": "d_items",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.d_items` (\n  `itemid` INT64,\n  `label` STRING,\n  `abbreviation` STRING,\n  `linksto` STRING,\n  `category` STRING,\n  `unitname` STRING,\n  `param_type` STRING,\n  `lownormalvalue` FLOAT64,\n  `highnormalvalue` FLOAT64\n)",
+      "description_en": "d items"
+    },
+    {
+      "table": "datetimeevents",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.datetimeevents` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `stay_id` INT64,\n  `caregiver_id` INT64,\n  `charttime` DATETIME,\n  `storetime` DATETIME,\n  `itemid` INT64,\n  `value` DATETIME,\n  `valueuom` STRING,\n  `warning` INT64\n)",
+      "description_en": "datetimeevents"
+    },
+    {
+      "table": "icustays",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.icustays` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `stay_id` INT64,\n  `first_careunit` STRING,\n  `last_careunit` STRING,\n  `intime` DATETIME,\n  `outtime` DATETIME,\n  `los` FLOAT64\n)",
+      "description_en": "icustays"
+    },
+    {
+      "table": "ingredientevents",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.ingredientevents` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `stay_id` INT64,\n  `caregiver_id` INT64,\n  `starttime` DATETIME,\n  `endtime` DATETIME,\n  `storetime` DATETIME,\n  `itemid` INT64,\n  `amount` FLOAT64,\n  `amountuom` STRING,\n  `rate` FLOAT64,\n  `rateuom` STRING,\n  `orderid` INT64,\n  `linkorderid` INT64,\n  `statusdescription` STRING,\n  `originalamount` FLOAT64,\n  `originalrate` FLOAT64\n)",
+      "description_en": "ingredientevents"
+    },
+    {
+      "table": "inputevents",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.inputevents` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `stay_id` INT64,\n  `caregiver_id` INT64,\n  `starttime` DATETIME,\n  `endtime` DATETIME,\n  `storetime` DATETIME,\n  `itemid` INT64,\n  `amount` FLOAT64,\n  `amountuom` STRING,\n  `rate` FLOAT64,\n  `rateuom` STRING,\n  `orderid` INT64,\n  `linkorderid` INT64,\n  `ordercategoryname` STRING,\n  `secondaryordercategoryname` STRING,\n  `ordercomponenttypedescription` STRING,\n  `ordercategorydescription` STRING,\n  `patientweight` FLOAT64,\n  `totalamount` FLOAT64,\n  `totalamountuom` STRING,\n  `isopenbag` INT64,\n  `continueinnextdept` INT64,\n  `statusdescription` STRING,\n  `originalamount` FLOAT64,\n  `originalrate` FLOAT64\n)",
+      "description_en": "inputevents"
+    },
+    {
+      "table": "outputevents",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.outputevents` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `stay_id` INT64,\n  `caregiver_id` INT64,\n  `charttime` DATETIME,\n  `storetime` DATETIME,\n  `itemid` INT64,\n  `value` FLOAT64,\n  `valueuom` STRING\n)",
+      "description_en": "outputevents"
+    },
+    {
+      "table": "procedureevents",
+      "dataset": "mimiciv_3_1_icu",
+      "ddl": "CREATE TABLE `kltn-text-to-sql.mimiciv_3_1_icu.procedureevents` (\n  `subject_id` INT64,\n  `hadm_id` INT64,\n  `stay_id` INT64,\n  `caregiver_id` INT64,\n  `starttime` DATETIME,\n  `endtime` DATETIME,\n  `storetime` DATETIME,\n  `itemid` INT64,\n  `value` FLOAT64,\n  `valueuom` STRING,\n  `location` STRING,\n  `locationcategory` STRING,\n  `orderid` INT64,\n  `linkorderid` INT64,\n  `ordercategoryname` STRING,\n  `ordercategorydescription` STRING,\n  `patientweight` FLOAT64,\n  `isopenbag` INT64,\n  `continueinnextdept` INT64,\n  `statusdescription` STRING,\n  `ORIGINALAMOUNT` FLOAT64,\n  `ORIGINALRATE` FLOAT64\n)",
+      "description_en": "procedureevents"
+    }
+  ],
+  "sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318"
+}

@@ -1,0 +1,34 @@
+{
+  "clinsql": {
+    "origin": "https://github.com/Barryshen1/ClinSQL.git",
+    "path": "external/clinsql_official",
+    "commit": "1d819960eb3ce3ac0e9beb4e801810a05735fd58",
+    "tree": "920d5b10525a123c47d6fca6376233aa16fae84c",
+    "key_files": {
+      "model_inference/clinical_sql_benchmark_evaluator_CoT.py": "df098e723893a5dba4802465a56cf2b4691dbe4211c309ce10c6db792587a1a9",
+      "evaluation/clinical_rubric_scorer.py": "3a3b9734cab64fafbde7f387d5cb84f569d9072acbb6e7e072311f2b858f475c"
+    }
+  },
+  "mac_sql": {
+    "origin": "https://github.com/wbbeyourself/MAC-SQL.git",
+    "path": "external/mac_sql_official",
+    "commit": "31a9df5e0d520be4769be57a4b9022e5e34a14f4",
+    "tree": "1bad8640204314eb08b5cc6022ad94e57ae748dd",
+    "key_files": {
+      "core/agents.py": "ac076325e1dc445844defe16f2bb81541cc2ce300ea5b62829b0d5955d11863e",
+      "core/chat_manager.py": "b6e6771111acf0618270bc826fc063e2689c155a35dbbd5bbea814802f95e100"
+    }
+  },
+  "sde_sql": {
+    "origin": "https://github.com/Lancelot-Xie/SDE-SQL.git",
+    "path": "external/sde_sql_official",
+    "commit": "e425408fcb13d69b0bd15f917b819591805a8973",
+    "tree": "18998a5729cbf547f9e65d203e3401254f467147",
+    "key_files": {
+      "src/gpt_request.py": "e1f1e385a935990d4bf95c7ac79a43fbf3ad6b31440373866096ee04ad816d7c",
+      "src/explore_new.py": "d447760707d4b4ebf4847ac86cc7444cac796732737f51821256c4d2153c4404",
+      "src/refine_new.py": "7b5bfa4a0d74dbef1530283af0a41b5c8a576cadec263d796a781d219942e304",
+      "src/reader/core_function.py": "4ce1dda8ab5ca5bdea19f9a80184aab59c12427f1f1fc1c4b19c39447f6af8e3"
+    }
+  }
+}

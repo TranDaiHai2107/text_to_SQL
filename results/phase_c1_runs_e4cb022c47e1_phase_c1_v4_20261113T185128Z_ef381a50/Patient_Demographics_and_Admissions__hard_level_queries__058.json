@@ -1,0 +1,99 @@
+{
+  "summary": {
+    "query_id": "Patient_Demographics_and_Admissions/hard_level_queries/058",
+    "method": "clinsql_cot",
+    "api_calls": 1,
+    "input_tokens": 3761,
+    "api_usage_unknown_calls": 0,
+    "output_tokens": 3063,
+    "reasoning_tokens": 1536,
+    "latency_seconds": 29.85999999998603,
+    "total_latency_seconds": 35.95299999997951,
+    "execution_attempts": 1,
+    "probe_attempts": 0,
+    "retry_calls": 0,
+    "estimated_inference_cost_usd": 0.00706625,
+    "evaluation_cost_usd": null
+  },
+  "events": [
+    {
+      "stage": "run_context",
+      "case_id": "Patient_Demographics_and_Admissions/hard_level_queries/058",
+      "pilot_manifest_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+      "approval_id": "phase_c1_v4_20261113T185128Z_ef381a50",
+      "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+      "schema_index_sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318",
+      "model_id": "gpt-5-mini-2025-08-07",
+      "code_commit": "ce17a1dd77e74631576ed38a0ff9957184f1cbb6",
+      "api_budget_sha256": "e4cb022c47e150a4c2758236f5edbab0875edf9bb37f8ae5d6f9f77ee15e97b1",
+      "sql_budget_sha256": "0f4a97a9134682be4b438b61aec2a1dcc9bfe548524e427cb970c71c68def5f3",
+      "reasoning_effort": "medium",
+      "max_output_tokens": 8192,
+      "runtime_code_sha256": "52f98b21a7dd86beea243f7bfa5dfb85a94fe5f81bd6a4a2a0607e7a63042818",
+      "fingerprint": "bcf26a868eb3c142da39c013e5ec9710a6d19600618d6f948026b805d4f973ad"
+    },
+    {
+      "stage": "llm",
+      "operation": "generate",
+      "model": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07",
+      "response_id": "resp_002de5699054a337016af75cd91d8087d28e5fdde8ab370ebd",
+      "prompt_sha256": "4b0fa360b1556727811fc0c3c5cb6a9ae4d01e4c9265301ca3e9f7e067effab7",
+      "input_tokens": 3761,
+      "output_tokens": 3063,
+      "reasoning_tokens": 1536,
+      "latency_seconds": 29.85999999998603
+    },
+    {
+      "stage": "dry_run",
+      "sql": "WITH principal_lower_gi AS (\n  -- principal diagnoses (seq_num = 1) that likely indicate lower GI bleeding\n  SELECT\n    d.subject_id,\n    d.hadm_id,\n    d.icd_code,\n    dd.long_title\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.diagnoses_icd` d\n  LEFT JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_diagnoses` dd\n  ON\n    d.icd_code = dd.icd_code\n  WHERE\n    d.seq_num = 1\n    AND (\n      -- common keyword patterns for lower GI bleeding / hematochezia / rectal bleeding\n      (LOWER(COALESCE(dd.long_title, '')) LIKE '%lower%' AND LOWER(COALESCE(dd.long_title, '')) LIKE '%gastrointestinal%')\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%hematochezia%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%rectal%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%rectal bleeding%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%lower gi bleed%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%lower gi hemorrhage%'\n    )\n),\ncohort AS (\n  -- Index admissions that meet demographic, payer, ED source, and principal DX criteria\n  SELECT\n    a.subject_id,\n    a.hadm_id,\n    a.admittime,\n    a.dischtime,\n    a.admission_type,\n    a.admission_location,\n    a.insurance,\n    p.gender,\n    p.anchor_age,\n    -- LOS in fractional days\n    SAFE_DIVIDE(DATETIME_DIFF(a.dischtime, a.admittime, SECOND), 86400.0) AS los_days\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  INNER JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n  ON\n    a.subject_id = p.subject_id\n  INNER JOIN\n    principal_lower_gi plg\n  ON\n    a.hadm_id = plg.hadm_id\n  WHERE\n    p.gender = 'M'\n    AND p.anchor_age BETWEEN 50 AND 60\n    AND UPPER(COALESCE(a.insurance, '')) LIKE '%MEDICARE%'\n    AND a.edregtime IS NOT NULL    -- admitted from ED\n    AND COALESCE(a.hospital_expire_flag, 0) = 0  -- exclude in-hospital deaths\n),\nreadmit_flags AS (\n  -- For each index admission, determine whether there is a readmission within 30 days\n  SELECT\n    c.*,\n    CASE WHEN MIN(r.admittime) IS NOT NULL THEN 1 ELSE 0 END AS readmitted_30d\n  FROM\n    cohort c\n  LEFT JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` r\n  ON\n    c.subject_id = r.subject_id\n    AND r.hadm_id != c.hadm_id\n    AND r.admittime > c.dischtime\n    AND r.admittime <= DATETIME_ADD(c.dischtime, INTERVAL 30 DAY)\n  GROUP BY\n    c.subject_id, c.hadm_id, c.admittime, c.dischtime, c.admission_type, c.admission_location, c.insurance, c.gender, c.anchor_age, c.los_days\n)\nSELECT\n  -- Overall 30-day readmission rate for the cohort\n  COUNT(*) AS total_index_admissions,\n  SUM(readmitted_30d) AS total_readmitted_30d,\n  ROUND(100.0 * SAFE_DIVIDE(SUM(readmitted_30d), COUNT(*)), 2) AS readmission_rate_pct_30d,\n  -- Per-group statistics: readmitted vs not readmitted\n  rf.readmitted_30d AS readmitted_flag,\n  COUNT(*) AS n_admissions,\n  -- median LOS using APPROX_QUANTILES (median ~ 0.5 quantile)\n  (APPROX_QUANTILES(rf.los_days, 2))[OFFSET(1)] AS median_los_days,\n  ROUND(100.0 * SAFE_DIVIDE(SUM(CASE WHEN rf.los_days > 6 THEN 1 ELSE 0 END), COUNT(*)), 2) AS pct_los_gt_6\nFROM\n  readmit_flags rf\nGROUP BY\n  rf.readmitted_30d\nORDER BY\n  rf.readmitted_30d DESC;",
+      "estimated_bytes": 208002458
+    },
+    {
+      "stage": "execute",
+      "sql": "WITH principal_lower_gi AS (\n  -- principal diagnoses (seq_num = 1) that likely indicate lower GI bleeding\n  SELECT\n    d.subject_id,\n    d.hadm_id,\n    d.icd_code,\n    dd.long_title\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.diagnoses_icd` d\n  LEFT JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_diagnoses` dd\n  ON\n    d.icd_code = dd.icd_code\n  WHERE\n    d.seq_num = 1\n    AND (\n      -- common keyword patterns for lower GI bleeding / hematochezia / rectal bleeding\n      (LOWER(COALESCE(dd.long_title, '')) LIKE '%lower%' AND LOWER(COALESCE(dd.long_title, '')) LIKE '%gastrointestinal%')\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%hematochezia%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%rectal%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%rectal bleeding%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%lower gi bleed%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%lower gi hemorrhage%'\n    )\n),\ncohort AS (\n  -- Index admissions that meet demographic, payer, ED source, and principal DX criteria\n  SELECT\n    a.subject_id,\n    a.hadm_id,\n    a.admittime,\n    a.dischtime,\n    a.admission_type,\n    a.admission_location,\n    a.insurance,\n    p.gender,\n    p.anchor_age,\n    -- LOS in fractional days\n    SAFE_DIVIDE(DATETIME_DIFF(a.dischtime, a.admittime, SECOND), 86400.0) AS los_days\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  INNER JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n  ON\n    a.subject_id = p.subject_id\n  INNER JOIN\n    principal_lower_gi plg\n  ON\n    a.hadm_id = plg.hadm_id\n  WHERE\n    p.gender = 'M'\n    AND p.anchor_age BETWEEN 50 AND 60\n    AND UPPER(COALESCE(a.insurance, '')) LIKE '%MEDICARE%'\n    AND a.edregtime IS NOT NULL    -- admitted from ED\n    AND COALESCE(a.hospital_expire_flag, 0) = 0  -- exclude in-hospital deaths\n),\nreadmit_flags AS (\n  -- For each index admission, determine whether there is a readmission within 30 days\n  SELECT\n    c.*,\n    CASE WHEN MIN(r.admittime) IS NOT NULL THEN 1 ELSE 0 END AS readmitted_30d\n  FROM\n    cohort c\n  LEFT JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` r\n  ON\n    c.subject_id = r.subject_id\n    AND r.hadm_id != c.hadm_id\n    AND r.admittime > c.dischtime\n    AND r.admittime <= DATETIME_ADD(c.dischtime, INTERVAL 30 DAY)\n  GROUP BY\n    c.subject_id, c.hadm_id, c.admittime, c.dischtime, c.admission_type, c.admission_location, c.insurance, c.gender, c.anchor_age, c.los_days\n)\nSELECT\n  -- Overall 30-day readmission rate for the cohort\n  COUNT(*) AS total_index_admissions,\n  SUM(readmitted_30d) AS total_readmitted_30d,\n  ROUND(100.0 * SAFE_DIVIDE(SUM(readmitted_30d), COUNT(*)), 2) AS readmission_rate_pct_30d,\n  -- Per-group statistics: readmitted vs not readmitted\n  rf.readmitted_30d AS readmitted_flag,\n  COUNT(*) AS n_admissions,\n  -- median LOS using APPROX_QUANTILES (median ~ 0.5 quantile)\n  (APPROX_QUANTILES(rf.los_days, 2))[OFFSET(1)] AS median_los_days,\n  ROUND(100.0 * SAFE_DIVIDE(SUM(CASE WHEN rf.los_days > 6 THEN 1 ELSE 0 END), COUNT(*)), 2) AS pct_los_gt_6\nFROM\n  readmit_flags rf\nGROUP BY\n  rf.readmitted_30d\nORDER BY\n  rf.readmitted_30d DESC;",
+      "columns": [
+        "total_index_admissions",
+        "total_readmitted_30d",
+        "readmission_rate_pct_30d",
+        "readmitted_flag",
+        "n_admissions",
+        "median_los_days",
+        "pct_los_gt_6"
+      ],
+      "row_count": 2,
+      "rows": null,
+      "column_types": [
+        "INTEGER",
+        "INTEGER",
+        "FLOAT",
+        "INTEGER",
+        "INTEGER",
+        "FLOAT",
+        "FLOAT"
+      ],
+      "complete": true,
+      "bytes_billed": 208666624,
+      "bytes_processed": 208002458,
+      "job_id": "d278ae1b-0862-48f6-b0be-f5d6549c2033",
+      "latency_seconds": 2.5310000000172295,
+      "status": "complete"
+    },
+    {
+      "stage": "result_artifact",
+      "artifact_id": "pilot_bcf26a868eb3c142da39c013",
+      "sha256": "3410233ce523b2d96c0b995d40101c41a2081b21f094b2a7484b6bbf5812ad92",
+      "row_count": 2,
+      "job_id": "d278ae1b-0862-48f6-b0be-f5d6549c2033",
+      "artifact_expires_at_utc": "2026-11-20T18:54:50.149343+00:00"
+    },
+    {
+      "stage": "prediction",
+      "sql": "WITH principal_lower_gi AS (\n  -- principal diagnoses (seq_num = 1) that likely indicate lower GI bleeding\n  SELECT\n    d.subject_id,\n    d.hadm_id,\n    d.icd_code,\n    dd.long_title\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.diagnoses_icd` d\n  LEFT JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_diagnoses` dd\n  ON\n    d.icd_code = dd.icd_code\n  WHERE\n    d.seq_num = 1\n    AND (\n      -- common keyword patterns for lower GI bleeding / hematochezia / rectal bleeding\n      (LOWER(COALESCE(dd.long_title, '')) LIKE '%lower%' AND LOWER(COALESCE(dd.long_title, '')) LIKE '%gastrointestinal%')\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%hematochezia%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%rectal%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%rectal bleeding%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%lower gi bleed%'\n      OR LOWER(COALESCE(dd.long_title, '')) LIKE '%lower gi hemorrhage%'\n    )\n),\ncohort AS (\n  -- Index admissions that meet demographic, payer, ED source, and principal DX criteria\n  SELECT\n    a.subject_id,\n    a.hadm_id,\n    a.admittime,\n    a.dischtime,\n    a.admission_type,\n    a.admission_location,\n    a.insurance,\n    p.gender,\n    p.anchor_age,\n    -- LOS in fractional days\n    SAFE_DIVIDE(DATETIME_DIFF(a.dischtime, a.admittime, SECOND), 86400.0) AS los_days\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  INNER JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n  ON\n    a.subject_id = p.subject_id\n  INNER JOIN\n    principal_lower_gi plg\n  ON\n    a.hadm_id = plg.hadm_id\n  WHERE\n    p.gender = 'M'\n    AND p.anchor_age BETWEEN 50 AND 60\n    AND UPPER(COALESCE(a.insurance, '')) LIKE '%MEDICARE%'\n    AND a.edregtime IS NOT NULL    -- admitted from ED\n    AND COALESCE(a.hospital_expire_flag, 0) = 0  -- exclude in-hospital deaths\n),\nreadmit_flags AS (\n  -- For each index admission, determine whether there is a readmission within 30 days\n  SELECT\n    c.*,\n    CASE WHEN MIN(r.admittime) IS NOT NULL THEN 1 ELSE 0 END AS readmitted_30d\n  FROM\n    cohort c\n  LEFT JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` r\n  ON\n    c.subject_id = r.subject_id\n    AND r.hadm_id != c.hadm_id\n    AND r.admittime > c.dischtime\n    AND r.admittime <= DATETIME_ADD(c.dischtime, INTERVAL 30 DAY)\n  GROUP BY\n    c.subject_id, c.hadm_id, c.admittime, c.dischtime, c.admission_type, c.admission_location, c.insurance, c.gender, c.anchor_age, c.los_days\n)\nSELECT\n  -- Overall 30-day readmission rate for the cohort\n  COUNT(*) AS total_index_admissions,\n  SUM(readmitted_30d) AS total_readmitted_30d,\n  ROUND(100.0 * SAFE_DIVIDE(SUM(readmitted_30d), COUNT(*)), 2) AS readmission_rate_pct_30d,\n  -- Per-group statistics: readmitted vs not readmitted\n  rf.readmitted_30d AS readmitted_flag,\n  COUNT(*) AS n_admissions,\n  -- median LOS using APPROX_QUANTILES (median ~ 0.5 quantile)\n  (APPROX_QUANTILES(rf.los_days, 2))[OFFSET(1)] AS median_los_days,\n  ROUND(100.0 * SAFE_DIVIDE(SUM(CASE WHEN rf.los_days > 6 THEN 1 ELSE 0 END), COUNT(*)), 2) AS pct_los_gt_6\nFROM\n  readmit_flags rf\nGROUP BY\n  rf.readmitted_30d\nORDER BY\n  rf.readmitted_30d DESC;",
+      "status": "executed",
+      "split": "validation",
+      "configured_model_id": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07"
+    }
+  ]
+}

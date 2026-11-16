@@ -1,0 +1,74 @@
+{
+  "task": "TASK_8_VALIDATION_PILOT_5",
+  "authorization_basis": "USER_ATTESTATION",
+  "authorization_status": "USER_CONFIRMED_NOT_INDEPENDENTLY_VERIFIED",
+  "confirmed_by": "Trần Đại Hải",
+  "role": "Project experiment lead",
+  "recorded_at_utc": "2026-11-14T17:08:35.434049+00:00",
+  "valid_until": "2026-11-22T23:59:59+07:00",
+  "principal": "kltn-sql-reader@kltn-text-to-sql.iam.gserviceaccount.com",
+  "project": "kltn-text-to-sql",
+  "location": "US",
+  "model": "gpt-5-mini-2025-08-07",
+  "retention_days": 7,
+  "iam_status": "READ_ONLY_LIKELY_WITH_APPROVED_RISK",
+  "statement": "The project experiment lead confirms having agreed the use, processing and transmission scope with the supervisor/data administrator and accepts unresolved inherited IAM risk for the read-only pilot.",
+  "pilot_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+  "case_ids": [
+    "Diagnostic_Procedures/easy_level_queries/058",
+    "Vital_Signs_Monitoring/easy_level_queries/044",
+    "Laboratory_Results_Analysis/medium_level_queries/079",
+    "Medication_Management/medium_level_queries/012",
+    "Patient_Demographics_and_Admissions/hard_level_queries/058"
+  ],
+  "methods": {
+    "catalog_export": {
+      "variant": "local_dictionary",
+      "evidence": {
+        "B": "dictionary_metadata"
+      }
+    },
+    "mac_sql": {
+      "variant": "column_samples",
+      "evidence": {
+        "A": "question_and_schema",
+        "C": "sql_and_sanitized_errors",
+        "D": "approved_column_samples",
+        "E": "row_presence_and_null"
+      }
+    },
+    "sde_sql": {
+      "variant": "grouped_3x3",
+      "evidence": {
+        "A": "question_and_schema",
+        "C": "sql_and_sanitized_errors",
+        "E": "probe_labels_and_column_names"
+      }
+    },
+    "ours": {
+      "variant": "dictionary_rag",
+      "evidence": {
+        "A": "question_and_schema",
+        "B": "dictionary_metadata",
+        "C": "sql_and_sanitized_errors",
+        "E": "shape_and_row_counts"
+      }
+    }
+  },
+  "catalog_tables": [
+    "d_icd_diagnoses",
+    "d_icd_procedures",
+    "d_labitems",
+    "d_items"
+  ],
+  "research_ceiling_vnd": "6962660.25",
+  "reserve_vnd": "773628.92",
+  "excluded": [
+    "raw patient result cells outside explicitly approved MAC Selector samples",
+    "Azure judge",
+    "CoT rerun",
+    "full validation/test benchmark",
+    "database writes"
+  ],
+  "source_attachment_sha256": "e0bb5f61ec32c7f4c4cc6665d66e9b6ef94eb87cdafe35c993ef80990ae2e676"
+}

@@ -54,5 +54,15 @@ STAGES = {'link': LINK, 'decompose': DECOMPOSE, 'generate': GENERATE,
 def system(profile, stage):
     if profile not in {'postgres','clinsql'}: raise ValueError('Unsupported profile')
     base = POSTGRES_SYSTEM_PROMPT if profile=='postgres' else CLINSQL_SYSTEM_PROMPT
-    return base + '\n' + STAGES[stage]
+    specific = ''
+    if profile == 'clinsql' and stage in {'link','verify','select'}:
+        specific = (
+            '\nCheck statistical grain (patient, admission, ICU stay), inclusion and exclusion, '
+            'age at the requested admission rather than anchor age alone, interval anchor and boundary, '
+            'aggregation and group denominators, and requested output columns and rows. '
+            'Require supplied catalog evidence for inferred ICD code and itemid constants. '
+            'Use matching ICD version and measurement source. Do not equate similar labels or units. '
+            'Only apply these obligations where the question warrants them.'
+        )
+    return base + '\n' + STAGES[stage] + specific
 

@@ -1,0 +1,48 @@
+{
+  "summary": {
+    "query_id": "Diagnostic_Procedures/easy_level_queries/058",
+    "method": "clinsql_cot",
+    "api_calls": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "reasoning_tokens": 0,
+    "latency_seconds": 0,
+    "total_latency_seconds": 26.812999999994645,
+    "execution_attempts": 0,
+    "probe_attempts": 0,
+    "retry_calls": 0,
+    "estimated_inference_cost_usd": 0.0,
+    "evaluation_cost_usd": null
+  },
+  "events": [
+    {
+      "stage": "run_context",
+      "case_id": "Diagnostic_Procedures/easy_level_queries/058",
+      "pilot_manifest_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+      "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+      "schema_index_sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318",
+      "model_id": "gpt-5-mini-2025-08-07",
+      "code_commit": "ce17a1dd77e74631576ed38a0ff9957184f1cbb6",
+      "api_budget_sha256": "e4cb022c47e150a4c2758236f5edbab0875edf9bb37f8ae5d6f9f77ee15e97b1",
+      "sql_budget_sha256": "0f4a97a9134682be4b438b61aec2a1dcc9bfe548524e427cb970c71c68def5f3",
+      "reasoning_effort": "medium",
+      "max_output_tokens": 8192,
+      "runtime_code_sha256": "a1a6b65fdd92220d73ebe5d0ffb48d0259b572b3b0f8efddee88fd07f8efddc8",
+      "fingerprint": "8482ebf9d31f9c62e3da5d947bb392edc6e589824054de5f6f4ec39d0e47a39f"
+    },
+    {
+      "stage": "pipeline_error",
+      "error_type": "AmbiguousModelRequest",
+      "status": "MODEL_REQUEST_OUTCOME_UNKNOWN",
+      "error": "Pilot failed; details withheld"
+    },
+    {
+      "stage": "prediction",
+      "sql": "",
+      "status": "MODEL_REQUEST_OUTCOME_UNKNOWN",
+      "split": "validation",
+      "configured_model_id": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07"
+    }
+  ]
+}

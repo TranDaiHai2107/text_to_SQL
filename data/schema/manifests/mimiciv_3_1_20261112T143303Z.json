@@ -1,0 +1,2283 @@
+{
+  "manifest_version": 1,
+  "captured_at_utc": "2026-11-12T14:33:15+00:00",
+  "source": "bigquery_information_schema",
+  "project_id": "kltn-text-to-sql",
+  "location": "US",
+  "datasets": {
+    "hosp": "mimiciv_3_1_hosp",
+    "icu": "mimiciv_3_1_icu"
+  },
+  "tables": [
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "admissions",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "admittime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "dischtime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "deathtime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "admission_type",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 6
+        },
+        {
+          "name": "admit_provider_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "admission_location",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 8
+        },
+        {
+          "name": "discharge_location",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "insurance",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "language",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "marital_status",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "race",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 13
+        },
+        {
+          "name": "edregtime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "edouttime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "hospital_expire_flag",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 16
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "d_hcpcs",
+      "columns": [
+        {
+          "name": "code",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "category",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 2
+        },
+        {
+          "name": "long_description",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "short_description",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "d_icd_diagnoses",
+      "columns": [
+        {
+          "name": "icd_code",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "icd_version",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "long_title",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 3
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "d_icd_procedures",
+      "columns": [
+        {
+          "name": "icd_code",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "icd_version",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "long_title",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 3
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "d_labitems",
+      "columns": [
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "label",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 2
+        },
+        {
+          "name": "fluid",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "category",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "diagnoses_icd",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "seq_num",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "icd_code",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "icd_version",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 5
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "drgcodes",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "drg_type",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "drg_code",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "description",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "drg_severity",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "drg_mortality",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 7
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "emar",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 2
+        },
+        {
+          "name": "emar_id",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "emar_seq",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "poe_id",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "pharmacy_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "enter_provider_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "charttime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 8
+        },
+        {
+          "name": "medication",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "event_txt",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "scheduletime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 12
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "emar_detail",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "emar_id",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "emar_seq",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "parent_field_ordinal",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "administration_type",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "pharmacy_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "barcode_type",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "reason_for_no_barcode",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 8
+        },
+        {
+          "name": "complete_dose_not_given",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "dose_due",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "dose_due_unit",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "dose_given",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "dose_given_unit",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 13
+        },
+        {
+          "name": "will_remainder_of_dose_be_given",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "product_amount_given",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "product_unit",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 16
+        },
+        {
+          "name": "product_code",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 17
+        },
+        {
+          "name": "product_description",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 18
+        },
+        {
+          "name": "product_description_other",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 19
+        },
+        {
+          "name": "prior_infusion_rate",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 20
+        },
+        {
+          "name": "infusion_rate",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 21
+        },
+        {
+          "name": "infusion_rate_adjustment",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 22
+        },
+        {
+          "name": "infusion_rate_adjustment_amount",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 23
+        },
+        {
+          "name": "infusion_rate_unit",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 24
+        },
+        {
+          "name": "route",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 25
+        },
+        {
+          "name": "infusion_complete",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 26
+        },
+        {
+          "name": "completion_interval",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 27
+        },
+        {
+          "name": "new_iv_bag_hung",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 28
+        },
+        {
+          "name": "continued_infusion_in_other_location",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 29
+        },
+        {
+          "name": "restart_interval",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 30
+        },
+        {
+          "name": "side",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 31
+        },
+        {
+          "name": "site",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 32
+        },
+        {
+          "name": "non_formulary_visual_verification",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 33
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "hcpcsevents",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "chartdate",
+          "type": "DATE",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "hcpcs_cd",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "seq_num",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "short_description",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 6
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "labevents",
+      "columns": [
+        {
+          "name": "labevent_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "specimen_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "order_provider_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "charttime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 8
+        },
+        {
+          "name": "value",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "valuenum",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "valueuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "ref_range_lower",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "ref_range_upper",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 13
+        },
+        {
+          "name": "flag",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "priority",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "comments",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 16
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "microbiologyevents",
+      "columns": [
+        {
+          "name": "microevent_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "micro_specimen_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "order_provider_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "chartdate",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 6
+        },
+        {
+          "name": "charttime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "spec_itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 8
+        },
+        {
+          "name": "spec_type_desc",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 9
+        },
+        {
+          "name": "test_seq",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 10
+        },
+        {
+          "name": "storedate",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "test_itemid",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 13
+        },
+        {
+          "name": "test_name",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "org_itemid",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "org_name",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 16
+        },
+        {
+          "name": "isolate_num",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 17
+        },
+        {
+          "name": "quantity",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 18
+        },
+        {
+          "name": "ab_itemid",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 19
+        },
+        {
+          "name": "ab_name",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 20
+        },
+        {
+          "name": "dilution_text",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 21
+        },
+        {
+          "name": "dilution_comparison",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 22
+        },
+        {
+          "name": "dilution_value",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 23
+        },
+        {
+          "name": "interpretation",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 24
+        },
+        {
+          "name": "comments",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 25
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "omr",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "chartdate",
+          "type": "DATE",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "seq_num",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "result_name",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "result_value",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 5
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "patients",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "gender",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "anchor_age",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "anchor_year",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "anchor_year_group",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "dod",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 6
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "pharmacy",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "pharmacy_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "poe_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "starttime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "stoptime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "medication",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "proc_type",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 8
+        },
+        {
+          "name": "status",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "entertime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 10
+        },
+        {
+          "name": "verifiedtime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "route",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "frequency",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 13
+        },
+        {
+          "name": "disp_sched",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "infusion_type",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "sliding_scale",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 16
+        },
+        {
+          "name": "lockout_interval",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 17
+        },
+        {
+          "name": "basal_rate",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 18
+        },
+        {
+          "name": "one_hr_max",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 19
+        },
+        {
+          "name": "doses_per_24_hrs",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 20
+        },
+        {
+          "name": "duration",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 21
+        },
+        {
+          "name": "duration_interval",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 22
+        },
+        {
+          "name": "expiration_value",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 23
+        },
+        {
+          "name": "expiration_unit",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 24
+        },
+        {
+          "name": "expirationdate",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 25
+        },
+        {
+          "name": "dispensation",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 26
+        },
+        {
+          "name": "fill_quantity",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 27
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "poe",
+      "columns": [
+        {
+          "name": "poe_id",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "poe_seq",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "ordertime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "order_type",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 6
+        },
+        {
+          "name": "order_subtype",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "transaction_type",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 8
+        },
+        {
+          "name": "discontinue_of_poe_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "discontinued_by_poe_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "order_provider_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "order_status",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 12
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "poe_detail",
+      "columns": [
+        {
+          "name": "poe_id",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "poe_seq",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "field_name",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "field_value",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 5
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "prescriptions",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "pharmacy_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "poe_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "poe_seq",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "order_provider_id",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "starttime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "stoptime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 8
+        },
+        {
+          "name": "drug_type",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 9
+        },
+        {
+          "name": "drug",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 10
+        },
+        {
+          "name": "formulary_drug_cd",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "gsn",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "ndc",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 13
+        },
+        {
+          "name": "prod_strength",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "form_rx",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "dose_val_rx",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 16
+        },
+        {
+          "name": "dose_unit_rx",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 17
+        },
+        {
+          "name": "form_val_disp",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 18
+        },
+        {
+          "name": "form_unit_disp",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 19
+        },
+        {
+          "name": "doses_per_24_hrs",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 20
+        },
+        {
+          "name": "route",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 21
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "procedures_icd",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "seq_num",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "chartdate",
+          "type": "DATE",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "icd_code",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "icd_version",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 6
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "provider",
+      "columns": [
+        {
+          "name": "provider_id",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 1
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "services",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "transfertime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "prev_service",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "curr_service",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 5
+        }
+      ]
+    },
+    {
+      "role": "hosp",
+      "dataset": "mimiciv_3_1_hosp",
+      "table": "transfers",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 2
+        },
+        {
+          "name": "transfer_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "eventtype",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "careunit",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "intime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "outtime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 7
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "caregiver",
+      "columns": [
+        {
+          "name": "caregiver_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "chartevents",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "stay_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "caregiver_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "charttime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 7
+        },
+        {
+          "name": "value",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 8
+        },
+        {
+          "name": "valuenum",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "valueuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "warning",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 11
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "d_items",
+      "columns": [
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "label",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "abbreviation",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "linksto",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 4
+        },
+        {
+          "name": "category",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "unitname",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "param_type",
+          "type": "STRING",
+          "nullable": false,
+          "ordinal": 7
+        },
+        {
+          "name": "lownormalvalue",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 8
+        },
+        {
+          "name": "highnormalvalue",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 9
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "datetimeevents",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "stay_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "caregiver_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "charttime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 7
+        },
+        {
+          "name": "value",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 8
+        },
+        {
+          "name": "valueuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "warning",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 10
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "icustays",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "stay_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "first_careunit",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "last_careunit",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 5
+        },
+        {
+          "name": "intime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 6
+        },
+        {
+          "name": "outtime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "los",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 8
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "ingredientevents",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "stay_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "caregiver_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "starttime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "endtime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 6
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 8
+        },
+        {
+          "name": "amount",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "amountuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "rate",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "rateuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "orderid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 13
+        },
+        {
+          "name": "linkorderid",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "statusdescription",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "originalamount",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 16
+        },
+        {
+          "name": "originalrate",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 17
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "inputevents",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "stay_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 3
+        },
+        {
+          "name": "caregiver_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "starttime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "endtime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 6
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": true,
+          "ordinal": 7
+        },
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 8
+        },
+        {
+          "name": "amount",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "amountuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "rate",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "rateuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "orderid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 13
+        },
+        {
+          "name": "linkorderid",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "ordercategoryname",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "secondaryordercategoryname",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 16
+        },
+        {
+          "name": "ordercomponenttypedescription",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 17
+        },
+        {
+          "name": "ordercategorydescription",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 18
+        },
+        {
+          "name": "patientweight",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 19
+        },
+        {
+          "name": "totalamount",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 20
+        },
+        {
+          "name": "totalamountuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 21
+        },
+        {
+          "name": "isopenbag",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 22
+        },
+        {
+          "name": "continueinnextdept",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 23
+        },
+        {
+          "name": "statusdescription",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 24
+        },
+        {
+          "name": "originalamount",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 25
+        },
+        {
+          "name": "originalrate",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 26
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "outputevents",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "stay_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "caregiver_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "charttime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 6
+        },
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 7
+        },
+        {
+          "name": "value",
+          "type": "FLOAT64",
+          "nullable": false,
+          "ordinal": 8
+        },
+        {
+          "name": "valueuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 9
+        }
+      ]
+    },
+    {
+      "role": "icu",
+      "dataset": "mimiciv_3_1_icu",
+      "table": "procedureevents",
+      "columns": [
+        {
+          "name": "subject_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 1
+        },
+        {
+          "name": "hadm_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 2
+        },
+        {
+          "name": "stay_id",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 3
+        },
+        {
+          "name": "caregiver_id",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 4
+        },
+        {
+          "name": "starttime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 5
+        },
+        {
+          "name": "endtime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 6
+        },
+        {
+          "name": "storetime",
+          "type": "DATETIME",
+          "nullable": false,
+          "ordinal": 7
+        },
+        {
+          "name": "itemid",
+          "type": "INT64",
+          "nullable": false,
+          "ordinal": 8
+        },
+        {
+          "name": "value",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 9
+        },
+        {
+          "name": "valueuom",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 10
+        },
+        {
+          "name": "location",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 11
+        },
+        {
+          "name": "locationcategory",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 12
+        },
+        {
+          "name": "orderid",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 13
+        },
+        {
+          "name": "linkorderid",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 14
+        },
+        {
+          "name": "ordercategoryname",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 15
+        },
+        {
+          "name": "ordercategorydescription",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 16
+        },
+        {
+          "name": "patientweight",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 17
+        },
+        {
+          "name": "isopenbag",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 18
+        },
+        {
+          "name": "continueinnextdept",
+          "type": "INT64",
+          "nullable": true,
+          "ordinal": 19
+        },
+        {
+          "name": "statusdescription",
+          "type": "STRING",
+          "nullable": true,
+          "ordinal": 20
+        },
+        {
+          "name": "ORIGINALAMOUNT",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 21
+        },
+        {
+          "name": "ORIGINALRATE",
+          "type": "FLOAT64",
+          "nullable": true,
+          "ordinal": 22
+        }
+      ]
+    }
+  ],
+  "sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d"
+}

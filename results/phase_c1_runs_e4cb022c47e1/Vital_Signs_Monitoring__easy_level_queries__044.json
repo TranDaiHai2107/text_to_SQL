@@ -1,0 +1,67 @@
+{
+  "summary": {
+    "query_id": "Vital_Signs_Monitoring/easy_level_queries/044",
+    "method": "clinsql_cot",
+    "api_calls": 1,
+    "input_tokens": 3729,
+    "api_usage_unknown_calls": 0,
+    "output_tokens": 2345,
+    "reasoning_tokens": 1600,
+    "latency_seconds": 24.34399999998277,
+    "total_latency_seconds": 24.35899999999674,
+    "execution_attempts": 0,
+    "probe_attempts": 0,
+    "retry_calls": 0,
+    "estimated_inference_cost_usd": 0.00562225,
+    "evaluation_cost_usd": null
+  },
+  "events": [
+    {
+      "stage": "run_context",
+      "case_id": "Vital_Signs_Monitoring/easy_level_queries/044",
+      "pilot_manifest_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+      "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+      "schema_index_sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318",
+      "model_id": "gpt-5-mini-2025-08-07",
+      "code_commit": "ce17a1dd77e74631576ed38a0ff9957184f1cbb6",
+      "api_budget_sha256": "e4cb022c47e150a4c2758236f5edbab0875edf9bb37f8ae5d6f9f77ee15e97b1",
+      "sql_budget_sha256": "0f4a97a9134682be4b438b61aec2a1dcc9bfe548524e427cb970c71c68def5f3",
+      "reasoning_effort": "medium",
+      "max_output_tokens": 8192,
+      "runtime_code_sha256": "33b4ec92087fcc30a5bb040a580c37ee66ff4e81703b55337a5843f121c248d8",
+      "fingerprint": "b6716007f5ec7e6ecf6792678f729f1f770a82d41cdfcd5cf72a6c72676b2d94"
+    },
+    {
+      "stage": "llm",
+      "operation": "generate",
+      "model": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07",
+      "response_id": "resp_08e4c48da190cb58016af75953e27887d2b3328491c4e14dad",
+      "prompt_sha256": "5cce5d71b026904c71e48dd70a6f9c265d68c45ef351f5ca45213eaec49b17f6",
+      "input_tokens": 3729,
+      "output_tokens": 2345,
+      "reasoning_tokens": 1600,
+      "latency_seconds": 24.34399999998277
+    },
+    {
+      "stage": "dry_run",
+      "sql": "WITH map_items AS (\n  SELECT DISTINCT itemid\n  FROM `physionet-data.mimiciv_3_1_icu.d_items`\n  WHERE LOWER(label) LIKE '%mean arterial pressure%'\n     OR LOWER(label) LIKE '%map%'\n     OR LOWER(abbreviation) LIKE '%map%'\n),\nhadm_max_map AS (\n  SELECT\n    ce.hadm_id,\n    MAX(ce.valuenum) AS max_map\n  FROM `physionet-data.mimiciv_3_1_icu.chartevents` ce\n  JOIN map_items mi\n    ON ce.itemid = mi.itemid\n  WHERE ce.hadm_id IS NOT NULL\n    AND ce.valuenum IS NOT NULL\n    -- optional filter to restrict to mmHg units if desired:\n    -- AND (LOWER(ce.valueuom) LIKE '%mmhg%' OR ce.valueuom IS NULL)\n  GROUP BY ce.hadm_id\n)\nSELECT\n  -- approximate median (50th percentile) of the per-hadm maximum MAP\n  APPROX_QUANTILES(hm.max_map, 100)[OFFSET(50)] AS median_of_hadm_max_map\nFROM hadm_max_map hm\nJOIN `physionet-data.mimiciv_3_1_hosp.admissions` a\n  ON hm.hadm_id = a.hadm_id\nJOIN `physionet-data.mimiciv_3_1_hosp.patients` p\n  ON a.subject_id = p.subject_id\nWHERE p.gender = 'F'\n  AND p.anchor_age BETWEEN 82 AND 92;",
+      "error_type": "SecurityRejected",
+      "error": "Database error; details withheld"
+    },
+    {
+      "stage": "pipeline_error",
+      "error_type": "SecurityRejected",
+      "status": "SECURITY_REJECTED",
+      "error": "Pilot failed; details withheld"
+    },
+    {
+      "stage": "prediction",
+      "sql": "",
+      "status": "SECURITY_REJECTED",
+      "split": "validation",
+      "configured_model_id": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07"
+    }
+  ]
+}

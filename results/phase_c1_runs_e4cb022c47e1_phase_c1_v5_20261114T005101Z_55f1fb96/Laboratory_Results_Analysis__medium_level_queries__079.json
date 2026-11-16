@@ -1,0 +1,95 @@
+{
+  "summary": {
+    "query_id": "Laboratory_Results_Analysis/medium_level_queries/079",
+    "method": "clinsql_cot",
+    "api_calls": 1,
+    "input_tokens": 3756,
+    "api_usage_unknown_calls": 0,
+    "output_tokens": 3612,
+    "reasoning_tokens": 2496,
+    "latency_seconds": 43.5,
+    "total_latency_seconds": 49.687999999994645,
+    "execution_attempts": 1,
+    "probe_attempts": 0,
+    "retry_calls": 0,
+    "estimated_inference_cost_usd": 0.008163,
+    "evaluation_cost_usd": null
+  },
+  "events": [
+    {
+      "stage": "run_context",
+      "case_id": "Laboratory_Results_Analysis/medium_level_queries/079",
+      "pilot_manifest_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+      "approval_id": "phase_c1_v5_20261114T005101Z_55f1fb96",
+      "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+      "schema_index_sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318",
+      "model_id": "gpt-5-mini-2025-08-07",
+      "code_commit": "ce17a1dd77e74631576ed38a0ff9957184f1cbb6",
+      "api_budget_sha256": "e4cb022c47e150a4c2758236f5edbab0875edf9bb37f8ae5d6f9f77ee15e97b1",
+      "sql_budget_sha256": "25515e9fd030302f886391d50e11729c593a8200d0e08ffeca1158bcb29bb13c",
+      "reasoning_effort": "medium",
+      "max_output_tokens": 8192,
+      "runtime_code_sha256": "52f98b21a7dd86beea243f7bfa5dfb85a94fe5f81bd6a4a2a0607e7a63042818",
+      "fingerprint": "42d28613cfdb0e58adfbad202f57d0b2453c7dcf9b9e3ccd933b0027a24b7d5f"
+    },
+    {
+      "stage": "llm",
+      "operation": "generate",
+      "model": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07",
+      "response_id": "resp_02327a96f8c35e58016af7b16c66e487d28f11e76e075716fc",
+      "prompt_sha256": "539c5bb33d199eebb3cf19e64c51ab727d95176c2d88c0bd9590a776c153cc7e",
+      "input_tokens": 3756,
+      "output_tokens": 3612,
+      "reasoning_tokens": 2496,
+      "latency_seconds": 43.5
+    },
+    {
+      "stage": "dry_run",
+      "sql": "WITH troponin_items AS (\n  SELECT itemid, label\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.d_labitems`\n  WHERE LOWER(label) LIKE '%troponin t%'\n),\n\nadmissions_with_dx AS (\n  SELECT a.*\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  JOIN `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n    ON a.subject_id = p.subject_id\n  WHERE p.gender = 'F'\n    AND p.anchor_age BETWEEN 82 AND 92\n    AND EXISTS (\n      SELECT 1\n      FROM `kltn-text-to-sql.mimiciv_3_1_hosp.diagnoses_icd` di\n      JOIN `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_diagnoses` dd\n        ON di.icd_code = dd.icd_code\n      WHERE di.hadm_id = a.hadm_id\n        AND (\n          LOWER(dd.long_title) LIKE '%chest pain%'\n          OR LOWER(dd.long_title) LIKE '%myocardial infarction%'\n          OR LOWER(dd.long_title) LIKE '%acute myocardial infarction%'\n          OR LOWER(dd.long_title) LIKE '%ami%'\n        )\n    )\n),\n\ninitial_troponin AS (\n  SELECT\n    le.subject_id,\n    le.hadm_id,\n    le.valuenum,\n    le.valueuom,\n    le.charttime,\n    ROW_NUMBER() OVER (PARTITION BY le.hadm_id ORDER BY le.charttime) AS rn\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.labevents` le\n  JOIN troponin_items ti\n    ON le.itemid = ti.itemid\n  JOIN admissions_with_dx a\n    ON le.hadm_id = a.hadm_id\n  WHERE le.charttime >= a.admittime\n    AND (a.dischtime IS NULL OR le.charttime <= a.dischtime)\n    AND le.valuenum IS NOT NULL\n    -- restrict to ng-based units to match ng/mL\n    AND LOWER(COALESCE(le.valueuom, '')) LIKE '%ng%'\n)\n\nSELECT\n  quantiles[OFFSET(1)] AS p25,\n  quantiles[OFFSET(2)] AS p50,\n  quantiles[OFFSET(3)] AS p75,\n  quantiles[OFFSET(0)] AS min_value,\n  quantiles[OFFSET(4)] AS max_value\nFROM (\n  SELECT APPROX_QUANTILES(valuenum, 4) AS quantiles\n  FROM initial_troponin\n  WHERE rn = 1\n    AND valuenum > 0.01\n);",
+      "estimated_bytes": 5211664442
+    },
+    {
+      "stage": "execute",
+      "sql": "WITH troponin_items AS (\n  SELECT itemid, label\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.d_labitems`\n  WHERE LOWER(label) LIKE '%troponin t%'\n),\n\nadmissions_with_dx AS (\n  SELECT a.*\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  JOIN `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n    ON a.subject_id = p.subject_id\n  WHERE p.gender = 'F'\n    AND p.anchor_age BETWEEN 82 AND 92\n    AND EXISTS (\n      SELECT 1\n      FROM `kltn-text-to-sql.mimiciv_3_1_hosp.diagnoses_icd` di\n      JOIN `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_diagnoses` dd\n        ON di.icd_code = dd.icd_code\n      WHERE di.hadm_id = a.hadm_id\n        AND (\n          LOWER(dd.long_title) LIKE '%chest pain%'\n          OR LOWER(dd.long_title) LIKE '%myocardial infarction%'\n          OR LOWER(dd.long_title) LIKE '%acute myocardial infarction%'\n          OR LOWER(dd.long_title) LIKE '%ami%'\n        )\n    )\n),\n\ninitial_troponin AS (\n  SELECT\n    le.subject_id,\n    le.hadm_id,\n    le.valuenum,\n    le.valueuom,\n    le.charttime,\n    ROW_NUMBER() OVER (PARTITION BY le.hadm_id ORDER BY le.charttime) AS rn\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.labevents` le\n  JOIN troponin_items ti\n    ON le.itemid = ti.itemid\n  JOIN admissions_with_dx a\n    ON le.hadm_id = a.hadm_id\n  WHERE le.charttime >= a.admittime\n    AND (a.dischtime IS NULL OR le.charttime <= a.dischtime)\n    AND le.valuenum IS NOT NULL\n    -- restrict to ng-based units to match ng/mL\n    AND LOWER(COALESCE(le.valueuom, '')) LIKE '%ng%'\n)\n\nSELECT\n  quantiles[OFFSET(1)] AS p25,\n  quantiles[OFFSET(2)] AS p50,\n  quantiles[OFFSET(3)] AS p75,\n  quantiles[OFFSET(0)] AS min_value,\n  quantiles[OFFSET(4)] AS max_value\nFROM (\n  SELECT APPROX_QUANTILES(valuenum, 4) AS quantiles\n  FROM initial_troponin\n  WHERE rn = 1\n    AND valuenum > 0.01\n);",
+      "columns": [
+        "p25",
+        "p50",
+        "p75",
+        "min_value",
+        "max_value"
+      ],
+      "row_count": 1,
+      "rows": null,
+      "column_types": [
+        "FLOAT",
+        "FLOAT",
+        "FLOAT",
+        "FLOAT",
+        "FLOAT"
+      ],
+      "complete": true,
+      "bytes_billed": 5212471296,
+      "bytes_processed": 5211664442,
+      "job_id": "e5d8b375-cfb5-43e2-a919-b4fd7143a7b3",
+      "latency_seconds": 2.4839999999967404,
+      "status": "complete"
+    },
+    {
+      "stage": "result_artifact",
+      "artifact_id": "pilot_42d28613cfdb0e58adfbad20",
+      "sha256": "9872759465aac9019e681abada352b7ddf7ac8f9ce2433803093e042bce20a63",
+      "row_count": 1,
+      "job_id": "e5d8b375-cfb5-43e2-a919-b4fd7143a7b3",
+      "artifact_expires_at_utc": "2026-11-21T00:55:53.697368+00:00"
+    },
+    {
+      "stage": "prediction",
+      "sql": "WITH troponin_items AS (\n  SELECT itemid, label\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.d_labitems`\n  WHERE LOWER(label) LIKE '%troponin t%'\n),\n\nadmissions_with_dx AS (\n  SELECT a.*\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  JOIN `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n    ON a.subject_id = p.subject_id\n  WHERE p.gender = 'F'\n    AND p.anchor_age BETWEEN 82 AND 92\n    AND EXISTS (\n      SELECT 1\n      FROM `kltn-text-to-sql.mimiciv_3_1_hosp.diagnoses_icd` di\n      JOIN `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_diagnoses` dd\n        ON di.icd_code = dd.icd_code\n      WHERE di.hadm_id = a.hadm_id\n        AND (\n          LOWER(dd.long_title) LIKE '%chest pain%'\n          OR LOWER(dd.long_title) LIKE '%myocardial infarction%'\n          OR LOWER(dd.long_title) LIKE '%acute myocardial infarction%'\n          OR LOWER(dd.long_title) LIKE '%ami%'\n        )\n    )\n),\n\ninitial_troponin AS (\n  SELECT\n    le.subject_id,\n    le.hadm_id,\n    le.valuenum,\n    le.valueuom,\n    le.charttime,\n    ROW_NUMBER() OVER (PARTITION BY le.hadm_id ORDER BY le.charttime) AS rn\n  FROM `kltn-text-to-sql.mimiciv_3_1_hosp.labevents` le\n  JOIN troponin_items ti\n    ON le.itemid = ti.itemid\n  JOIN admissions_with_dx a\n    ON le.hadm_id = a.hadm_id\n  WHERE le.charttime >= a.admittime\n    AND (a.dischtime IS NULL OR le.charttime <= a.dischtime)\n    AND le.valuenum IS NOT NULL\n    -- restrict to ng-based units to match ng/mL\n    AND LOWER(COALESCE(le.valueuom, '')) LIKE '%ng%'\n)\n\nSELECT\n  quantiles[OFFSET(1)] AS p25,\n  quantiles[OFFSET(2)] AS p50,\n  quantiles[OFFSET(3)] AS p75,\n  quantiles[OFFSET(0)] AS min_value,\n  quantiles[OFFSET(4)] AS max_value\nFROM (\n  SELECT APPROX_QUANTILES(valuenum, 4) AS quantiles\n  FROM initial_troponin\n  WHERE rn = 1\n    AND valuenum > 0.01\n);",
+      "status": "executed",
+      "split": "validation",
+      "configured_model_id": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07"
+    }
+  ]
+}

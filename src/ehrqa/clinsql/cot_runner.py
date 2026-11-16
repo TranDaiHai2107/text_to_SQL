@@ -9,6 +9,7 @@ import re
 import time
 
 from .cot import generation_prompt, refinement_prompt, extract_sql
+from .execution_errors import IncompleteResultError, SecurityRejected
 
 
 @dataclass(frozen=True)
@@ -30,12 +31,14 @@ class Prediction:
 
 
 class ClinSQLCoT:
-    def __init__(self, model, database, schema_text: str, *, max_refinements: int = 2):
+    def __init__(self, model, database, schema_text: str, *, max_refinements: int = 2,
+                 refine_guard_rejections: bool = True):
         if max_refinements != 2:
             raise ValueError('CLINSQL CoT reproduction requires two refinement opportunities')
         self.model = model
         self.db = database
         self.schema_text = schema_text
+        self.refine_guard_rejections = refine_guard_rejections
 
     def run(self, query_id: str, question: str) -> Prediction:
         attempts = []
@@ -48,13 +51,27 @@ class ClinSQLCoT:
             latency = time.monotonic() - started
             usage = response.get('usage', {})
             sql = extract_sql(response['content'])
+            if not sql:
+                attempts.append(Attempt(stage, None, usage, latency, 'Empty model SQL'))
+                return Prediction(query_id, None, 'generation_failure', tuple(attempts), execution_attempts)
             try:
                 self.db.dry_run(sql)
                 execution_attempts += 1
-                self.db.execute(sql)
+                result = self.db.execute(sql)
+                if result is not None and not result.complete:
+                    raise IncompleteResultError('Incomplete BigQuery result; do not score as model failure')
                 attempts.append(Attempt(stage, sql, usage, latency))
                 return Prediction(query_id, sql, 'executed', tuple(attempts), execution_attempts)
-            except (PermissionError, ConnectionError, TimeoutError):
+            except (PermissionError, ConnectionError, TimeoutError) as exc:
+                if isinstance(exc, SecurityRejected) and self.refine_guard_rejections:
+                    error = ('Use one read-only SELECT with fully qualified tables '
+                             'from the supplied schema only')
+                    attempts.append(Attempt(stage, sql, usage, latency, error))
+                    if index == 2:
+                        return Prediction(query_id, sql, 'sql_error',
+                                          tuple(attempts), execution_attempts)
+                    prompt = refinement_prompt(question, self.schema_text, sql, error)
+                    continue
                 # Infrastructure and policy failures are not SQL failures.
                 raise
             except ValueError as exc:

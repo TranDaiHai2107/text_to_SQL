@@ -1,0 +1,31 @@
+{
+  "master_manifest_sha256": "fd28d344e6fe0c118a75554abcdb6d631f33b6ebb4e06262c59b6cf71e718173",
+  "phase_order": [
+    "PILOT_EVALUATION",
+    "BASELINE_FIDELITY",
+    "FOUR_METHOD_LIVE_PILOT",
+    "VALIDATION_152",
+    "INTERNAL_CHECK_38",
+    "CONFIG_FREEZE",
+    "TEST_443",
+    "OFFICIAL_SCORING",
+    "FINAL_REPORT"
+  ],
+  "phase_states": {
+    "PILOT_EVALUATION": "DIAGNOSTIC_COMPLETE_OFFICIAL_JUDGE_BLOCKED",
+    "BASELINE_FIDELITY": "IN_PROGRESS_OFFLINE",
+    "FOUR_METHOD_LIVE_PILOT": "BLOCKED_FIDELITY_DATA_POLICY_AND_APPROVAL",
+    "VALIDATION_152": "NOT_STARTED",
+    "INTERNAL_CHECK_38": "NOT_STARTED",
+    "CONFIG_FREEZE": "NOT_STARTED",
+    "TEST_443": "SEALED_NOT_STARTED",
+    "OFFICIAL_SCORING": "BLOCKED_RESULT_TRANSFER_NOT_APPROVED",
+    "FINAL_REPORT": "NOT_STARTED"
+  },
+  "pilot_cases_checkpointed": 5,
+  "pilot_status": "PILOT_5_TECHNICAL_EXECUTION_PASS",
+  "official_score_status": "NOT_AVAILABLE",
+  "network_calls": 0,
+  "bigquery_jobs": 0,
+  "ledger_path": "results/restricted/phase_c2_state.sqlite"
+}

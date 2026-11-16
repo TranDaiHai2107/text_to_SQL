@@ -1,52 +1,66 @@
-"""Offline CoT baseline specification from CLINSQL paper Appendix D.
+"""Use the locked official ClinSQL prompt and SQL cleaning implementations.
 
-Inference transport is deliberately not wired until model, BigQuery and data policy are locked.
+The source checkout stays unmodified and is required for this baseline.
 """
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 import re
 
 
-DATASETS = ('physionet-data.mimiciv_3_1_hosp', 'physionet-data.mimiciv_3_1_icu')
+_SOURCE = Path(__file__).resolve().parents[3] / 'external' / 'clinsql_official' / 'utils'
+_SOURCE_PROJECT = 'physionet-data'
+_DATASETS = ('mimiciv_3_1_hosp', 'mimiciv_3_1_icu')
 
 
-def generation_prompt(question: str, schema_text: str, *, datasets=DATASETS) -> str:
+def _bind_bigquery_datasets(prompt: str, schema_text: str) -> str:
+    """Replace only the source's dataset project, using the supplied DDL."""
+    refs = re.findall(r'CREATE\s+TABLE\s+`([A-Za-z0-9_-]+)\.'
+                      r'(mimiciv_3_1_(?:hosp|icu))\.[A-Za-z0-9_]+`',
+                      schema_text, flags=re.I)
+    if not refs:
+        return prompt  # Synthetic unit schemas may omit fully qualified MIMIC DDL.
+    projects = {project for project, _ in refs}
+    roles = {dataset for _, dataset in refs}
+    if len(projects) != 1 or roles != set(_DATASETS):
+        raise ValueError('Schema DDL does not identify one complete BigQuery project')
+    project = projects.pop()
+    for dataset in _DATASETS:
+        source_ref = f'{_SOURCE_PROJECT}.{dataset}'
+        if source_ref not in prompt:
+            raise ValueError('Locked CLINSQL prompt lacks its source dataset reference')
+        prompt = prompt.replace(source_ref, f'{project}.{dataset}')
+    return prompt
+
+
+def _source_function(module_name: str, function_name: str):
+    path = _SOURCE / f'{module_name}.py'
+    if not path.is_file():
+        raise FileNotFoundError(f'Locked official ClinSQL source missing: {path}')
+    spec = importlib.util.spec_from_file_location(f'_clinsql_official_{module_name}', path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f'Cannot load official ClinSQL source: {path}')
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return getattr(module, function_name)
+
+
+def generation_prompt(question: str, schema_text: str) -> str:
     if not question or not schema_text:
         raise ValueError('Question and schema are required')
-    return (
-        'You are a clinical data analyst expert specializing in the MIMIC-IV database. '
-        'Your goal is to produce a correct BigQuery SQL query for the question below.\n'
-        'Constraints:\n- Target platform: Google BigQuery.\n- Use the correct datasets:\n'
-        + ', '.join(datasets) + '.\nMIMIC-IV Schema Reference (HOSP + ICU):\n'
-        + schema_text + '\nClinical question:\n“' + question + '”\n' +
-        'Your output should be organized in the following two parts:\n'
-        'Reasoning:\n- Think step by step about relevant tables, joins, filters, groupings, and edge cases.\n'
-        '- Briefly justify important choices.\n'
-        'SQL (wrap the final query in a fenced code block using ```sql and ```):\n'
-        'Think step by step and then generate the complete SQL query.'
-    )
+    source = _source_function('prompt_utils', 'build_generation_prompt')(question, schema_text)
+    return _bind_bigquery_datasets(source, schema_text)
 
 
-def refinement_prompt(question: str, schema_text: str, previous_sql: str, redacted_error: str,
-                      *, datasets=DATASETS) -> str:
+def refinement_prompt(question: str, schema_text: str, previous_sql: str, redacted_error: str) -> str:
     if not all((question, schema_text, previous_sql, redacted_error)):
         raise ValueError('Question, schema, previous SQL and redacted error are required')
-    return (
-        'You are a clinical data analyst expert for the MIMIC-IV dataset. '
-        'The following SQL failed to run on Google BigQuery. Refine it to resolve the error and better answer the question.\n'
-        'Constraints:\n- Use valid BigQuery SQL.\n- Use the correct datasets:\n'
-        + ', '.join(datasets) + '.\nMIMIC-IV Schema Reference (HOSP + ICU):\n'
-        + schema_text + '\nClinical question:\n“' + question + '”\nPrevious SQL:\n```sql\n' +
-        previous_sql + '\n```\nBigQuery error message:\n' + redacted_error + '\n' +
-        'Your output should be organized in the following two parts:\nReasoning:\n'
-        '- Step by step, explain the cause of the error and the fix.\n'
-        '- Justify key changes briefly.\nSQL (wrap the final corrected query in a fenced code block using ```sql and ```):\n'
-        'Think step by step and then generate the complete corrected SQL query.'
+    source = _source_function('prompt_utils', 'build_refinement_prompt')(
+        question, previous_sql, redacted_error, schema_text
     )
+    return _bind_bigquery_datasets(source, schema_text)
 
 
 def extract_sql(text: str) -> str:
-    blocks = re.findall(r'```(?:sql)?\s*(.*?)```', text, flags=re.IGNORECASE | re.DOTALL)
-    if len(blocks) != 1 or not blocks[0].strip():
-        raise ValueError('Expected exactly one fenced SQL block')
-    return blocks[0].strip()
+    return _source_function('sql_utils', 'clean_sql_response')(text)

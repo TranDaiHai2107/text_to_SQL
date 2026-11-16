@@ -1,0 +1,10 @@
+{
+  "max_calls_per_question": 3,
+  "max_probes_per_question": 0,
+  "max_bytes_per_question": 805306368,
+  "max_bytes_per_experiment": 4026531840,
+  "max_bytes_billed_per_sql": 268435456,
+  "timeout_seconds": 120,
+  "max_rows": 10000,
+  "max_result_bytes": 16777216
+}

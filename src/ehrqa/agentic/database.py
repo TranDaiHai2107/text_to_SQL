@@ -11,6 +11,8 @@ class QueryResult:
     columns: list
     rows: list
     complete: bool=True
+    column_types: tuple=()
+    job_id: str | None=None
 
     def summary(self):
         return {'rows':len(self.rows),'columns':self.columns,'complete':self.complete,

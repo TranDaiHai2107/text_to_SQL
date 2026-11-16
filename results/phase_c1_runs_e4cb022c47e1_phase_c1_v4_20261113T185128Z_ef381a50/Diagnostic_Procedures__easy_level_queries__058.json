@@ -1,0 +1,91 @@
+{
+  "summary": {
+    "query_id": "Diagnostic_Procedures/easy_level_queries/058",
+    "method": "clinsql_cot",
+    "api_calls": 1,
+    "input_tokens": 3733,
+    "api_usage_unknown_calls": 0,
+    "output_tokens": 2641,
+    "reasoning_tokens": 1728,
+    "latency_seconds": 22.10899999999674,
+    "total_latency_seconds": 27.73399999999674,
+    "execution_attempts": 1,
+    "probe_attempts": 0,
+    "retry_calls": 0,
+    "estimated_inference_cost_usd": 0.00621525,
+    "evaluation_cost_usd": null
+  },
+  "events": [
+    {
+      "stage": "run_context",
+      "case_id": "Diagnostic_Procedures/easy_level_queries/058",
+      "pilot_manifest_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+      "approval_id": "phase_c1_v4_20261113T185128Z_ef381a50",
+      "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+      "schema_index_sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318",
+      "model_id": "gpt-5-mini-2025-08-07",
+      "code_commit": "ce17a1dd77e74631576ed38a0ff9957184f1cbb6",
+      "api_budget_sha256": "e4cb022c47e150a4c2758236f5edbab0875edf9bb37f8ae5d6f9f77ee15e97b1",
+      "sql_budget_sha256": "0f4a97a9134682be4b438b61aec2a1dcc9bfe548524e427cb970c71c68def5f3",
+      "reasoning_effort": "medium",
+      "max_output_tokens": 8192,
+      "runtime_code_sha256": "52f98b21a7dd86beea243f7bfa5dfb85a94fe5f81bd6a4a2a0607e7a63042818",
+      "fingerprint": "cde4e6b6a71d5c38169a8a065f34b95314766f17609d7ccbbdaf006d5145b0a9"
+    },
+    {
+      "stage": "llm",
+      "operation": "generate",
+      "model": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07",
+      "response_id": "resp_014c9b5e36b0890f016af75c474f6087d29f617e7152b18f4c",
+      "prompt_sha256": "26b0db12810a941d2c4be845f59d5444183ce08aed2d3888b2e621f188f3abe7",
+      "input_tokens": 3733,
+      "output_tokens": 2641,
+      "reasoning_tokens": 1728,
+      "latency_seconds": 22.10899999999674
+    },
+    {
+      "stage": "dry_run",
+      "sql": "WITH cohort_admissions AS (\n  -- women aged 86-96 inclusive and their hospital admissions\n  SELECT\n    a.hadm_id,\n    a.subject_id,\n    a.admittime,\n    a.dischtime\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n  JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  USING (subject_id)\n  WHERE\n    LOWER(p.gender) = 'f'\n    AND p.anchor_age BETWEEN 86 AND 96\n),\n\nmcs_procedures_per_hadm AS (\n  -- identify mechanical circulatory support (MCS) procedures and count distinct codes per admission\n  SELECT\n    pi.hadm_id,\n    COUNT(DISTINCT pi.icd_code) AS num_mcs\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.procedures_icd` pi\n  JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_procedures` d\n  ON\n    pi.icd_code = d.icd_code\n    AND pi.icd_version = d.icd_version\n  WHERE\n    -- match common keywords for mechanical circulatory support procedures (case-insensitive)\n    LOWER(d.long_title) IS NOT NULL\n    AND REGEXP_CONTAINS(\n      LOWER(d.long_title),\n      r'ventricular assist|ventricular-assist|assist device|cardiac assist|mechanical circulatory|intra[- ]aortic|balloon pump|iabp|extracorporeal membrane|ecmo'\n    )\n  GROUP BY\n    pi.hadm_id\n),\n\nper_admission_counts AS (\n  -- include admissions with zero MCS procedures\n  SELECT\n    ca.hadm_id,\n    COALESCE(m.num_mcs, 0) AS num_mcs\n  FROM\n    cohort_admissions ca\n  LEFT JOIN\n    mcs_procedures_per_hadm m\n  USING (hadm_id)\n)\n\nSELECT\n  quantiles[OFFSET(1)] AS q1_distinct_mcs_per_hadm,\n  quantiles[OFFSET(3)] AS q3_distinct_mcs_per_hadm,\n  (quantiles[OFFSET(3)] - quantiles[OFFSET(1)]) AS iqr_distinct_mcs_per_hadm\nFROM (\n  SELECT\n    -- APPROX_QUANTILES(..., 4) returns an array of 5 values: [min, Q1, median, Q3, max]\n    APPROX_QUANTILES(num_mcs, 4) AS quantiles\n  FROM\n    per_admission_counts\n);",
+      "estimated_bytes": 43634760
+    },
+    {
+      "stage": "execute",
+      "sql": "WITH cohort_admissions AS (\n  -- women aged 86-96 inclusive and their hospital admissions\n  SELECT\n    a.hadm_id,\n    a.subject_id,\n    a.admittime,\n    a.dischtime\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n  JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  USING (subject_id)\n  WHERE\n    LOWER(p.gender) = 'f'\n    AND p.anchor_age BETWEEN 86 AND 96\n),\n\nmcs_procedures_per_hadm AS (\n  -- identify mechanical circulatory support (MCS) procedures and count distinct codes per admission\n  SELECT\n    pi.hadm_id,\n    COUNT(DISTINCT pi.icd_code) AS num_mcs\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.procedures_icd` pi\n  JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_procedures` d\n  ON\n    pi.icd_code = d.icd_code\n    AND pi.icd_version = d.icd_version\n  WHERE\n    -- match common keywords for mechanical circulatory support procedures (case-insensitive)\n    LOWER(d.long_title) IS NOT NULL\n    AND REGEXP_CONTAINS(\n      LOWER(d.long_title),\n      r'ventricular assist|ventricular-assist|assist device|cardiac assist|mechanical circulatory|intra[- ]aortic|balloon pump|iabp|extracorporeal membrane|ecmo'\n    )\n  GROUP BY\n    pi.hadm_id\n),\n\nper_admission_counts AS (\n  -- include admissions with zero MCS procedures\n  SELECT\n    ca.hadm_id,\n    COALESCE(m.num_mcs, 0) AS num_mcs\n  FROM\n    cohort_admissions ca\n  LEFT JOIN\n    mcs_procedures_per_hadm m\n  USING (hadm_id)\n)\n\nSELECT\n  quantiles[OFFSET(1)] AS q1_distinct_mcs_per_hadm,\n  quantiles[OFFSET(3)] AS q3_distinct_mcs_per_hadm,\n  (quantiles[OFFSET(3)] - quantiles[OFFSET(1)]) AS iqr_distinct_mcs_per_hadm\nFROM (\n  SELECT\n    -- APPROX_QUANTILES(..., 4) returns an array of 5 values: [min, Q1, median, Q3, max]\n    APPROX_QUANTILES(num_mcs, 4) AS quantiles\n  FROM\n    per_admission_counts\n);",
+      "columns": [
+        "q1_distinct_mcs_per_hadm",
+        "q3_distinct_mcs_per_hadm",
+        "iqr_distinct_mcs_per_hadm"
+      ],
+      "row_count": 1,
+      "rows": null,
+      "column_types": [
+        "INTEGER",
+        "INTEGER",
+        "INTEGER"
+      ],
+      "complete": true,
+      "bytes_billed": 44040192,
+      "bytes_processed": 43634760,
+      "job_id": "0e124c1a-4552-442a-bcc0-d3b9eb1efcac",
+      "latency_seconds": 1.9219999999913853,
+      "status": "complete"
+    },
+    {
+      "stage": "result_artifact",
+      "artifact_id": "pilot_cde4e6b6a71d5c38169a8a06",
+      "sha256": "d0923b86fe3402f0ce9e94b634c96fa7d189d01af623b35cd834c07f868e3bb2",
+      "row_count": 1,
+      "job_id": "0e124c1a-4552-442a-bcc0-d3b9eb1efcac",
+      "artifact_expires_at_utc": "2026-11-20T18:52:16.106775+00:00"
+    },
+    {
+      "stage": "prediction",
+      "sql": "WITH cohort_admissions AS (\n  -- women aged 86-96 inclusive and their hospital admissions\n  SELECT\n    a.hadm_id,\n    a.subject_id,\n    a.admittime,\n    a.dischtime\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.patients` p\n  JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.admissions` a\n  USING (subject_id)\n  WHERE\n    LOWER(p.gender) = 'f'\n    AND p.anchor_age BETWEEN 86 AND 96\n),\n\nmcs_procedures_per_hadm AS (\n  -- identify mechanical circulatory support (MCS) procedures and count distinct codes per admission\n  SELECT\n    pi.hadm_id,\n    COUNT(DISTINCT pi.icd_code) AS num_mcs\n  FROM\n    `kltn-text-to-sql.mimiciv_3_1_hosp.procedures_icd` pi\n  JOIN\n    `kltn-text-to-sql.mimiciv_3_1_hosp.d_icd_procedures` d\n  ON\n    pi.icd_code = d.icd_code\n    AND pi.icd_version = d.icd_version\n  WHERE\n    -- match common keywords for mechanical circulatory support procedures (case-insensitive)\n    LOWER(d.long_title) IS NOT NULL\n    AND REGEXP_CONTAINS(\n      LOWER(d.long_title),\n      r'ventricular assist|ventricular-assist|assist device|cardiac assist|mechanical circulatory|intra[- ]aortic|balloon pump|iabp|extracorporeal membrane|ecmo'\n    )\n  GROUP BY\n    pi.hadm_id\n),\n\nper_admission_counts AS (\n  -- include admissions with zero MCS procedures\n  SELECT\n    ca.hadm_id,\n    COALESCE(m.num_mcs, 0) AS num_mcs\n  FROM\n    cohort_admissions ca\n  LEFT JOIN\n    mcs_procedures_per_hadm m\n  USING (hadm_id)\n)\n\nSELECT\n  quantiles[OFFSET(1)] AS q1_distinct_mcs_per_hadm,\n  quantiles[OFFSET(3)] AS q3_distinct_mcs_per_hadm,\n  (quantiles[OFFSET(3)] - quantiles[OFFSET(1)]) AS iqr_distinct_mcs_per_hadm\nFROM (\n  SELECT\n    -- APPROX_QUANTILES(..., 4) returns an array of 5 values: [min, Q1, median, Q3, max]\n    APPROX_QUANTILES(num_mcs, 4) AS quantiles\n  FROM\n    per_admission_counts\n);",
+      "status": "executed",
+      "split": "validation",
+      "configured_model_id": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07"
+    }
+  ]
+}

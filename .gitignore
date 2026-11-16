@@ -14,12 +14,15 @@ __pycache__/
 .pytest_cache/
 .pytest_*/
 /external/clinsql_official/
+/external/mac_sql_official/
+/external/sde_sql_official/
 .pytest_cleanup_*/
 .pytest_restructure_*/
 .pytest_run/
 .pytest_agentic*/
 results/agentic_runs/
 results/agentic_traces/
+/results/restricted/
 _archive/retired_20261109/
 *.py[cod]
 *$py.class
@@ -31,6 +34,7 @@ build/
 # ===== Virtual Environment =====
 venv/
 .venv/
+.venv_papers/
 env/
 
 # ===== Environment Variables =====

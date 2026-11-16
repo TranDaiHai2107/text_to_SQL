@@ -1,0 +1,70 @@
+{
+  "status": "DIAGNOSTIC_ONLY_OFFICIAL_SCORE_NOT_AVAILABLE",
+  "case_count": 5,
+  "strict_result_matches": 0,
+  "official_sql_score": null,
+  "official_execution_score": null,
+  "comparison_policy": "docs/markdown/CLINSQL_RESULT_COMPARISON_POLICY.md",
+  "cases": {
+    "Diagnostic_Procedures/easy_level_queries/058": {
+      "prediction_column_count": 3,
+      "reference_column_count": 1,
+      "prediction_row_count": 1,
+      "reference_row_count": 1,
+      "column_names_equal": false,
+      "row_counts_equal": true,
+      "unordered_positional_values_equal": null,
+      "strict_result_match": false,
+      "reference_csv_sha256": "bfdd26671593741e6fe35fbde3971dce0779824f2bea51853ec7de8d1274c111",
+      "diagnostic_only": true
+    },
+    "Patient_Demographics_and_Admissions/hard_level_queries/058": {
+      "prediction_column_count": 7,
+      "reference_column_count": 4,
+      "prediction_row_count": 2,
+      "reference_row_count": 1,
+      "column_names_equal": false,
+      "row_counts_equal": false,
+      "unordered_positional_values_equal": null,
+      "strict_result_match": false,
+      "reference_csv_sha256": "090b0b9c969e7bd5f17eecb6b8af87708aec946df5612c675c10d5cfe8a5c2f7",
+      "diagnostic_only": true
+    },
+    "Laboratory_Results_Analysis/medium_level_queries/079": {
+      "prediction_column_count": 5,
+      "reference_column_count": 8,
+      "prediction_row_count": 1,
+      "reference_row_count": 1,
+      "column_names_equal": false,
+      "row_counts_equal": true,
+      "unordered_positional_values_equal": null,
+      "strict_result_match": false,
+      "reference_csv_sha256": "5c607bc02cb6d7efedbdd2f9e2507a5663999e2c77d2d8628789d7f9c94d8ca8",
+      "diagnostic_only": true
+    },
+    "Medication_Management/medium_level_queries/012": {
+      "prediction_column_count": 8,
+      "reference_column_count": 6,
+      "prediction_row_count": 1,
+      "reference_row_count": 1,
+      "column_names_equal": false,
+      "row_counts_equal": true,
+      "unordered_positional_values_equal": null,
+      "strict_result_match": false,
+      "reference_csv_sha256": "88798ababb74ef946d26b055c60c41316e98f39262efc38f6697c4e2939b9aa2",
+      "diagnostic_only": true
+    },
+    "Vital_Signs_Monitoring/easy_level_queries/044": {
+      "prediction_column_count": 2,
+      "reference_column_count": 1,
+      "prediction_row_count": 1,
+      "reference_row_count": 1,
+      "column_names_equal": false,
+      "row_counts_equal": true,
+      "unordered_positional_values_equal": null,
+      "strict_result_match": false,
+      "reference_csv_sha256": "a3b4816a3bea06105f0bded9544e6fc449b08a8ec3d39761ff84329bed8f9270",
+      "diagnostic_only": true
+    }
+  }
+}

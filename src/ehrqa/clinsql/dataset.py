@@ -46,6 +46,61 @@ def load_questions(path: Path, *, allow_test: bool = False) -> tuple[list[Questi
     return questions, digest
 
 
+def load_official_questions(
+    repository: Path, *, split: str = 'validation', allow_test: bool = False,
+    expected_count: int | None = None,
+) -> tuple[list[Question], str]:
+    """Read only query text from the official ClinSQL directory tree.
+
+    Reference SQL, result CSVs and rubric JSONs are deliberately never opened.
+    The returned digest covers relative paths and exact query bytes in sorted
+    order, so a changed benchmark question changes the preflight fingerprint.
+    """
+    if split not in {'validation', 'test'}:
+        raise ValueError(f'Unexpected CLINSQL split: {split}')
+    if split == 'test' and not allow_test:
+        raise PermissionError('Test split is locked until the experiment configuration is frozen')
+    repository = Path(repository)
+    splits = repository / 'data' / 'splits'
+    if not splits.is_dir():
+        splits = repository / 'splits'
+    if not splits.is_dir():
+        splits = repository
+    split_dir = splits / split
+    if not split_dir.is_dir():
+        raise FileNotFoundError(f'Official CLINSQL split not found: {split_dir}')
+
+    files = sorted(split_dir.glob('*/*/*/query_*.txt'))
+    if not files:
+        raise ValueError(f'No CLINSQL questions found in {split_dir}')
+    expected_count = expected_count if expected_count is not None else {'validation': 190, 'test': 443}[split]
+    if len(files) != expected_count:
+        raise ValueError(f'Incomplete CLINSQL {split} split: expected {expected_count}, found {len(files)}')
+    digest = hashlib.sha256()
+    questions: list[Question] = []
+    seen: set[str] = set()
+    for path in files:
+        problem_id = path.parent.name
+        if path.name != f'query_{problem_id}.txt':
+            raise ValueError(f'Question filename and ID disagree: {path}')
+        domain, difficulty = path.parts[-4:-2]
+        query_id = f'{domain}/{difficulty}/{problem_id}'
+        if query_id in seen:
+            raise ValueError(f'Duplicate question ID: {query_id}')
+        seen.add(query_id)
+        raw = path.read_bytes()
+        question = raw.decode('utf-8').strip()
+        if not question:
+            raise ValueError(f'Empty CLINSQL question: {path}')
+        relative = path.relative_to(split_dir).as_posix().encode('utf-8')
+        digest.update(len(relative).to_bytes(4, 'big'))
+        digest.update(relative)
+        digest.update(len(raw).to_bytes(8, 'big'))
+        digest.update(raw)
+        questions.append(Question(query_id, split, domain, difficulty, question))
+    return questions, digest.hexdigest()
+
+
 def validation_partition(questions: list[Question], *, seed: str, holdout_percent: int = 20):
     if not 0 < holdout_percent < 100:
         raise ValueError('Holdout percentage must be between 0 and 100')

@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "seed": "clinsql-2026-v1",
+  "rule": "development_only_sha256_order_2_easy_2_medium_1_hard_distinct_domains_v1",
+  "source_question_tree_sha256": "90fc30bbdcb49c6455680d92741fd7eb83af0bb57833d9e06308457ead2075ac",
+  "development_count": 152,
+  "internal_check_count": 38,
+  "cases": [
+    {
+      "case_id": "Diagnostic_Procedures/easy_level_queries/058",
+      "split": "validation",
+      "domain": "Diagnostic_Procedures",
+      "difficulty": "easy_level_queries",
+      "question_sha256": "4f6c4e3c670da29a958888249d7ea76e690efce3543739f2f73987c342410c96"
+    },
+    {
+      "case_id": "Vital_Signs_Monitoring/easy_level_queries/044",
+      "split": "validation",
+      "domain": "Vital_Signs_Monitoring",
+      "difficulty": "easy_level_queries",
+      "question_sha256": "f2e4a5797752de67212b9d8db068113c0ce8e4f59a9cc86bdddff8aba8005f3e"
+    },
+    {
+      "case_id": "Laboratory_Results_Analysis/medium_level_queries/079",
+      "split": "validation",
+      "domain": "Laboratory_Results_Analysis",
+      "difficulty": "medium_level_queries",
+      "question_sha256": "9c9666c2898467fe436db6e61ccde0a1662098b1d68b6e41816f22db7077ec1c"
+    },
+    {
+      "case_id": "Medication_Management/medium_level_queries/012",
+      "split": "validation",
+      "domain": "Medication_Management",
+      "difficulty": "medium_level_queries",
+      "question_sha256": "c7c95c1306cf9cb3617c2e1840fc0662d3963cc272fcc9ac5011f1182e2abf12"
+    },
+    {
+      "case_id": "Patient_Demographics_and_Admissions/hard_level_queries/058",
+      "split": "validation",
+      "domain": "Patient_Demographics_and_Admissions",
+      "difficulty": "hard_level_queries",
+      "question_sha256": "7bf5bf88c0dca53ec7d6be2ffd2b01dd9a5e420306499dafdd5f9c49f26b46fd"
+    }
+  ],
+  "sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f"
+}

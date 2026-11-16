@@ -1,0 +1,35 @@
+{
+  "approval_id": "",
+  "approver": "",
+  "authority": "",
+  "organization_policy_clearance_reference": "",
+  "iam_status": "READ_ONLY_LIKELY_WITH_APPROVED_RISK",
+  "risk_acknowledged": false,
+  "valid_from_utc": "",
+  "valid_until_utc": "",
+  "principal": "kltn-sql-reader@kltn-text-to-sql.iam.gserviceaccount.com",
+  "project_id": "kltn-text-to-sql",
+  "datasets": [
+    "kltn-text-to-sql.mimiciv_3_1_hosp",
+    "kltn-text-to-sql.mimiciv_3_1_icu"
+  ],
+  "location": "US",
+  "manifest_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+  "phase": "phase_a_smoke",
+  "sql_sha256_by_case": {
+    "hosp_patients_count": "e1288e2c90973fb125119f2e1952ce807b2128c5986b63526a8c6d71d791262f",
+    "icu_icustays_count": "17dbee9fba2cc499105ac5d42ce8c694bbd97bd19d2c00cc2f2fc1568832863b",
+    "icu_hosp_join": "c380a6fabd58b6e850081a45deebf39b786e00a990b7af75ce9bcb3e53d5a985",
+    "clinsql_validation_043": "2a8ffc1c1c57c6eaf52de47e2ab4621d417b8c8cf1d7e3d5e1a3fea061eb0fb7"
+  },
+  "max_bytes_billed_by_case": {
+    "hosp_patients_count": 10485760,
+    "icu_icustays_count": 10485760,
+    "icu_hosp_join": 20971520,
+    "clinsql_validation_043": 24117248
+  },
+  "timeout_seconds": 30,
+  "max_rows": 2,
+  "result_storage_policy_reference": "",
+  "artifact_retention_days": 7
+}

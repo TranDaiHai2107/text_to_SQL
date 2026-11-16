@@ -1,0 +1,108 @@
+{
+  "status": "DRAFT_NOT_AUTHORIZED",
+  "valid_until_utc": "2026-11-14T17:00:00Z",
+  "artifact_retention_days": 7,
+  "model_id": "gpt-5-mini-2025-08-07",
+  "credit_sha256": "54a4be23a0fdde9af167d8e62a4b67d6beaa7cfb79842829aa2638d1b0e11eb1",
+  "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+  "index_sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318",
+  "pilot_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+  "scopes": {
+    "catalog_export": {
+      "max_bytes_billed_per_sql": 17179869184,
+      "timeout_seconds": 120,
+      "max_rows": 200000,
+      "max_result_bytes": 268435456,
+      "sql_budget": {
+        "max_calls_per_question": 4,
+        "max_probes_per_question": 0,
+        "max_bytes_per_question": 68719476736,
+        "max_bytes_per_experiment": 68719476736
+      }
+    },
+    "mac_metadata": {
+      "max_bytes_billed_per_sql": 68719476736,
+      "timeout_seconds": 120,
+      "max_rows": 100000,
+      "max_result_bytes": 134217728,
+      "sql_budget": {
+        "max_calls_per_question": 4,
+        "max_probes_per_question": 0,
+        "max_bytes_per_question": 274877906944,
+        "max_bytes_per_experiment": 1099511627776
+      },
+      "api_budget": {
+        "max_calls": 25,
+        "max_input_tokens": 3276800,
+        "max_output_tokens": 204800,
+        "max_cost_usd": null,
+        "input_per_million_usd": "0.25",
+        "output_per_million_usd": "2",
+        "policy": "UNLIMITED_RESEARCH_NOV_2026"
+      }
+    },
+    "mac_samples": {
+      "max_bytes_billed_per_sql": 68719476736,
+      "timeout_seconds": 120,
+      "max_rows": 1000000,
+      "max_result_bytes": 268435456,
+      "sql_budget": {
+        "max_calls_per_question": 229,
+        "max_probes_per_question": 225,
+        "max_bytes_per_question": 2199023255552,
+        "max_bytes_per_experiment": 8796093022208
+      },
+      "api_budget": {
+        "max_calls": 25,
+        "max_input_tokens": 3276800,
+        "max_output_tokens": 204800,
+        "max_cost_usd": null,
+        "input_per_million_usd": "0.25",
+        "output_per_million_usd": "2",
+        "policy": "UNLIMITED_RESEARCH_NOV_2026"
+      }
+    },
+    "sde_sql": {
+      "max_bytes_billed_per_sql": 68719476736,
+      "timeout_seconds": 120,
+      "max_rows": 100000,
+      "max_result_bytes": 134217728,
+      "sql_budget": {
+        "max_calls_per_question": 141,
+        "max_probes_per_question": 128,
+        "max_bytes_per_question": 1099511627776,
+        "max_bytes_per_experiment": 4398046511104
+      },
+      "api_budget": {
+        "max_calls": 130,
+        "max_input_tokens": 17039360,
+        "max_output_tokens": 655360,
+        "max_cost_usd": null,
+        "input_per_million_usd": "0.25",
+        "output_per_million_usd": "2",
+        "policy": "UNLIMITED_RESEARCH_NOV_2026"
+      }
+    },
+    "ours": {
+      "max_bytes_billed_per_sql": 68719476736,
+      "timeout_seconds": 120,
+      "max_rows": 100000,
+      "max_result_bytes": 134217728,
+      "sql_budget": {
+        "max_calls_per_question": 18,
+        "max_probes_per_question": 0,
+        "max_bytes_per_question": 824633720832,
+        "max_bytes_per_experiment": 3298534883328
+      },
+      "api_budget": {
+        "max_calls": 120,
+        "max_input_tokens": 15728640,
+        "max_output_tokens": 983040,
+        "max_cost_usd": null,
+        "input_per_million_usd": "0.25",
+        "output_per_million_usd": "2",
+        "policy": "UNLIMITED_RESEARCH_NOV_2026"
+      }
+    }
+  }
+}

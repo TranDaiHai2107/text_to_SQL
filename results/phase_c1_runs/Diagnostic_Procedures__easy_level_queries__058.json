@@ -1,0 +1,55 @@
+{
+  "summary": {
+    "query_id": "Diagnostic_Procedures/easy_level_queries/058",
+    "method": "clinsql_cot",
+    "api_calls": 1,
+    "input_tokens": 3729,
+    "output_tokens": 2048,
+    "reasoning_tokens": 1536,
+    "latency_seconds": 0.0,
+    "total_latency_seconds": 22.0,
+    "execution_attempts": 0,
+    "probe_attempts": 0,
+    "retry_calls": 0,
+    "estimated_inference_cost_usd": 0.00502825,
+    "evaluation_cost_usd": null
+  },
+  "events": [
+    {
+      "stage": "run_context",
+      "case_id": "Diagnostic_Procedures/easy_level_queries/058",
+      "pilot_manifest_sha256": "f8935ddf79131560ecc10023e7db034d61a15b1546cfe1952d9cc152e493680f",
+      "schema_sha256": "46a816c289178f5b69470fef4cf335f1ff556ad1f4d40b83d600517d76a0ab5d",
+      "schema_index_sha256": "89ff2c2f8169c8b65c58821174545231854b374904ebaedd579977973710b318",
+      "model_id": "gpt-5-mini-2025-08-07",
+      "code_commit": "ce17a1dd77e74631576ed38a0ff9957184f1cbb6",
+      "runtime_code_sha256": "0d685274634524bc0326245bf1f14006ed1c67e39790830160e28c78646fc345",
+      "fingerprint": "df18c37e4e1fd6346f0293c696c2f4ea8f66eef98995d25def1aa567cfccc1a2"
+    },
+    {
+      "stage": "llm_failure",
+      "operation": "generation",
+      "model": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07",
+      "response_id": "resp_07e091e343e1f276016af7580346b887d2b34f9ef5a49fe45c",
+      "input_tokens": 3729,
+      "output_tokens": 2048,
+      "reasoning_tokens": 1536,
+      "error_type": "ModelGenerationFailure"
+    },
+    {
+      "stage": "pipeline_error",
+      "error_type": "ModelGenerationFailure",
+      "status": "MODEL_GENERATION_FAILURE",
+      "error": "Pilot failed; details withheld"
+    },
+    {
+      "stage": "prediction",
+      "sql": "",
+      "status": "MODEL_GENERATION_FAILURE",
+      "split": "validation",
+      "configured_model_id": "gpt-5-mini-2025-08-07",
+      "model_snapshot": "gpt-5-mini-2025-08-07"
+    }
+  ]
+}

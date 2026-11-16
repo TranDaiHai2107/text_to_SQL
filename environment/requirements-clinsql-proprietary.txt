@@ -1,0 +1,12 @@
+# Runtime subset of external/clinsql_official/requirements.txt for the
+# official proprietary-model CoT runner and rubric scorer on Windows.
+# The official vLLM/open-source path is kept unmodified in external/.
+pandas>=2.0
+pyarrow>=15.0.0
+google-cloud-bigquery>=3.25.0
+google-genai>=0.7.0
+openai>=1.40.0
+pydantic>=2,<3
+mistralai>=0.4.2
+db-dtypes>=1.4.3
+packaging>=23.2
