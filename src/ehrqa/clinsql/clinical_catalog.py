@@ -50,6 +50,18 @@ class ClinicalCatalog:
                 **{key: row[key] for key in extras if key in row},
             }
 
+    def _name_index(self):
+        index = getattr(self, '_names_cache', None)
+        if index is None:
+            index = {}
+            for key, record in self.records.items():
+                names = tuple(name for name in (record['label'], *record['aliases'],
+                                                record.get('abbreviation')) if name and name.strip())
+                if names:
+                    index[key] = (names, tuple(terms(name) for name in names))
+            self._names_cache = index
+        return index
+
     @classmethod
     def load(cls, path, *, expected_sha256, schema_sha256):
         data = Path(path).read_bytes()
@@ -74,17 +86,28 @@ class ClinicalCatalog:
                 continue
             if icd_version is not None and record.get('icd_version') != icd_version:
                 continue
-            names = tuple(name for name in (record['label'], *record['aliases'],
-                                            record.get('abbreviation'),
-                                            *(supplemental_aliases or {}).get(record['id'], ()))
-                          if name and name.strip())
-            if not names:
-                continue
-            if supplemental_aliases is not None:
+            if supplemental_aliases is None:
+                # Cached names/term sets; ranking is identical to the uncached path.
+                cached = self._name_index().get(record['id'])
+                if not cached:
+                    continue
+                names, name_terms = cached
+            else:
+                names = tuple(name for name in (record['label'], *record['aliases'],
+                                                record.get('abbreviation'),
+                                                *supplemental_aliases.get(record['id'], ()))
+                              if name and name.strip())
+                if not names:
+                    continue
                 names = tuple(' '.join(re.findall(r'\w+', name.casefold())) for name in names)
-            exact = any(name and re.search(r'(?<!\w)' + re.escape(name.casefold()) + r'(?!\w)',
-                                            text) for name in names)
-            overlap = max(len(words & terms(name)) for name in names)
+                name_terms = tuple(terms(name) for name in names)
+            overlap = max(len(words & item) for item in name_terms)
+            # A whole-word occurrence implies term overlap unless a name has no
+            # terms, so the regex is only needed in those two situations.
+            # Substring test first; the word-boundary regex only confirms hits.
+            exact = any((overlap or not item) and name and name.casefold() in text and re.search(
+                            r'(?<!\w)' + re.escape(name.casefold()) + r'(?!\w)', text)
+                        for name, item in zip(names, name_terms))
             if exact or overlap:
                 ranked.append((not exact, -overlap, record['table'] not in schema_context['tables'],
                                record['id'], record))

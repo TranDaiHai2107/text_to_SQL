@@ -14,19 +14,15 @@ import uuid
 
 from ehrqa.agentic.trace import digest
 from ehrqa.agentic.schema import Schema
-from ehrqa.clinsql.baselines.mac_sampling import column_sample_queries, format_examples
-from ehrqa.clinsql.baselines.mac_sql import _bird_schema_text, _key_columns, verify_bird_description
 from ehrqa.clinsql.benchmark_backend import make_benchmark_database
 from ehrqa.clinsql.catalog_export import catalog_queries, export_catalog
-from ehrqa.clinsql.chat_multi_provider import (
-    MAC_MODEL_PARAMETER_ADAPTATION, MACSQLChatProvider, OpenAIChatMultiProvider,
-)
+from ehrqa.clinsql.chat_multi_provider import OpenAIChatMultiProvider
 from ehrqa.clinsql.clinical_catalog import ClinicalCatalog
 from ehrqa.clinsql.config import BigQueryConfig
 from ehrqa.clinsql.dataset import load_official_questions
 from ehrqa.clinsql.execution_budget import PersistentSQLBudgetLedger, SQLBudgetLimits
 from ehrqa.clinsql.execution_budget import (
-    DATABASE_PREPROCESSING_BUDGET, RESEARCH_CREDIT_AWARE, ResearchCreditEnvelope,
+    RESEARCH_CREDIT_AWARE, ResearchCreditEnvelope,
 )
 from ehrqa.clinsql.execution_errors import IncompleteResultError, ResourceBudgetBlocked
 from ehrqa.clinsql.execution_control import verify_reader_adc
@@ -210,8 +206,6 @@ def configuration(method, variant, catalog_sha256=None):
     project_files += ['clinsql/benchmark_model.py']
     project_files += ['clinsql/' + name for name in ('metadata.py', 'config.py', 'schema_index.py', 'dataset.py')]
     method_files = {
-        'mac_sql': ('baselines/mac_sql.py', 'baselines/mac_sampling.py', 'source_templates.py',
-                    'chat_multi_provider.py', 'openai_provider.py'),
         'sde_sql': ('baselines/sde_sql.py', 'baselines/sde_judge.py', 'baselines/sde_subqueries.py',
                     'baselines/sde_refine_policy.py', 'source_templates.py', 'chat_multi_provider.py'),
         'ours': ('proposed.py', 'proposed_runner.py', 'openai_provider.py', 'clinical_catalog.py',
@@ -220,9 +214,8 @@ def configuration(method, variant, catalog_sha256=None):
         'sde_transport': ('chat_multi_provider.py', 'openai_provider.py'),
     }
     project_files += ['clinsql/' + name for name in method_files[method]]
-    if method in {'mac_sql', 'ours'}:
-        project_files.extend(('agentic/schema.py', 'clinsql/evidence_router.py'))
     if method == 'ours':
+        project_files.extend(('agentic/schema.py', 'clinsql/evidence_router.py'))
         from ehrqa.clinsql.proposed import PROPOSED_VERSION, ProposedFlags
         project_files.extend('agentic/' + name for name in
                              ('pipeline.py', 'prompts.py', 'retrieval.py', 'contracts.py',
@@ -235,10 +228,6 @@ def configuration(method, variant, catalog_sha256=None):
     if method == 'ours':
         payload.update(version=PROPOSED_VERSION, flags=asdict(ProposedFlags()),
                        fewshot_sha256=FROZEN_CORPUS_SHA256)
-    if method == 'mac_sql':
-        payload.update(reasoning_effort=None, omitted_source_parameters={'temperature': 0.1},
-                       model_parameter_adaptation=MAC_MODEL_PARAMETER_ADAPTATION,
-                       transport='openai.chat.completions')
     return digest(payload)
 
 
@@ -266,22 +255,13 @@ def _load_frozen_fewshot(master):
     return load_frozen_fewshot_index(CORPUS, historical)
 
 
-def _sample_count(index):
-    records = index.schema_records()
-    schema = Schema.from_records(records, dialect='bigquery')
-    return sum(1 for _ in column_sample_queries(schema, _key_columns(schema, records)))
-
-
-def _budgets(approval, api_path, sql_path, *, sample_count=0, previous_calls=0):
+def _budgets(approval, api_path, sql_path, *, previous_calls=0):
     sql = None
     if approval.method != 'sde_transport':
         sql_raw = sql_path.read_bytes()
         if hashlib.sha256(sql_raw).hexdigest() != approval.sql_budget_sha256:
             raise PermissionError('SQL budget differs from approved bytes')
         sql = SQLBudgetLimits(**json.loads(sql_raw))
-    if approval.method == 'mac_sql' and (sql.max_probes_per_question < sample_count or
-                                        sql.max_calls_per_question < sample_count + 4):
-        raise ValueError('SQL budget does not cover MAC sampling and final execution')
     if approval.method == 'sde_sql' and (
         sql.max_probes_per_question < 2 or sql.max_calls_per_question < 13 + sql.max_probes_per_question
     ):
@@ -357,74 +337,6 @@ def _database(approval, manifest, index, case_id, ledger, config, **transport):
         case_id=case_id, ledger=ledger, approval=approval, **transport)
 
 
-def _prepare_mac_samples(approval, manifest, index, ledger, config):
-    if approval.method != 'mac_sql' or approval.variant != 'column_samples':
-        raise PermissionError('Database preprocessing requires the approved MAC sample scope')
-    if ledger.pending_jobs():
-        raise PermissionError('Reconcile existing MAC-SQL jobs before resuming sampling')
-    from google.cloud import bigquery
-
-    reader = verify_reader_adc(scopes=['https://www.googleapis.com/auth/cloud-platform'])
-    client = bigquery.Client(project=config.billing_project, location=config.location, credentials=reader)
-    first_case = approval.case_ids[0]
-    prep = _database(approval, manifest, index, first_case, ledger, config, client=client,
-                     pinned_reader=True, budget_scope=DATABASE_PREPROCESSING_BUDGET)
-    records = index.schema_records()
-    schema = Schema.from_records(records, dialect='bigquery')
-    keys = _key_columns(schema, records)
-    settled = ledger.settled_mac_probes(approval.case_ids)
-    caches, missing = [], []
-    for current, original in zip(column_sample_queries(schema, keys),
-                                 column_sample_queries(schema, keys, bounded=False), strict=True):
-        table, column, kind, sql = current
-        for candidate in dict.fromkeys((sql, original[3])):
-            saved = settled.get(hashlib.sha256(candidate.encode()).hexdigest())
-            if saved is not None:
-                caches.append((table, column, kind, candidate, *saved))
-                break
-        else:
-            missing.append(current)
-    available_slots = ledger.remaining_probe_slots(DATABASE_PREPROCESSING_BUDGET)
-    if len(missing) > available_slots:
-        raise ResourceBudgetBlocked('Database preprocessing probe allocation exhausted')
-    estimates = [prep.research_quote(sql, prep.dry_run(sql)) for _, _, _, sql in missing]
-    maximum = sum(cap for cap, _ in estimates)
-    available = ledger.remaining_research_bytes(DATABASE_PREPROCESSING_BUDGET)
-    print(json.dumps({'stage': 'mac_preprocessing_plan', 'cached_slots': len(caches),
-                      'new_slots': len(missing), 'estimated_billed_bytes': sum(b for _, b in estimates),
-                      'maximum_bytes_billed': maximum, 'remaining_bytes_budget': available,
-                      'maximum_cost_vnd': str(ledger.credit.price_per_tib * Decimal(maximum) /
-                                              Decimal(1 << 40))}), flush=True)
-    if maximum > available:
-        raise ResourceBudgetBlocked('MAC sample plan exceeds approved database, method or credit ceiling',
-                                    estimated_bytes=maximum, cap_bytes=available)
-    samples = {table: {} for table in schema.tables}
-    backends = {DATABASE_PREPROCESSING_BUDGET: prep}
-    for table, column, kind, sql, scope, job_id in caches:
-        if scope not in backends:
-            backends[scope] = _database(approval, manifest, index, scope, ledger, config,
-                                        client=client, pinned_reader=True)
-        samples[table][column] = backends[scope].recover_sample(sql, job_id, kind)
-    print(json.dumps({'stage': 'mac_preprocessing_cache_verified', 'slots': len(caches)}), flush=True)
-    billed = 0
-    for number, (table, column, kind, sql) in enumerate(missing, 1):
-        result = prep.probe(sql)
-        if not result.complete:
-            raise IncompleteResultError(f'MAC sample cannot be scored for {table}.{column}')
-        samples[table][column] = format_examples([row[0] for row in result.rows], kind)
-        billed += result.bytes_billed
-        if number % 10 == 0:
-            print(json.dumps({'stage': 'mac_preprocessing_progress', 'new_slots_recovered': number,
-                              'billed_bytes': billed}), flush=True)
-    verify_bird_description(schema, samples, records)
-    description = _bird_schema_text(schema, {}, samples, records=records)
-    print(json.dumps({'stage': 'mac_preprocessing_complete', 'cached_slots': len(caches),
-                      'new_slots_recovered': len(missing), 'billed_bytes': billed,
-                      'source_renderer_parity': True,
-                      'description_sha256': hashlib.sha256(description.encode()).hexdigest()}), flush=True)
-    return samples
-
-
 def _questions(pilot, master):
     questions, question_digest = load_official_questions(BENCHMARK, split='validation')
     if question_digest != master['validation_question_tree_sha256']:
@@ -472,8 +384,7 @@ def _run(args, store, master, pilot, manifest, index):
             raise PermissionError('Previous SDE ledger is required for retry accounting')
         with sqlite3.connect(prior) as previous:
             previous_calls = previous.execute('SELECT count(*) FROM api_calls').fetchone()[0]
-    api, sql = _budgets(approval, args.api_budget, args.sql_budget, previous_calls=previous_calls,
-                        sample_count=_sample_count(index) if approval.variant == 'column_samples' else 0)
+    api, sql = _budgets(approval, args.api_budget, args.sql_budget, previous_calls=previous_calls)
     if retry_uncapped and api.max_calls + previous_calls != 130:
         raise PermissionError('Retry must share the original SDE request budget')
     if os.environ.get('SEND_RESULTS_TO_LLM', '').lower() != 'false':
@@ -507,7 +418,7 @@ def _run(args, store, master, pilot, manifest, index):
     _protected_root(store, STATE)
     _protected_root(store, root)
     recovered = {}
-    continuation = root / 'source_aligned_next_run' if approval.method in {'mac_sql', 'ours'} else root
+    continuation = root / 'source_aligned_next_run' if approval.method == 'ours' else root
     _protected_root(store, continuation)
     if resume_probe:
         prior_state = _pilot_state(root / 'state.sqlite', master)
@@ -530,9 +441,7 @@ def _run(args, store, master, pilot, manifest, index):
     api_ledger = PersistentAPIBudgetLedger(ledgers / 'api.sqlite', api)
     sql_ledger = PersistentSQLBudgetLedger(STATE / 'research_sql.sqlite', sql,
                                            method=approval.method, credit=credit)
-    if approval.method == 'mac_sql':
-        model = MACSQLChatProvider(api_ledger, model_id=MODEL, timeout_seconds=180)
-    elif approval.method == 'ours':
+    if approval.method == 'ours':
         from ehrqa.clinsql.proposed_runner import ProposedModelProvider
         model = ProposedModelProvider(api_ledger, model_id=MODEL, timeout_seconds=180,
                                       reasoning_effort='medium', max_output_tokens=None)
@@ -545,15 +454,6 @@ def _run(args, store, master, pilot, manifest, index):
     state = _pilot_state(state_path, master)
     existing = {row.case_id: row for row in state.checkpoints('FOUR_METHOD_PILOT_5')
                 if row.method == approval.method}
-    approved_sampler = None
-    if approval.variant == 'column_samples':
-        samples = None
-
-        def approved_sampler(tracked, schema, keys):
-            nonlocal samples
-            if samples is None:
-                samples = _prepare_mac_samples(approval, manifest, index, sql_ledger, config)
-            return samples
     for question in _questions(pilot, master):
         if getattr(args, 'case_id', None) and args.case_id != question.query_id:
             continue
@@ -567,7 +467,6 @@ def _run(args, store, master, pilot, manifest, index):
         record = run_case(question, state=state, approval=approval, pilot=pilot, schema_index=index,
                           store=store, output_root=continuation, model=model, clinical=clinical, few_shot=fewshot,
                           recovered_probe=recovered.get(question.query_id),
-                          approved_sampler=approved_sampler,
                           database=_database(approval, manifest, index, question.query_id, sql_ledger, config))
         print(json.dumps({'case_id': question.query_id, 'status': record['status']}))
         if record['status'] not in {'EXECUTED', 'MODEL_SQL_ERROR', 'MODEL_ABSTAINED', 'MODEL_GENERATION_FAILURE'}:
@@ -590,10 +489,8 @@ def main():
     retention = commands.add_parser('retention')
     retention.add_argument('--delete-expired', action='store_true')
     execute = commands.add_parser('execute')
-    prepare_mac = commands.add_parser('prepare-mac')
-    prepare_mac.add_argument('--api-budget', type=Path, required=True)
     export = commands.add_parser('export-catalog')
-    for command in (execute, export, prepare_mac):
+    for command in (execute, export):
         command.add_argument('--approval', type=Path, required=True)
         command.add_argument('--sql-budget', type=Path, required=True)
         command.add_argument('--credit', type=Path, required=True)
@@ -628,7 +525,6 @@ def main():
                           'index_sha256': index.index['sha256'], 'pilot_sha256': pilot['sha256'],
                           'case_ids': [args.method] if args.method in {'catalog_export', 'sde_transport'}
                           else master['pilot_case_ids'],
-                          'mac_column_sample_queries_per_case': _sample_count(index) if args.method == 'mac_sql' else None,
                           'queries': catalog_queries(manifest) if args.method == 'catalog_export' else None}, indent=2))
         return 0
     store = ResultArtifactStore(STORE, verify_private_acl=_private_acl)
@@ -640,25 +536,12 @@ def main():
         return _verify_grouped_sde(store)
     if args.command == 'retention':
         from ehrqa.clinsql.pilot_retention import inspect_or_delete_expired
-        for method in ('mac_sql', 'sde_sql', 'ours'):
+        for method in ('sde_sql', 'ours'):
             root = STATE / method
             if root.is_dir():
                 _protected_root(store, root)
                 print(json.dumps(inspect_or_delete_expired(root, STORE,
                     delete_expired=args.delete_expired), indent=2))
-        return 0
-    if args.command == 'prepare-mac':
-        approval = _approval(args, manifest, index)
-        approval.verify_pilot(pilot)
-        if approval.method != 'mac_sql' or approval.variant != 'column_samples':
-            raise PermissionError('Database preprocessing requires the approved MAC sample scope')
-        config = BigQueryConfig.from_env()
-        credit = _credit(args, approval, config)
-        _, limits = _budgets(approval, args.api_budget, args.sql_budget, sample_count=_sample_count(index))
-        _source_check('mac_sql')
-        _protected_root(store, STATE)
-        ledger = PersistentSQLBudgetLedger(STATE / 'research_sql.sqlite', limits, method='mac_sql', credit=credit)
-        _prepare_mac_samples(approval, manifest, index, ledger, config)
         return 0
     if args.command == 'execute':
         return _run(args, store, master, pilot, manifest, index)

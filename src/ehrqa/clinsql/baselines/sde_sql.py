@@ -11,6 +11,14 @@ from ..execution_errors import IncompleteResultError, SecurityRejected
 from ..offline import MockBigQuery
 from ..source_templates import constant, isolated_function
 from .sde_judge import native_three_vote_judge
+
+# Fixed, data-free SQL Guard messages (bigquery_adapter); anything else stays withheld.
+GUARD_MESSAGES = frozenset({
+    'One read-only SELECT/CTE is required', 'Data-changing SQL is prohibited',
+    'External or user-defined routines are prohibited',
+    'SQL references a table outside the approved BigQuery datasets',
+    'SQL references a table outside the verified schema manifest',
+    'External data access is prohibited'})
 from .sde_refine_policy import native_refinement_reason
 from .sde_subqueries import timed_bigquery_get_subsqls
 
@@ -110,9 +118,14 @@ class SDESQL:
             if probe and hasattr(self.db, 'probe_presence'):
                 return self.db.probe_presence(sql), None
             result = self.db.probe(sql) if probe else self.db.execute(sql)
-        except SecurityRejected:
-            return None, 'SQL rejected by the read-only guard'
+        except SecurityRejected as exc:
+            # The guard's fixed message (no data) is the execution feedback the
+            # native SDE-SQL loop would receive from the database.
+            message = str(exc)
+            return None, 'SQL rejected by the read-only guard' + (
+                ': ' + message if message in GUARD_MESSAGES else '')
         except ValueError:
+            # Unchanged from the v6 adapter so imported SDE predictions stay comparable.
             return None, 'BigQuery rejected the SQL'
         if not result.complete:
             raise IncompleteResultError('Incomplete SDE SQL result')

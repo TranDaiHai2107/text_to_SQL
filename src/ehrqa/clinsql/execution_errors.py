@@ -1,5 +1,6 @@
 """Stable, redacted execution failures for research accounting."""
 from __future__ import annotations
+import re
 
 
 class SecurityRejected(PermissionError):
@@ -45,6 +46,34 @@ def classify_execution_failure(exc: BaseException, *, stage: str) -> str:
     return 'INFRASTRUCTURE_ERROR'
 
 
+# Whitelisted, value-free BigQuery error classes. Only the class label leaves
+# the database layer; identifiers, literals and row content never do. The first
+# two are exactly the classes the CLINSQL CoT baseline forwards to refinement.
+SQL_ERROR_CLASSES = (
+    ('unrecognized name', r'unrecognized name'),
+    ('syntax error', r'syntax error'),
+    ('no matching signature', r'no matching signature'),
+    ('function not found', r'function not found'),
+    ('table not found', r'not found: table|table .* was not found'),
+    ('ambiguous column', r'ambiguous'),
+    ('grouping error', r'neither grouped nor aggregated|cannot be grouped'),
+    ('type mismatch', r'cannot coerce|incompatible types|cannot be compared|operator .* for argument types'),
+    ('invalid date/time', r'invalid (?:date|timestamp|datetime|interval)'),
+)
+_CLASS_MARKER = 'sql error class: '
+
+
+def redacted_sql_error_class(message: str) -> str:
+    """Return a whitelisted class label from a (possibly translated) error."""
+    text = (message or '').lower()
+    if _CLASS_MARKER in text:
+        text = text.split(_CLASS_MARKER, 1)[1]
+    for label, pattern in SQL_ERROR_CLASSES:
+        if re.search(pattern, text):
+            return label
+    return 'details withheld'
+
+
 def translate_bigquery_exception(exc: Exception) -> Exception:
     """Map SDK errors to non-SQL failures where appropriate; redact messages."""
     try:
@@ -67,7 +96,10 @@ def translate_bigquery_exception(exc: Exception) -> Exception:
             if 'accessDenied' in reasons:
                 return PermissionError('BigQuery permission denied; details withheld')
             if 'invalidQuery' in reasons:
-                return ValueError('BigQuery SQL error; details withheld')
+                label = redacted_sql_error_class(str(exc))
+                if label == 'details withheld':
+                    return ValueError('BigQuery SQL error; details withheld')
+                return ValueError(f'BigQuery SQL error; {_CLASS_MARKER}{label}; details withheld')
             return ConnectionError('BigQuery job rejected; details withheld')
     if isinstance(exc, BudgetExceeded):
         return BudgetExceeded('BigQuery bytes cap exceeded; details withheld')

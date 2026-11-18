@@ -197,14 +197,7 @@ class PersistentSQLBudgetLedger:
         with self._connect() as db:
             db.execute('BEGIN IMMEDIATE')
             if question_id == DATABASE_PREPROCESSING_BUDGET:
-                if self.method != 'mac_sql' or not is_probe:
-                    raise PermissionError('Database preprocessing budget permits only MAC samples')
-                duplicate = db.execute(
-                    'SELECT 1 FROM reservations JOIN research_jobs USING(id) '
-                    'WHERE method=? AND is_probe=1 AND sql_sha256=?',
-                    (self.method, sha256(sql.encode()).hexdigest())).fetchone()
-                if duplicate:
-                    raise PermissionError('Existing MAC sample reservation must be recovered by job ID')
+                raise PermissionError('Database preprocessing budget is retired (MAC-SQL removed)')
             calls, probes, used = db.execute(
                 'SELECT count(*), coalesce(sum(is_probe),0), '
                 'coalesce(sum(coalesce(actual_bytes,reserved_bytes)),0) '
@@ -277,18 +270,6 @@ class PersistentSQLBudgetLedger:
             return [row[0] for row in db.execute(
                 "SELECT id FROM reservations JOIN research_jobs USING(id) WHERE method=? "
                 "AND status IN ('pending','unknown_billing') ORDER BY id", (self.method,))]
-
-    def settled_mac_probes(self, case_ids):
-        if self.method != 'mac_sql':
-            raise PermissionError('Only MAC-SQL may recover column samples')
-        allowed = {f'{self.method}:{case_id}': case_id for case_id in case_ids}
-        allowed[f'{self.method}:{DATABASE_PREPROCESSING_BUDGET}'] = DATABASE_PREPROCESSING_BUDGET
-        with self._connect() as db:
-            rows = db.execute(
-                "SELECT sql_sha256, question_id, id FROM reservations JOIN research_jobs USING(id) "
-                "WHERE method=? AND is_probe=1 AND status='reconciled' ORDER BY reservations.rowid",
-                (self.method,)).fetchall()
-        return {sql_hash: (allowed[case], job) for sql_hash, case, job in rows if case in allowed}
 
     def remaining_probe_slots(self, question_id):
         case_key = f'{self.method}:{question_id}' if self.method else question_id
@@ -397,12 +378,6 @@ class BudgetedDatabase:
         if value.bytes_billed != billed:
             raise ValueError('Saved probe billed bytes differ from the SQL ledger')
         return value
-
-    def recover_sample(self, sql, job_id, kind):
-        if self.ledger.method != 'mac_sql':
-            raise PermissionError('Only MAC-SQL may recover column samples')
-        cap, billed = self._settled_probe(sql, job_id)
-        return self.database.saved_sample(sql, job_id, cap=cap, billed=billed, kind=kind)
 
     def _settled_probe(self, sql, job_id):
         with self.ledger._connect() as db:

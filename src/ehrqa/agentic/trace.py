@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import threading
 import time
 import uuid
 
@@ -24,16 +25,18 @@ class Trace:
         self.events=[]
         self.path=Path(directory)/(self.id+'.jsonl') if directory else None
         self.started=time.monotonic()
+        self._lock=threading.Lock()
 
     def emit(self, stage, **data):
         row=safe({'run_id':self.id,'query_id':self.query_id,'utc':datetime.now(timezone.utc).isoformat(),
                   'elapsed_s':round(time.monotonic()-self.started,4),'stage':stage,**data})
         # JSON roundtrip yields the same safe, serializable in-memory/file trace.
         row=json.loads(json.dumps(row,ensure_ascii=False,default=str,allow_nan=False))
-        self.events.append(row)
-        if self.path:
-            self.path.parent.mkdir(parents=True,exist_ok=True)
-            with self.path.open('a',encoding='utf-8') as f:f.write(json.dumps(row,ensure_ascii=False)+'\n')
+        with self._lock:  # branches may emit concurrently (v6 parallel generation)
+            self.events.append(row)
+            if self.path:
+                self.path.parent.mkdir(parents=True,exist_ok=True)
+                with self.path.open('a',encoding='utf-8') as f:f.write(json.dumps(row,ensure_ascii=False)+'\n')
         return row
 
 

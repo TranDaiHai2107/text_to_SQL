@@ -9,10 +9,8 @@ import time
 from ehrqa.agentic.trace import digest
 from ehrqa.text2sql.logging import MeteredDatabase, MeteredModel, RunLog
 
-from .baselines.mac_sql import MACSQL
 from .baselines.sde_sql import SDESQL
 from .benchmark_approval import BenchmarkExecutionApproval
-from .chat_multi_provider import MAC_MODEL_PARAMETER_ADAPTATION
 from .evaluator import prepare_official_sample
 from .execution_errors import IncompleteResultError, SecurityRejected, classify_execution_failure
 from .interfaces import Execution
@@ -29,7 +27,6 @@ PHASE = 'FOUR_METHOD_PILOT_5'
 
 
 VARIANTS = {
-    'mac_sql': {'metadata_only': {'A', 'C', 'E'}, 'column_samples': {'A', 'C', 'D', 'E'}},
     'sde_sql': {'probe_labels_only': {'A', 'C', 'E'}, 'grouped_3x3': {'A', 'C', 'E'}},
     'ours': {'dictionary_rag': {'A', 'B', 'C', 'E'}},
     'catalog_export': {'local_dictionary': {'B'}},
@@ -59,7 +56,7 @@ class FourMethodApproval(BenchmarkExecutionApproval):
         super().__post_init__()
         required = VARIANTS.get(self.method, {}).get(self.variant)
         allowed = {'A': 'question_and_schema', 'B': 'dictionary_metadata',
-                   'C': 'sql_and_sanitized_errors', 'D': 'approved_column_samples',
+                   'C': 'sql_and_sanitized_errors',
                    'E': ('shape_and_row_counts' if self.method == 'ours' else
                          'probe_labels_and_column_names' if self.method == 'sde_sql' else
                          'row_presence_and_null')}
@@ -139,18 +136,16 @@ class _StopOnSecurityViolation(MeteredDatabase):
 
 def execute_method(method, question, model, database, *, variant, schema_index=None,
                    clinical=None, few_shot=None, trace_root=None, exploration_checkpoint=None,
-                   saved_probe=None, approved_sampler=None):
-    if method == 'mac_sql':
-        return MACSQL(model, database, value_evidence=lambda *_: '',
-                      sample_approved_values=variant == 'column_samples', approved_sampler=approved_sampler).run(question.text)
+                   saved_probe=None, ours_flags=None):
     if method == 'sde_sql':
         return SDESQL(model, database, allow_probe_feedback=True, exploration_checkpoint=exploration_checkpoint,
                       saved_probe=saved_probe).run(
             question.text, schema_text='\n'.join(row['ddl'] for row in database.schema_metadata()))
     if method != 'ours' or clinical is None or few_shot is None or schema_index is None:
         raise ValueError('Ours requires a pinned schema, clinical catalog and few-shot corpus')
+    extra = {'flags': ours_flags} if ours_flags is not None else {}
     output = build_pipeline(database, model, schema_index=schema_index, icd_catalog=clinical,
-                            few_shot_index=few_shot, log_dir=trace_root).run(
+                            few_shot_index=few_shot, log_dir=trace_root, **extra).run(
                                 question.text, query_id=question.query_id)
     result = None
     if output['selected'] is not None:
@@ -187,8 +182,8 @@ def _save(state, method, case_id, path, record, terminal):
 
 
 def run_case(question, *, state, approval, pilot, schema_index, store, output_root,
-             model, database, clinical=None, few_shot=None, recovered_probe=None, approved_sampler=None):
-    if type(approval) is not FourMethodApproval or approval.method not in {'mac_sql', 'sde_sql', 'ours'}:
+             model, database, clinical=None, few_shot=None, recovered_probe=None):
+    if type(approval) is not FourMethodApproval or approval.method not in {'sde_sql', 'ours'}:
         raise PermissionError('A separate four-method pilot approval is required')
     verify_case(question, approval, pilot, state.manifest, schema_index)
     require_benchmark_model(model.model_id)
@@ -212,10 +207,6 @@ def run_case(question, *, state, approval, pilot, schema_index, store, output_ro
     record.update(run_id=digest([scope, question.query_id]), model_id=model.model_id,
                   schema_sha256=approval.manifest_sha256, configuration_sha256=approval.configuration_sha256)
     record['inference_backend'] = 'openai'
-    if method == 'mac_sql' and approval.variant == 'metadata_only':
-        record['adaptation'] = 'MAC_SQL_RESTRICTED_ADAPTATION'
-    if method == 'mac_sql':
-        record['model_parameter_adaptation'] = MAC_MODEL_PARAMETER_ADAPTATION
     if method == 'sde_sql' and approval.variant == 'grouped_3x3':
         record['adaptation'] = 'SDE_GROUPED_3X3_REQUEST_ADAPTATION'
     stage = 'inference'
@@ -237,8 +228,7 @@ def run_case(question, *, state, approval, pilot, schema_index, store, output_ro
         prediction = execute_method(method, question, MeteredModel(model, log), tracked_db,
                                     variant=approval.variant, schema_index=schema_index,
                                     clinical=clinical, few_shot=few_shot, trace_root=root / 'traces',
-                                    exploration_checkpoint=exploration_checkpoint, saved_probe=saved_probe,
-                                    approved_sampler=approved_sampler)
+                                    exploration_checkpoint=exploration_checkpoint, saved_probe=saved_probe)
         sql, status, result = prediction['sql'], prediction['status'], prediction['result']
         record.update(sql=sql, inference_status=status, trace_path=prediction.get('trace_path'))
         if prediction.get('attempts') is not None:
@@ -333,7 +323,7 @@ def stage_saved_prediction(record, question, *, store, root, benchmark_root, now
     now = now or datetime.now(timezone.utc)
     if (record['case_id'] != question.query_id or record['status'] != 'EXECUTED' or
         record['question_sha256'] != hashlib.sha256(question.text.encode()).hexdigest() or
-        record['method'] not in {'clinsql_cot', 'mac_sql', 'sde_sql', 'ours'}):
+        record['method'] not in {'clinsql_cot', 'sde_sql', 'ours'}):
         raise ValueError('Staging requires an executable prediction for this question')
     if now >= datetime.fromisoformat(record['artifact_expires_at_utc']):
         raise PermissionError('Result artifact retention has expired')

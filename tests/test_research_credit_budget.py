@@ -49,10 +49,10 @@ def test_shared_envelope_survives_unknown_outcome_and_reconciles_by_job(tmp_path
     credit = envelope(25 * GIB)
     limits = SQLBudgetLimits(3, 0, 40*GIB, 40*GIB)
     path = tmp_path / 'sql.sqlite'
-    mac = PersistentSQLBudgetLedger(path, limits, method='mac_sql', credit=credit)
+    sde = PersistentSQLBudgetLedger(path, limits, method='sde_sql', credit=credit)
     db = Database(20 * GIB, fail=True)
     with pytest.raises(TimeoutError):
-        BudgetedDatabase(db, mac, question_id='case', max_bytes_billed=24*GIB).execute('SELECT 1')
+        BudgetedDatabase(db, sde, question_id='case', max_bytes_billed=24*GIB).execute('SELECT 1')
     ours = PersistentSQLBudgetLedger(path, limits, method='ours', credit=credit)
     next_db = Database(5 * GIB)
     with pytest.raises(ResourceBudgetBlocked) as exc:
@@ -61,10 +61,10 @@ def test_shared_envelope_survives_unknown_outcome_and_reconciles_by_job(tmp_path
     assert not next_db.jobs and ours.snapshot()['pending'] == 1
     job = SimpleNamespace(state='DONE', total_bytes_billed=20*GIB)
     client = SimpleNamespace(get_job=lambda *args, **kwargs: job)
-    assert mac.reconcile_job(db.jobs[0][1], client=client, project='project', location='US') == 'RECONCILED'
+    assert sde.reconcile_job(db.jobs[0][1], client=client, project='project', location='US') == 'RECONCILED'
     BudgetedDatabase(next_db, ours, question_id='case', max_bytes_billed=24*GIB).execute('SELECT 2')
     assert next_db.jobs[0][0] == 5 * GIB
-    assert mac.snapshot()['actual_billed_bytes'] == 25 * GIB
+    assert sde.snapshot()['actual_billed_bytes'] == 25 * GIB
 
 
 def test_method_limit_is_independent_of_case_and_experiment_limits(tmp_path):
@@ -76,45 +76,6 @@ def test_method_limit_is_independent_of_case_and_experiment_limits(tmp_path):
         BudgetedDatabase(db, ledger, question_id=case, max_bytes_billed=20*GIB).execute('SELECT 1')
     with pytest.raises(ResourceBudgetBlocked):
         BudgetedDatabase(Database(GIB), ledger, question_id='c', max_bytes_billed=20*GIB).execute('SELECT 1')
-
-
-def test_mac_recovery_only_lists_settled_probes_within_case_scope(tmp_path):
-    path = tmp_path / 'sql.sqlite'
-    limits = SQLBudgetLimits(10, 10, 40 * GIB, 40 * GIB)
-    credit = envelope(25 * GIB)
-    mac = PersistentSQLBudgetLedger(path, limits, method='mac_sql', credit=credit)
-    ours = PersistentSQLBudgetLedger(path, limits, method='ours', credit=credit)
-
-    def reserve(ledger, case, sql, *, probe=True, settle=True):
-        job, cap = ledger.reserve(case, is_probe=probe, max_bytes_billed=GIB, minimum_bytes=1, sql=sql)
-        if settle:
-            ledger.reconcile(case, reserved_bytes=cap, actual_bytes_billed=0, reservation_id=job)
-        return job
-
-    match = reserve(mac, 'pinned', 'SELECT 1')
-    reserve(mac, 'outside', 'SELECT 1')
-    reserve(mac, 'pinned', 'SELECT 2', settle=False)
-    reserve(mac, 'pinned', 'SELECT 3', probe=False)
-    reserve(ours, 'pinned', 'SELECT 4')
-
-    assert mac.settled_mac_probes(('pinned',)) == {sha256(b'SELECT 1').hexdigest(): ('pinned', match)}
-    assert mac.remaining_probe_slots('pinned') == 7
-    assert mac.remaining_probe_slots('outside') == 9
-
-    from ehrqa.clinsql.execution_budget import DATABASE_PREPROCESSING_BUDGET as spare
-    remaining = mac.remaining_research_bytes(spare)
-    assert mac.remaining_probe_slots(spare) == 10
-    new = reserve(mac, spare, 'SELECT 5')
-    assert mac.remaining_probe_slots(spare) == 9
-    assert mac.remaining_probe_slots('pinned') == 7
-    assert mac.remaining_research_bytes(spare) == remaining
-    assert mac.settled_mac_probes(('pinned',))[sha256(b'SELECT 5').hexdigest()] == (spare, new)
-    with pytest.raises(PermissionError, match='by job ID'):
-        reserve(mac, spare, 'SELECT 5')
-    with pytest.raises(PermissionError, match='only MAC samples'):
-        reserve(mac, spare, 'SELECT 6', probe=False)
-    with pytest.raises(PermissionError):
-        ours.settled_mac_probes(('pinned',))
 
 
 def test_vnd_credit_reserve_and_same_currency_price():

@@ -24,7 +24,7 @@ def scope():
     return master, pilot, manifest, index, _questions(pilot, master)[0]
 
 
-def approval_for(scope, method='mac_sql', **overrides):
+def approval_for(scope, method='sde_sql', **overrides):
     master, pilot, manifest, index, _ = scope
     now = datetime.now(timezone.utc)
     params = dict(approval_id='fixture', approver='fixture', authority='fixture',
@@ -35,9 +35,9 @@ def approval_for(scope, method='mac_sql', **overrides):
                   model_id=runner.MODEL, case_ids=tuple(master['pilot_case_ids']), max_bytes_billed_per_sql=10,
                   timeout_seconds=10, max_rows=100, max_result_bytes=1000, api_budget_sha256='a' * 64,
                   sql_budget_sha256='b' * 64, result_storage_policy_reference='fixture',
-                  artifact_retention_days=7, method=method, variant='metadata_only',
+                  artifact_retention_days=7, method=method, variant='probe_labels_only',
                   evidence={'A': 'question_and_schema', 'C': 'sql_and_sanitized_errors',
-                            'E': 'row_presence_and_null'},
+                            'E': 'probe_labels_and_column_names'},
                   policy_reference='synthetic', index_sha256=index.index['sha256'], catalog_sha256=None,
                   configuration_sha256='c' * 64)
     return runner.FourMethodApproval(**(params | overrides))
@@ -55,44 +55,6 @@ def test_scope_rejects_missing_evidence_wrong_reader_and_changed_question(scope)
     tampered = {**pilot, 'cases': [{**pilot['cases'][0], 'question_sha256': '0'*64}, *pilot['cases'][1:]]}
     with pytest.raises(PermissionError, match='scope'):
         runner.verify_case(question, approval_for(scope), tampered, master, index)
-
-
-@pytest.mark.parametrize('complete', [True, False])
-def test_mac_runner_separately_executes_last_correction_then_resumes(tmp_path, scope, complete):
-    master, pilot, _, index, question = scope
-    state = ExperimentState(tmp_path / 'state.sqlite', master)
-    with pytest.raises(PermissionError, match='phase scope'):
-        state.claim(runner.PHASE, 'mac_sql', question.query_id)
-
-    class HistoricalSyntheticState(ExperimentState):
-        def _allowed(self, phase, method, case_id):
-            return (phase, method, case_id) == (runner.PHASE, 'mac_sql', question.query_id)
-
-    state = HistoricalSyntheticState(tmp_path / 'state.sqlite', master)
-    sqls = [f'SELECT {n}' for n in range(4)]
-    model = MockLLM({'mac.decomposer': [f'```sql\n{sqls[0]}\n```'],
-                     'mac.refiner': [f'```sql\n{sql}\n```' for sql in sqls[1:]]},
-                    model_id=runner.MODEL)
-    db = MockBigQuery([{'table': 'x', 'ddl': 'CREATE TABLE x (a INT64)'}],
-                      results={sqls[-1]: Execution(('n',), ((3,), (4,)), complete, job_id='final')},
-                      failures={sql: 'synthetic invalid query' for sql in sqls[:-1]})
-    store = ResultArtifactStore(tmp_path, verify_private_acl=lambda _: True)
-    kwargs = dict(state=state, approval=approval_for(scope), pilot=pilot, schema_index=index,
-                  store=store, output_root=tmp_path, model=model, database=db)
-    saved = runner.run_case(question, **kwargs)
-    assert saved['status'] == ('EXECUTED' if complete else 'INCOMPLETE_RESULT')
-    assert saved['sql'] == sqls[-1] and saved['inference_status'] == 'corrected_unexecuted'
-    assert [call for call in db.calls if call[0] == 'execute'] == [('execute', sqls[-1])]
-    assert saved['events'][-2 if complete else -1]['stage'] == 'execute'
-    assert all(event.get('rows') is None for event in saved['events'])
-    if complete:
-        value = store.load(saved['artifact']['artifact_id'], expected_sha256=saved['artifact']['sha256'])
-        assert value.job_id == 'final' and value.rows == ((3,), (4,))
-    else:
-        assert 'artifact' not in saved
-    calls = len(db.calls), len(model.calls)
-    assert runner.run_case(question, **kwargs) == saved
-    assert (len(db.calls), len(model.calls)) == calls
 
 
 def test_sde_final_judge_sql_gets_its_own_execution(tmp_path, scope):

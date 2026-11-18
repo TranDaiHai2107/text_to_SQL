@@ -7,7 +7,7 @@ from ehrqa.clinsql.offline import MockBigQuery, MockLLM
 from ehrqa.clinsql.proposed import ProposedFlags, build_pipeline, dictionary_search
 from ehrqa.clinsql.public_terminology import PublicClinicalCatalog
 
-from test_proposed_readiness import CORRECT, QUESTION, RECORDS, TABLE, model_for, verification
+from test_proposed_readiness import CORRECT, QUESTION, RECORDS, TABLE, V51, model_for, verification
 
 
 def schema():
@@ -57,7 +57,7 @@ def test_constant_false_filter_is_sent_to_repair():
 def test_no_supported_candidate_falls_back_to_executed_sql_with_flag():
     model = model_for([CORRECT, CORRECT, CORRECT],
                       [verification('c1', False), verification('c2', False), verification('c3', False)])
-    flags = ProposedFlags(self_correction=False)
+    flags = ProposedFlags(self_correction=False, **V51)
     output = build_pipeline(MockBigQuery(RECORDS), model, flags=flags).run(QUESTION)
     assert output['status'] == 'answered' and output['sql'] == CORRECT
     assert output['fallbacks'] == ['unverified_selection']
@@ -88,3 +88,76 @@ def test_dictionary_quota_keeps_procedure_evidence_next_to_diagnoses():
     # Without an implied dictionary the single global ranking is unchanged.
     assert dictionary_search(catalog, question, {'tables': ['admissions']}) == catalog.search(
         question, {'tables': ['admissions']})
+
+
+# --- v5.1: verifier leniency, redacted error classes, catalog cache, early stop ---
+
+from ehrqa.agentic import contracts
+from ehrqa.clinsql.clinical_catalog import ClinicalCatalog
+from ehrqa.clinsql.execution_errors import redacted_sql_error_class
+
+
+def test_error_class_whitelist_never_returns_raw_text():
+    assert redacted_sql_error_class('Unrecognized name: foo_bar at [1:8]') == 'unrecognized name'
+    assert redacted_sql_error_class('BigQuery SQL error; sql error class: syntax error; details withheld') == 'syntax error'
+    assert redacted_sql_error_class('No matching signature for operator = for argument types') == 'no matching signature'
+    assert redacted_sql_error_class('patient 12345 value 9.9 something odd') == 'details withheld'
+
+
+def _executed(schema_, sql):
+    from ehrqa.agentic.evidence import build_catalog
+    inspection = schema_.inspect(sql)
+    return inspection, build_catalog(sql, 'c1', schema_.dialect)
+
+
+def test_lenient_verifier_downgrades_bad_evidence_instead_of_rejecting():
+    s = schema()
+    inspection, catalog = _executed(s, CORRECT)
+    requirements = [{'id': 'r1'}, {'id': 'r2'}]
+    audit = {'checks': [
+        {'requirement_id': 'r1', 'status': 'satisfied', 'sql_evidence_ids': ['c1:query'],
+         'schema_refs': ['admissions.hadm_id'], 'evidence': 'count'},
+        {'requirement_id': 'r2', 'status': 'satisfied', 'sql_evidence_ids': ['c1:query'],
+         'schema_refs': ['admissions.not_used'], 'evidence': 'cites an unused ref'}],
+        'question_coverage': {'status': 'complete', 'uncovered_spans': [], 'extra_constraints': []},
+        'verdict': 'supported'}
+    with pytest.raises(contracts.StageError):
+        contracts.verification(dict(audit, checks=[dict(c) for c in audit['checks']]), requirements,
+                               CORRECT, inspection, QUESTION, s, catalog)
+    out = contracts.verification(audit, requirements, CORRECT, inspection, QUESTION, s, catalog, lenient=True)
+    assert [c['status'] for c in out['checks']] == ['satisfied', 'unknown']
+    assert out['verdict'] == 'unknown' and out['evidence_warnings']
+    # Structural defects still fail.
+    with pytest.raises(contracts.StageError):
+        contracts.verification({'checks': [], 'question_coverage': {}}, requirements, CORRECT,
+                               inspection, QUESTION, s, catalog, lenient=True)
+
+
+def test_verifier_gets_one_attempt_and_first_executable_is_kept():
+    model = model_for([CORRECT, CORRECT, CORRECT], ['not json', 'not json'])
+    output = build_pipeline(MockBigQuery(RECORDS), model, flags=ProposedFlags(**V51)).run(QUESTION)
+    assert output['status'] == 'answered' and output['fallbacks'] == ['unverified_selection']
+    stages = [c['stage'] for c in model.calls]
+    assert stages == ['link', 'decompose', 'generate', 'verify']
+
+
+def test_cached_catalog_search_matches_reference_ranking():
+    rows = [{'table': 'd_icd_procedures', 'icd_version': 10, 'icd_code': f'X{i}', 'long_title': title}
+            for i, title in enumerate(['Balloon pump assistance', 'Cardiac output assistance',
+                                       'Unrelated thing', 'ECMO', 'balloon'])]
+    catalog = ClinicalCatalog(rows, source='test')
+    question = 'Count balloon pump procedures with ECMO'
+
+    def reference():
+        from ehrqa.agentic.retrieval import terms
+        import re as _re
+        words, text, ranked = terms(question), question.casefold(), []
+        for r in catalog.records.values():
+            names = (r['label'],)
+            exact = any(_re.search(r'(?<!\w)' + _re.escape(n.casefold()) + r'(?!\w)', text) for n in names)
+            overlap = max(len(words & terms(n)) for n in names)
+            if exact or overlap:
+                ranked.append((not exact, -overlap, True, r['id']))
+        return [item[3] for item in sorted(ranked)]
+
+    assert [r['id'] for r in catalog.search(question, {'tables': []})] == reference()

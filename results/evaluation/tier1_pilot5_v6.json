@@ -1,0 +1,270 @@
+{
+  "metric": "tier1_ex_v1_20261117",
+  "label": "SUPPLEMENTARY_DETERMINISTIC_EX_NOT_OFFICIAL_CLINSQL",
+  "split": "validation",
+  "case_ids": [
+    "Diagnostic_Procedures/easy_level_queries/058",
+    "Vital_Signs_Monitoring/easy_level_queries/044",
+    "Laboratory_Results_Analysis/medium_level_queries/079",
+    "Medication_Management/medium_level_queries/012",
+    "Patient_Demographics_and_Admissions/hard_level_queries/058"
+  ],
+  "generated_at_utc": "2026-11-17T04:50:51.511282+00:00",
+  "summary": {
+    "clinsql_cot": {
+      "n": 5,
+      "executed": 5,
+      "ex_strict": 0.0,
+      "ex_relaxed": 0.2,
+      "ex_strict_ci95": [
+        0.0,
+        0.0
+      ],
+      "ex_relaxed_ci95": [
+        0.0,
+        0.6
+      ]
+    },
+    "sde_sql": {
+      "n": 5,
+      "executed": 5,
+      "ex_strict": 0.2,
+      "ex_relaxed": 0.2,
+      "ex_strict_ci95": [
+        0.0,
+        0.6
+      ],
+      "ex_relaxed_ci95": [
+        0.0,
+        0.6
+      ]
+    },
+    "ours": {
+      "n": 5,
+      "executed": 5,
+      "ex_strict": 0.2,
+      "ex_relaxed": 0.2,
+      "ex_strict_ci95": [
+        0.0,
+        0.6
+      ],
+      "ex_relaxed_ci95": [
+        0.0,
+        0.6
+      ]
+    }
+  },
+  "paired_mcnemar": {
+    "ours_vs_clinsql_cot": {
+      "strict": {
+        "only_first": 1,
+        "only_second": 0,
+        "p_value": 1.0
+      },
+      "relaxed": {
+        "only_first": 0,
+        "only_second": 0,
+        "p_value": 1.0
+      }
+    },
+    "ours_vs_sde_sql": {
+      "strict": {
+        "only_first": 0,
+        "only_second": 0,
+        "p_value": 1.0
+      },
+      "relaxed": {
+        "only_first": 0,
+        "only_second": 0,
+        "p_value": 1.0
+      }
+    }
+  },
+  "cases": {
+    "Diagnostic_Procedures/easy_level_queries/058": {
+      "reference_sha256": "bfdd26671593741e6fe35fbde3971dce0779824f2bea51853ec7de8d1274c111",
+      "reference_shape": [
+        1,
+        1
+      ],
+      "clinsql_cot": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          3
+        ],
+        "ex_strict": false,
+        "ex_relaxed": true,
+        "prediction_sha256": "4f8501fe8663e76a27ce7fc4fa09b06d1d3cee5626991a0e2ceebfd289775ad8"
+      },
+      "sde_sql": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          1
+        ],
+        "ex_strict": true,
+        "ex_relaxed": true,
+        "prediction_sha256": "a7e246b8acbce6e4c35b21abf337dfcbb2b49920d280506206afe171645a383e"
+      },
+      "ours": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          1
+        ],
+        "ex_strict": true,
+        "ex_relaxed": true,
+        "prediction_sha256": "5b3218e61c807b21212bfe86e085fb20ad7b6478a85e208bd6f6cd855d27369a"
+      }
+    },
+    "Vital_Signs_Monitoring/easy_level_queries/044": {
+      "reference_sha256": "a3b4816a3bea06105f0bded9544e6fc449b08a8ec3d39761ff84329bed8f9270",
+      "reference_shape": [
+        1,
+        1
+      ],
+      "clinsql_cot": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          2
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "304a9ea32ba10205a0c1e533f915246dd2807a1cac0d12766e93276661dece27"
+      },
+      "sde_sql": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          1
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "880b6f6c794cde6b19436f3cd1f93f6a34b156476ba189017f363ec7b7571eff"
+      },
+      "ours": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          2
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "b5a445ff90c4d4200604c819c825e9c2018b692d20aa0576837d45f7960fbf77"
+      }
+    },
+    "Laboratory_Results_Analysis/medium_level_queries/079": {
+      "reference_sha256": "5c607bc02cb6d7efedbdd2f9e2507a5663999e2c77d2d8628789d7f9c94d8ca8",
+      "reference_shape": [
+        1,
+        8
+      ],
+      "clinsql_cot": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          5
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "afb6ea9d2a61a815af4362dc606421ea393c77a7b55089441114d5abaaf0277d"
+      },
+      "sde_sql": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          5
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "a84ac2590957cf062cc9650604f09d7d46e613e0a3b07dbba8d4b507ea413e18"
+      },
+      "ours": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          8
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "6c8b9354487543bafb5a5ea06532471bfb31d43cf05d648a4e66735da61852eb"
+      }
+    },
+    "Medication_Management/medium_level_queries/012": {
+      "reference_sha256": "88798ababb74ef946d26b055c60c41316e98f39262efc38f6697c4e2939b9aa2",
+      "reference_shape": [
+        1,
+        6
+      ],
+      "clinsql_cot": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          8
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "5afcbfa017531b8f6130fa89c002361dd85953c5bd54490b43be53a1b4b4a6e5"
+      },
+      "sde_sql": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          3
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "41e827250fb384511d28d01915b3689b8bb31cc6364db63274a1d2e42928eebf"
+      },
+      "ours": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          3
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "219e8953ecb78c391d19d700d48a5b88e439571179ce2bd495706a3d2b3af402"
+      }
+    },
+    "Patient_Demographics_and_Admissions/hard_level_queries/058": {
+      "reference_sha256": "090b0b9c969e7bd5f17eecb6b8af87708aec946df5612c675c10d5cfe8a5c2f7",
+      "reference_shape": [
+        1,
+        4
+      ],
+      "clinsql_cot": {
+        "status": "EXECUTED",
+        "shape": [
+          2,
+          7
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "bfc561537c7272fa6ce7052f2cacff6413e38cb84536fd4dda1b2aa9aebaa219"
+      },
+      "sde_sql": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          5
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "325e95e1f584c6f27c9a9a0fef1a7fe273b5120d837d9de36d2f0841536ae3de"
+      },
+      "ours": {
+        "status": "EXECUTED",
+        "shape": [
+          1,
+          6
+        ],
+        "ex_strict": false,
+        "ex_relaxed": false,
+        "prediction_sha256": "1e4ff046eedde81cd41d3fa0141537d5c7f775d9cd13ff4103bd5c2f3f4a1ce8"
+      }
+    }
+  }
+}

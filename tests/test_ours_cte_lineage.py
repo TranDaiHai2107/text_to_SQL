@@ -69,3 +69,35 @@ def test_rejects_missing_or_unproven_composite_key(schema, sql):
     result = schema.inspect(sql)
     assert not result['valid']
     assert result['errors'] == ['Missing composite icd_version JOIN']
+
+
+@pytest.mark.parametrize('sql', [
+    """WITH d AS (SELECT icd_code, icd_version FROM d_icd_procedures WHERE icd_version = 9
+                  UNION DISTINCT SELECT icd_code, icd_version FROM d_icd_procedures WHERE icd_version = 10)
+       SELECT p.icd_code FROM procedures_icd p JOIN d
+       ON p.icd_code = d.icd_code AND p.icd_version = d.icd_version""",
+    """SELECT p.icd_code FROM procedures_icd p WHERE EXISTS (
+           SELECT 1 FROM d_icd_procedures d
+           WHERE d.icd_code = p.icd_code AND d.icd_version = p.icd_version)""",
+    """SELECT p.icd_code FROM procedures_icd p
+       WHERE p.icd_code IN (SELECT icd_code FROM d_icd_procedures)""",
+])
+def test_v7_accepts_union_lineage_and_subquery_filters(schema, sql):
+    result = schema.inspect(sql)
+    assert result['valid'], result['errors']
+
+
+def test_v7_rejects_correlated_exists_without_version(schema):
+    result = schema.inspect("""SELECT p.icd_code FROM procedures_icd p WHERE EXISTS (
+        SELECT 1 FROM d_icd_procedures d WHERE d.icd_code = p.icd_code)""")
+    assert result['errors'] == ['Missing composite icd_version JOIN']
+
+
+def test_v7_resolves_columns_through_star_projection():
+    schema = Schema.from_records([
+        {'table': 'patients', 'ddl': 'CREATE TABLE patients (subject_id INT64, gender STRING)'}],
+        dialect='bigquery')
+    result = schema.inspect("""WITH a AS (SELECT p.subject_id, p.gender FROM patients p),
+        b AS (SELECT x.*, 1 AS risk FROM a AS x)
+        SELECT COUNT(DISTINCT subject_id), AVG(risk) FROM b""")
+    assert result['valid'], result['errors']

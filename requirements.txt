@@ -1,9 +1,5 @@
-chromadb>=1.1,<2
-httpx>=0.28,<1
-pandas>=2.2,<3
-psycopg2-binary>=2.9,<3
-python-dotenv>=1.0,<2
-sentence-transformers>=5.1,<6
-SQLAlchemy>=2.0,<3
+# Runtime for the CLINSQL experiment (CoT, SDE-SQL, Ours) on MIMIC-IV v3.1 / BigQuery.
+# Live runs use .venv_papers/clinsql (see environment/README.md); this file adds what the
+# experiment code itself needs on top of the official CLINSQL runtime subset.
+-r environment/requirements-clinsql-proprietary.txt
 sqlglot>=30,<31
-streamlit>=1.48,<2

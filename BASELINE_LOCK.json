@@ -1,0 +1,46 @@
+{
+  "status": "LOCKED",
+  "locked_at": "2026-11-18",
+  "reason": "CLINSQL CoT and SDE-SQL reproductions reviewed after validation v9 (190 questions); no further baseline edits. Ours is compared against exactly this code.",
+  "official_sources": "PAPER_SOURCE_LOCK.json (clinsql, sde_sql commits and key-file hashes)",
+  "evidence": {
+    "validation_root": "results/restricted/validation_v9_5b46ed37875019c9",
+    "cot_vs_official_release": "gpt-5-mini validation, 178 common questions: adapted-judge SQL 0.389 vs released 0.433 (official judge); easy single-shot +0.016, gap concentrated in medium/hard incl. single-shot cases (no refinement) -> attributed to judge model (adapted gpt-5-mini vs official gpt-5-chat), not generation",
+    "tests": [
+      "tests/test_sde_sql_fidelity.py",
+      "tests/test_sde_refine_policy.py",
+      "tests/test_sde_subqueries.py",
+      "tests/test_baseline_lock.py"
+    ]
+  },
+  "settings": {
+    "model": "gpt-5-mini-2025-08-07",
+    "reasoning_effort": "medium",
+    "api": "OpenAI Responses",
+    "max_output_tokens": 32768,
+    "cot_timeout_seconds": 180,
+    "transport_retries": 2,
+    "sde_sampling": "grouped 3 requests x n=3 (= 9 samples, provider n limit)"
+  },
+  "documented_deviations": [
+    "Data protection: no result rows or raw BigQuery error text are sent to the LLM; CoT self-refinement receives a whitelisted error class (execution_errors.redacted_sql_error_class); SDE receives a generic \"BigQuery rejected the SQL\" or a fixed read-only-guard message (GUARD_MESSAGES).",
+    "GPT-5 adaptation: Responses API with explicit reasoning effort medium; temperature not sent (unsupported by reasoning models).",
+    "SDE-SQL self-consistency n=9 realised as 3 grouped requests with n=3 each.",
+    "Shared output cap 32768 tokens for every method (source sets none; bounds budget reservations).",
+    "BigQuery dialect/schema of MIMIC-IV v3.1 instead of the SQLite/BIRD setting of SDE-SQL.",
+    "Scoring: adapted rubric judge gpt-5-mini (medium) instead of Azure gpt-5-chat; Execution Score not computed (UNSCORED_DATA_EGRESS)."
+  ],
+  "files": {
+    "src/ehrqa/clinsql/cot.py": "e3cb8d0c4be94f3547def507382e2fd385f6c675680785a3c0d3e4fcec61315b",
+    "src/ehrqa/clinsql/cot_runner.py": "fc987a4338bffc4f7b35afebcfcb4de0a7561f6dc326870aaef941b372c766d3",
+    "src/ehrqa/clinsql/real_cot_runner.py": "18d1f936baa2c217b9e3d5170d874699e297ecc1f7a43bcdf829da341b323b2d",
+    "src/ehrqa/clinsql/baselines/sde_sql.py": "b4877d4f97341557dbe9eb3f032b8f3b69db043f6670ba3972e2e50c4728800d",
+    "src/ehrqa/clinsql/baselines/sde_judge.py": "1dd86a686562c1cdd75268df881864dd9e6bdb739ebd17e66dc2abde581ef5db",
+    "src/ehrqa/clinsql/baselines/sde_refine_policy.py": "2c854209807e299f6114d27df8ca365ef076165b6c8568407f78d6312dcdadb2",
+    "src/ehrqa/clinsql/baselines/sde_subqueries.py": "1a717f6524eab1321f7936d9c7f25e886918b46739178b11563b50a04680fd1a",
+    "src/ehrqa/clinsql/execution_errors.py": "5c1b5976e718ac0a425c7828041c78393a55de7a8af6aa4f8601cdcb53c6246c",
+    "src/ehrqa/clinsql/source_templates.py": "90d62f49deec739959f182a9f244edb173b80f5902bf5717341152c296ec1530",
+    "src/ehrqa/clinsql/chat_multi_provider.py": "6af16422bd74da1584e30a7ad9bccaa8b91996c4cf8fed99bdaeb04a78bb4d88",
+    "src/ehrqa/clinsql/openai_provider.py": "9ac7c397ef9a3659e13170903691eb602db7978d9eeaf3594cfc5e6bb45a59a2"
+  }
+}

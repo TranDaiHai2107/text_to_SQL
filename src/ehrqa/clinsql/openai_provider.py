@@ -19,6 +19,21 @@ def request_receipt(path, payload, prompt_field):
             'parameters': {key: value for key, value in payload.items() if key != prompt_field},
             'wire_prompt_sha256': hashlib.sha256(prompt.encode()).hexdigest()}
 
+TRANSPORT_BACKOFF_SECONDS = (5, 20, 60)
+
+
+def _transient(exc) -> bool:
+    """Rate limits, server errors and connection failures/timeouts; never 4xx request errors."""
+    try:
+        import openai
+    except ImportError:
+        return False
+    if isinstance(exc, (openai.RateLimitError, openai.InternalServerError, openai.APIConnectionError)):
+        return True
+    status = getattr(exc, 'status_code', None)
+    return isinstance(status, int) and (status == 429 or status >= 500)
+
+
 class AmbiguousModelRequest(ConnectionError):
     """A request may have reached the API; never retry it automatically."""
 
@@ -53,8 +68,11 @@ class ModelUsageUnknown(RuntimeError):
 class OpenAIModelProvider:
     def __init__(self, ledger: PersistentAPIBudgetLedger, *, model_id: str = BENCHMARK_LLM,
                  max_output_tokens: int | None = 2048, timeout_seconds: float = 60,
-                 reasoning_effort: str | None = None, client=None):
+                 reasoning_effort: str | None = None, client=None, transport_retries: int = 0):
         require_benchmark_model(model_id)
+        if not 0 <= transport_retries <= 3:
+            raise ValueError('Transport retries must be between 0 and 3')
+        self.transport_retries = transport_retries
         if (max_output_tokens is not None and max_output_tokens <= 0) or timeout_seconds <= 0:
             raise ValueError('Positive output and timeout caps required')
         if reasoning_effort not in (None, 'low', 'medium', 'high'):
@@ -86,20 +104,29 @@ class OpenAIModelProvider:
             kwargs['reasoning'] = {'effort': self.reasoning_effort}
         if text_format is not None:
             kwargs['text'] = {'format': text_format}
-        reservation = self.ledger.reserve(stage=stage, prompt=prompt,
-                                          output_cap=self.max_output_tokens or GPT5_MINI_MAX_OUTPUT,
-                                          transport=('openai.responses', self.model_id),
-                                          request_metadata=request_receipt('/responses', kwargs, 'input'))
         started = time.monotonic()
-        try:
-            response = self.client.responses.create(**kwargs)
-        except Exception as exc:
-            # The server may have completed this request. Keep its full budget reserved.
-            raise AmbiguousModelRequest(
-                'OpenAI request outcome unknown; inspect before resuming',
-                cause_type=type(exc).__name__,
-                http_status=getattr(exc, 'status_code', None),
-                latency_seconds=time.monotonic() - started) from None
+        retries = 0
+        while True:
+            # Every attempt has its own reservation. A failed attempt's reservation
+            # stays pending at its upper bound, so retries never under-count cost.
+            reservation = self.ledger.reserve(stage=stage, prompt=prompt,
+                                              output_cap=self.max_output_tokens or GPT5_MINI_MAX_OUTPUT,
+                                              transport=('openai.responses', self.model_id),
+                                              request_metadata=request_receipt('/responses', kwargs, 'input'))
+            try:
+                response = self.client.responses.create(**kwargs)
+                break
+            except Exception as exc:
+                if retries < self.transport_retries and _transient(exc):
+                    time.sleep(TRANSPORT_BACKOFF_SECONDS[min(retries, len(TRANSPORT_BACKOFF_SECONDS) - 1)])
+                    retries += 1
+                    continue
+                # The server may have completed this request. Keep its full budget reserved.
+                raise AmbiguousModelRequest(
+                    'OpenAI request outcome unknown; inspect before resuming',
+                    cause_type=type(exc).__name__,
+                    http_status=getattr(exc, 'status_code', None),
+                    latency_seconds=time.monotonic() - started) from None
         usage = getattr(response, 'usage', None)
         if usage is None:
             raise ModelUsageUnknown('OpenAI response has no usage; full reservation remains charged')
@@ -139,6 +166,7 @@ class OpenAIModelProvider:
                 'model_snapshot': returned_model,
                 'response_id': response_id,
                 'usage': usage_record,
+                'transport_retries': retries,
                 'latency_seconds': time.monotonic() - started}
 
     def generate(self, stage: str, prompt: str, *, n: int = 1) -> list[dict]:

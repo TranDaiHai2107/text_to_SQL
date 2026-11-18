@@ -76,9 +76,10 @@ class ClinSQLCoT:
                 raise
             except ValueError as exc:
                 # Never send arbitrary DB error text to the model.
-                raw = str(exc)
-                match = re.search(r'(?i)\b(unrecognized name|syntax error)\b', raw)
-                error = match.group(1) if match else 'BigQuery SQL error; details withheld'
+                # Same whitelisted error classes as every other method (Ours, SDE-SQL).
+                from .execution_errors import redacted_sql_error_class
+                label = redacted_sql_error_class(str(exc))
+                error = label if label != 'details withheld' else 'BigQuery SQL error; details withheld'
                 attempts.append(Attempt(stage, sql, usage, latency, error))
                 if index == 2:
                     return Prediction(query_id, sql, 'sql_error', tuple(attempts), execution_attempts)

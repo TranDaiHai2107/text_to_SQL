@@ -78,6 +78,9 @@ def test_authoritative_schema_ranks_columns_and_grounds_joins():
         build_pipeline(MockBigQuery(records), MockLLM({}), schema_index=index)
 
 
+# v5.1 flow (verify every candidate), kept as the ablation baseline.
+V51 = dict(fingerprint_selection=False, parallel_branches=False)
+
 QUESTION = 'Count admissions in the final 48 hours before discharge'
 TABLE = '`demo.hosp.admissions`'
 CORRECT = f'SELECT COUNT(DISTINCT hadm_id) AS n FROM {TABLE} WHERE admittime >= DATETIME_SUB(dischtime, INTERVAL 48 HOUR)'
@@ -109,7 +112,8 @@ def test_linker_coverage_feedback_uses_same_question_then_fails_open_after_two_a
     output = build_pipeline(db, model).run(QUESTION)
     # v5 fail-open: the linked branch is skipped, full-schema branches still answer.
     assert output['status'] == 'answered' and output['fallbacks'] == ['link_fallback']
-    assert [call['stage'] for call in model.calls] == ['link', 'link', 'generate', 'generate']
+    # v6: without a linker the two full-schema branches run (concurrently) and agree.
+    assert sorted(call['stage'] for call in model.calls) == ['generate', 'generate', 'link', 'link']
     first, second = [json.loads(call['prompt'][-1]['content']) for call in model.calls[:2]]
     assert first['original_question'] == second['original_question'] == QUESTION
     assert 'Uncovered question literal: 48' in second['interface_validation_error']
@@ -130,7 +134,7 @@ def test_temporal_and_output_verification_repairs_then_deduplicates_candidates()
                       [verification('c1', False), verification('c1r'), verification('c2'), verification('c3')],
                       [CORRECT])
     db = MockBigQuery(RECORDS, results={CORRECT: Execution(('n',), ((1,), (2,)), True)})
-    output = build_pipeline(db, model).run(QUESTION)
+    output = build_pipeline(db, model, flags=ProposedFlags(**V51)).run(QUESTION)
     assert output['status'] == 'answered', output['reason']
     assert output['sql'] == CORRECT and output['selected']['id'] == 'c1r'
     assert any(event.get('category') == 'semantic' for event in output['trace'])
@@ -158,7 +162,7 @@ def test_budget_and_incomplete_execution_never_request_correction(incomplete):
             return Execution(('n',), ((1,),), False)
 
     model = model_for([CORRECT])
-    output = build_pipeline(Database(RECORDS), model).run(QUESTION)
+    output = build_pipeline(Database(RECORDS), model, flags=ProposedFlags(**V51)).run(QUESTION)
     assert output['status'] == 'error' and output['selected'] is None
     assert [call['stage'] for call in model.calls] == ['link', 'decompose', 'generate']
 

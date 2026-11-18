@@ -14,7 +14,7 @@ from ehrqa.agentic.database import QueryResult
 from .execution_errors import IncompleteResultError
 
 
-PROPOSED_VERSION = 'clinsql_ours_v1'
+PROPOSED_VERSION = 'clinsql_ours_v10'
 
 
 def ungrounded_clinical_literals(sql, question, records):
@@ -83,6 +83,11 @@ class ProposedFlags:
     sql_validation: bool = True
     self_correction: bool = True
     requirement_verification: bool = True
+    # v6 defaults; set False to reproduce the v5.1 verify-every-candidate flow (ablation).
+    fingerprint_selection: bool = True
+    parallel_branches: bool = True
+    # v8 lite flow (one pruned-schema candidate, adaptive escalation); see Config.adaptive_single.
+    adaptive_single: bool = False
 
     def __post_init__(self):
         if self.base_prompt_only and any(asdict(self)[name] for name in (
@@ -100,7 +105,7 @@ class PipelineDatabase:
     def execute(self, sql, question=''):
         dry_run = self.adapter.dry_run(sql)
         if not dry_run.valid:
-            raise ValueError('GoogleSQL dry run rejected query')
+            raise ValueError('GoogleSQL dry run rejected query; ' + (dry_run.redacted_error or ''))
         result = self.adapter.execute(sql)
         if not result.complete:
             raise IncompleteResultError('Incomplete BigQuery result')

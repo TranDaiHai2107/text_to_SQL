@@ -130,15 +130,5 @@ class BigQueryAdapter:
                                                 max_bytes_billed=max_bytes_billed,
                                                 timeout_seconds=self.limits.timeout_seconds)
 
-    def saved_sample(self, sql, job_id, *, cap, billed, kind):
-        from .baselines.mac_sampling import recover_examples
-        job = self.client._saved_probe_job(sql, job_id, case_id=self.limits.case_id,
-                                           max_bytes_billed=cap, timeout_seconds=self.limits.timeout_seconds)
-        if job.total_bytes_billed != billed:
-            raise ValueError('Saved sample billed bytes differ from ledger')
-        result = job.result(timeout=self.limits.timeout_seconds, page_size=10_000,
-                            max_results=self.limits.max_rows + 1)
-        return recover_examples(result, kind, max_rows=self.limits.max_rows)
-
     def execute(self, sql: str, **kwargs) -> Execution:
         return self._run(sql, **kwargs)

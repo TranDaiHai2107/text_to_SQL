@@ -1,6 +1,8 @@
 """Full agentic flow; no gold answers, historical predictions or cross-model votes."""
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 import json
+import threading
 import time
 
 from . import contracts,prompts
@@ -10,13 +12,16 @@ from sqlglot import errors as sql_errors, parse
 from ehrqa.clinsql.execution_errors import IncompleteResultError, SecurityRejected, classify_execution_failure
 
 
+STATIC_PAYLOAD_KEYS=('schema','relationships','examples','full_schema_available')
+
+
 class PipelineError(RuntimeError): pass
 class StageInterfaceError(PipelineError): pass
 
 
 @dataclass(frozen=True)
 class Config:
-    profile: str='postgres'
+    profile: str='clinsql'
     max_repairs: int=2
     semantic_repairs: int=1
     max_model_calls: int=24
@@ -27,10 +32,19 @@ class Config:
     sql_validation: bool=True
     self_correction: bool=True
     requirement_verification: bool=True
+    # v6 (CLINSQL): local result-fingerprint voting, LLM selection only on
+    # disagreement, verification only on an empty/all-NULL signal.
+    fingerprint_selection: bool=False
+    # v6: run the two independent branches (c1, c3) concurrently.
+    parallel_branches: bool=False
+    # v8 "lite" (CLINSQL): no decomposer, one full-schema candidate; a second,
+    # independent candidate only when the first does not execute or returns no
+    # values; no LLM selector.
+    adaptive_single: bool=False
     run_version: str | None=None
 
     def __post_init__(self):
-        if self.profile not in {'postgres','clinsql'}:raise ValueError('Unsupported profile')
+        if self.profile!='clinsql':raise ValueError('Unsupported profile')
         if not 0<=self.max_repairs<=3 or not 0<=self.semantic_repairs<=1:raise ValueError('Invalid repair bounds')
         if self.max_model_calls<1:raise ValueError('Invalid call budget')
 
@@ -48,19 +62,31 @@ class FullAgentic:
         ctx={};candidates=[];interface_failures=[]
         fallbacks=[]
         procedure_sets = {}
+        # v5 CLINSQL: one verifier attempt, evidence defects downgrade checks
+        # instead of rejecting the audit; see contracts.verification(lenient=True).
+        lenient=self.config.profile=='clinsql'
         schema=self.db.schema
         history=[{k:str(r[k])[:(1000 if k=='sql' else 500)] for k in ['role','content','sql','result_summary'] if k in r}
                  for r in list(history_context)[-8:]]
         retrieval_question=question
         grounding_question=(question if isinstance(question,str) else '')+' '+json.dumps(history,ensure_ascii=False)
 
-        def ask(stage,data,validate=None,*,tokens=4096):
+        call_lock=threading.Lock()
+
+        def ask(stage,data,validate=None,*,tokens=4096,attempts=2):
             nonlocal calls
             feedback=None
             previous=None
-            for attempt in range(2 if validate else 1):
-                if calls>=self.config.max_model_calls:raise PipelineError('Per-question model-call budget exhausted')
-                payload={**data,'original_question':question}
+            for attempt in range(attempts if validate else 1):
+                with call_lock:
+                    if calls>=self.config.max_model_calls:raise PipelineError('Per-question model-call budget exhausted')
+                    calls+=1
+                    call_number=calls
+                # Prompt-cache friendly order: large static context first,
+                # per-question content last. Same keys and values as before.
+                payload={k:data[k] for k in STATIC_PAYLOAD_KEYS if k in data}
+                payload.update({k:v for k,v in data.items() if k not in payload})
+                payload['original_question']=question
                 if history:
                     payload.update(conversation_context=history,contextualized_question_advisory=retrieval_question)
                 if feedback:
@@ -68,11 +94,10 @@ class FullAgentic:
                     payload['previous_invalid_output']=previous
                 messages=[{'role':'system','content':prompts.system(self.config.profile,stage)},
                           {'role':'user','content':json.dumps(payload,ensure_ascii=False,default=str)}]
-                calls+=1
-                trace.emit('model.request',operation=stage,attempt=attempt+1,call=calls,
+                trace.emit('model.request',operation=stage,attempt=attempt+1,call=call_number,
                            input=payload,input_hash=digest(messages),max_output_tokens=tokens)
                 result=self.model.complete(stage,messages,tokens)
-                trace.emit('model.response',operation=stage,call=calls,
+                trace.emit('model.response',operation=stage,call=call_number,
                            **{k:v for k,v in result.items() if k!='content'},output=result['content'])
                 try:
                     if stage == 'link' and result.get('link_anchor_error'):
@@ -129,7 +154,13 @@ class FullAgentic:
                         error='SQL rejected by the read-only guard';category='schema'
                     except PermissionError:raise
                     except ValueError as e:
-                        error=str(e)[:500] if self.config.profile!='clinsql' else 'BigQuery rejected the SQL'
+                        if self.config.profile!='clinsql':
+                            error=str(e)[:500]
+                        else:
+                            # Same disclosure rule as the CLINSQL CoT baseline: only a
+                            # whitelisted error class, never raw database text.
+                            from ehrqa.clinsql.execution_errors import redacted_sql_error_class
+                            error='BigQuery rejected the SQL: '+redacted_sql_error_class(str(e))
                         category='execution_sql'
                     except Exception as e:
                         if self.config.profile=='clinsql':raise
@@ -171,23 +202,156 @@ class FullAgentic:
                     'rows':len(candidate['result'].rows),'columns':candidate['result'].columns,
                     'complete':candidate['result'].complete,'column_types':candidate['result'].column_types},
                 'sql_evidence_catalog':public_catalog(candidate['evidence_catalog'])},
-                lambda obj:contracts.verification(obj,links['requirements'],candidate['sql'],candidate['inspection'],question,schema,candidate['evidence_catalog']),tokens=8192)
+                lambda obj:contracts.verification(obj,links['requirements'],candidate['sql'],candidate['inspection'],question,schema,candidate['evidence_catalog'],lenient=lenient),
+                tokens=8192,attempts=1 if lenient else 2)
+            if check.get('evidence_warnings'):
+                trace.emit('semantic.verification_warnings',candidate_id=candidate['id'],warnings=check['evidence_warnings'])
             if findings:
                 check.update(verdict='contradicted',grounding_findings=findings)
             return check
 
-        def select(eligible):
+        def select(eligible,*,require_supported=True):
             # Same evidence as verification; no gold, result voting, or pairwise
             # tournament. Non-unique best is different from unanswerability.
             data={'requirements':links['requirements'],'schema':schema.payload(),
                   'catalog':clinical['records'],'examples':ctx['examples'],
                   'linking_ambiguities':links['ambiguities'],
-                  'candidates':[{'id':c['id'],'sql':c['sql'],'verification':c['verification'],
+                  'candidates':[{'id':c['id'],'sql':c['sql'],'verification':c.get('verification'),
                                  'static_inspection':c['inspection'],
                                  'sql_evidence_catalog':public_catalog(c['evidence_catalog'])}
                                 for c in eligible]}
+            if not require_supported:
+                data['instruction']=('These executed candidates returned different results. Choose the one that '
+                    'best answers the original question even if none is fully supported; return null only if '
+                    'every candidate clearly answers a different question.')
             return ask('select',data,
-                lambda obj:contracts.selection(obj,links['requirements'],eligible,question,schema),tokens=8192)
+                lambda obj:contracts.selection(obj,links['requirements'],eligible,question,schema,lenient=lenient,
+                                               require_supported=require_supported),tokens=8192)
+
+        def has_values(candidate):
+            rows=candidate['result'].rows
+            return bool(rows) and any(value is not None for row in rows for value in row)
+
+        def branch(index,strategy,common,linked,backward,payload=None):
+            context={**common,'strategy':strategy,'schema':payload or schema.payload()}
+            if index==1:
+                scope=schema.join_closure(set(linked)|{r.split('.')[0] for r in backward})
+                if self.config.schema_rag and scope:context['schema']=schema.payload(scope)
+                forward={l['table']+'.'+l['column'] for l in links['links']}
+                context['schema_link_evidence']={'forward':sorted(forward),'backward':sorted(backward),
+                    'union':sorted(forward|backward),'backward_semantic_correctness_assumed':False}
+                trace.emit('schema.bidirectional_context',tables=scope,evidence=context['schema_link_evidence'])
+            if index==2:
+                context={k:v for k,v in context.items() if k not in {'decomposition','links','requirements'}}
+                context['instruction']='Independently interpret the original question; do not inherit another candidate or plan.'
+            cid='c'+str(index+1)
+            try:
+                proposal=ask('generate',context,sql_object)
+                trace.emit('candidate.proposal',candidate_id=cid,strategy=strategy,proposal=proposal)
+                return execute_proposal(cid,proposal,{**common,'schema':payload or schema.payload()})
+            except StageInterfaceError as error:
+                failure={'candidate_id':cid,'operation':str(error).split()[0],'error':str(error)}
+                interface_failures.append(failure)
+                trace.emit('candidate.interface_error',**failure)
+                return None
+
+        def lite_flow(common,scope):
+            """v8: one pruned-schema candidate; escalate once to an independent full-schema one."""
+            pruned=schema.payload(scope) if scope else None
+            c1=branch(0,'direct_full_schema' if pruned is None else 'direct_pruned_schema',
+                      {**common,'full_schema_available':pruned is None},set(),set(),payload=pruned)
+            candidates[:]=[c for c in (c1,) if c]
+            if c1 and c1['status']=='executed' and has_values(c1):
+                trace.emit('selection.choice',candidate_id=c1['id'],method='single_pass')
+                return finish('answered',c1['sql'],'v8 selection: single_pass',c1)
+            fallbacks.append('escalated_second_candidate')
+            trace.emit('pipeline.escalation',reason='first candidate '+('not executed' if not c1 or c1['status']!='executed' else 'returned no values'))
+            c3=branch(2,'independent_full_schema',common,set(),set())
+            candidates[:]=[c for c in (c1,c3) if c]
+            executed=[c for c in candidates if c['status']=='executed']
+            if executed:
+                # Local rule, no LLM: prefer a result with values, then the full-schema retry.
+                chosen=next((c for c in reversed(executed) if has_values(c)),executed[-1])
+                how='escalated_'+chosen['id']+('' if has_values(chosen) else '_without_values')
+                trace.emit('selection.choice',candidate_id=chosen['id'],method=how)
+                return finish('answered',chosen['sql'],'v8 selection: '+how,chosen)
+            attempted=[c for c in candidates if c.get('sql') and c['sql']!='null']
+            if attempted:
+                fallbacks.append('unexecuted_sql')
+                return finish('unresolved',attempted[-1]['sql'],'Fallback: no executable candidate; last generated SQL returned')
+            if interface_failures:return finish('error','','No candidate; branch interface failures')
+            return finish('abstained','null','All branches declined to generate SQL')
+
+        def fingerprint_flow(common,linked,link_fallback,verify_enabled):
+            """v6: c1 || c3, then c2; local fingerprint vote; LLM only on disagreement or empty."""
+            jobs=[(0,'direct_full_schema'),(2,'independent_full_schema')]
+            if self.config.parallel_branches:
+                with ThreadPoolExecutor(max_workers=2) as pool:
+                    futures=[pool.submit(branch,i,s,common,linked,set()) for i,s in jobs]
+                    c1,c3=[f.result() for f in futures]
+            else:
+                c1,c3=[branch(i,s,common,linked,set()) for i,s in jobs]
+            c2=None
+            if not link_fallback:
+                backward=set(c1['inspection']['used_refs']) if c1 and c1.get('inspection',{}).get('valid') else set()
+                c2=branch(1,'decomposed_linked_schema',common,linked,backward)
+            candidates[:]=[c for c in (c1,c2,c3) if c]
+            executed=[c for c in candidates if c['status']=='executed']
+            if not executed:
+                attempted=[c for c in candidates if c.get('sql') and c['sql']!='null']
+                if attempted:
+                    fallbacks.append('unexecuted_sql')
+                    trace.emit('pipeline.fallback',kind='unexecuted_sql',candidate_id=attempted[-1]['id'])
+                    return finish('unresolved',attempted[-1]['sql'],'Fallback: no executable candidate; last generated SQL returned')
+                if interface_failures:return finish('error','','No candidate; branch interface failures')
+                return finish('abstained','null','All branches declined to generate SQL')
+            groups={}
+            for c in executed:groups.setdefault(c['result'].fingerprint(),[]).append(c)
+            trace.emit('selection.fingerprints',groups=[[c['id'] for c in g] for g in groups.values()],
+                       has_values={c['id']:has_values(c) for c in executed})
+            majority=max(groups.values(),key=len)
+            if len(majority)>=2 and has_values(majority[0]):
+                chosen,how=majority[0],f'fingerprint_majority_{len(majority)}_of_{len(executed)}'
+            elif len(groups)==1:
+                chosen,how=majority[0],('single_executed' if len(executed)==1 else 'agreement_without_values')
+            else:
+                representatives=[g[0] for g in groups.values()]
+                chosen,how=None,'llm_selection'
+                try:
+                    decision=select(representatives,require_supported=False)
+                    trace.emit('selection.resolution',decision=decision)
+                    chosen=next((c for c in representatives if c['id']==decision.get('selected_id')),None)
+                except StageInterfaceError as error:
+                    trace.emit('pipeline.fallback',kind='selection_fallback',error=str(error))
+                if chosen is None:
+                    fallbacks.append('selection_fallback')
+                    chosen=next((c for c in representatives if has_values(c)),representatives[0])
+                    how='selection_fallback'
+            trace.emit('selection.choice',candidate_id=chosen['id'],method=how)
+            # B1: verification only on a suspicious signal (no values returned).
+            if verify_enabled and not has_values(chosen):
+                how+='+gated_verification'
+                try:
+                    check=verify(chosen)
+                except StageInterfaceError:
+                    check=None
+                if check:
+                    chosen['verification']=check
+                    trace.emit('semantic.verification',candidate_id=chosen['id'],verification=check,gated=True)
+                if (check and check['verdict']=='contradicted' and self.config.self_correction
+                        and self.config.semantic_repairs):
+                    try:
+                        corrected=ask('repair',{**common,'schema':schema.payload(),'candidate_sql':chosen['sql'],
+                            'question_coverage_audit':check['question_coverage'],
+                            'grounding_findings':check.get('grounding_findings',[]),
+                            'contradicted_requirements':[c for c in check['checks'] if c['status']=='contradicted']},sql_object)
+                        repaired=execute_proposal(chosen['id']+'r',corrected,{**common,'schema':schema.payload()})
+                        candidates.append(repaired)
+                        if repaired['status']=='executed' and has_values(repaired):
+                            chosen,how=repaired,how+'+semantic_repair'
+                    except StageInterfaceError as error:
+                        trace.emit('pipeline.fallback',kind='gated_repair_interface',error=str(error))
+            return finish('answered',chosen['sql'],'v6 selection: '+how,chosen)
 
         def finish(status,sql,reason,selected=None):
             reason=safe(reason)
@@ -241,8 +405,13 @@ class FullAgentic:
             link_fallback=False
             if saved_linking is None:
                 try:
+                    def validate_link(obj):
+                        if self.config.profile=='clinsql':
+                            obj,repairs=contracts.normalize_linking(question,obj,schema,clinical['records'])
+                            if repairs:trace.emit('schema.linking_normalized',repairs=repairs)
+                        return contracts.linking(question,obj,schema,clinical['records'])
                     links=ask('link',{'schema':schema.payload(),'schema_candidates':ctx['schema'],
-                                      'catalog':clinical['records']},lambda obj:contracts.linking(question,obj,schema,clinical['records']),tokens=8192)
+                                      'catalog':clinical['records']},validate_link,tokens=8192)
                 except StageInterfaceError as error:
                     if self.config.profile!='clinsql':raise
                     # Fail open: an invalid linker interface must not prevent an
@@ -265,12 +434,23 @@ class FullAgentic:
                     trace.emit('clinical.procedure_grounding',status=str(error),
                                candidate_count=len(error.candidates))
                     return finish('abstained','null',str(error))
-            if link_fallback:
+            skip_decomposed=link_fallback
+            lite=self.config.adaptive_single and self.config.profile=='clinsql'
+            if link_fallback or lite:
                 plan={'steps':[],'output_step':None}
             else:
-                plan=ask('decompose',{'requirements':links['requirements'],'links':links['links'],
-                         'relationships':schema.edges,'ambiguities':links['ambiguities']},
-                         lambda obj:contracts.decomposition(obj,links['requirements'],schema),tokens=8192)
+                try:
+                    plan=ask('decompose',{'requirements':links['requirements'],'links':links['links'],
+                             'relationships':schema.edges,'ambiguities':links['ambiguities']},
+                             lambda obj:contracts.decomposition(obj,links['requirements'],schema),tokens=8192)
+                except StageInterfaceError as error:
+                    if self.config.profile!='clinsql':raise
+                    # Fail open like the linker: an invalid plan only removes the
+                    # decomposed branch; full-schema branches still answer.
+                    skip_decomposed=True
+                    fallbacks.append('decompose_fallback')
+                    plan={'steps':[],'output_step':None}
+                    trace.emit('pipeline.fallback',kind='decompose_fallback',error=str(error))
             ctx['decomposition']=plan;trace.emit('query.decomposition',plan=plan)
             verify_enabled=self.config.requirement_verification and not link_fallback
             if not self.config.multi_layer_rag:
@@ -288,8 +468,15 @@ class FullAgentic:
                 common['verified_procedure_sets'] = procedure_sets
                 common['procedure_set_instruction'] = ('Use exactly the verified code/version pairs '
                     'in each named selector CTE. Do not insert extra codes or an empty fallback.')
+            if lite:
+                # Full schema for every candidate: on validation the RAG-pruned scope held all
+                # gold tables for only 15% of questions (85% even with linked + core tables),
+                # while input tokens are a small share of cost. Savings come from fewer calls.
+                return lite_flow(common,None)
+            if self.config.fingerprint_selection and self.config.profile=='clinsql':
+                return fingerprint_flow(common,linked,skip_decomposed,verify_enabled)
             for index,strategy in enumerate(['direct_full_schema','decomposed_linked_schema','independent_full_schema']):
-                if link_fallback and index==1:continue
+                if skip_decomposed and index==1:continue
                 backward={r for c in candidates if c.get('inspection',{}).get('valid') for r in c['inspection']['used_refs']}
                 if index==1:
                     linked=schema.join_closure(set(linked)|{r.split('.')[0] for r in backward})
@@ -310,8 +497,20 @@ class FullAgentic:
                     candidate=execute_proposal(cid,proposal,{**common,'schema':schema.payload()})
                     candidates.append(candidate)
                     if candidate['status']!='executed':continue
-                    if not verify_enabled:continue
-                    check=verify(candidate)
+                    if not verify_enabled:
+                        if self.config.profile=='clinsql':
+                            # C: nothing can rank later branches, so stop at the first executable SQL.
+                            trace.emit('pipeline.early_stop',candidate_id=candidate['id'],reason='verification_disabled')
+                            break
+                        continue
+                    try:
+                        check=verify(candidate)
+                    except StageInterfaceError:
+                        if self.config.profile!='clinsql':raise
+                        # C: the verifier gave no usable audit; keep this executable SQL.
+                        fallbacks.append('unverified_selection')
+                        trace.emit('pipeline.early_stop',candidate_id=candidate['id'],reason='verifier_interface_failure')
+                        return finish('answered',candidate['sql'],'Fallback: verifier interface failed; first executable candidate kept',candidate)
                     candidate['verification']=check
                     trace.emit('semantic.verification',candidate_id=candidate['id'],verification=check)
                     for repair in range(self.config.semantic_repairs if self.config.self_correction else 0):
@@ -398,7 +597,10 @@ class FullAgentic:
                                ModelMismatch:'MODEL_MISMATCH',
                                ModelUsageUnknown:'MODEL_USAGE_UNKNOWN'}.get(type(error))
                 if model_failure:
-                    trace.emit('pipeline.error',error_type=type(error).__name__,error_category=model_failure)
+                    # Keep the transport cause (e.g. APITimeoutError, HTTP 5xx) for
+                    # infrastructure-censoring decisions; no request content is logged.
+                    trace.emit('pipeline.error',error_type=type(error).__name__,error_category=model_failure,
+                               cause_type=getattr(error,'cause_type',None),http_status=getattr(error,'http_status',None))
                     return finish('error','',model_failure)
             infrastructure=self.config.profile=='clinsql' and isinstance(
                 error,(PermissionError,TimeoutError,ConnectionError,IncompleteResultError))

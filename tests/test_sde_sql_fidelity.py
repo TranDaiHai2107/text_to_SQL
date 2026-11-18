@@ -203,3 +203,16 @@ def test_guard_error_refines_without_submitting_rejected_sql():
     assert ('execute', 'SELECT 3') not in db.calls
     assert 'read-only guard' in model.calls[-1]['prompt']
     assert 'private error' not in model.calls[-1]['prompt']
+
+
+def test_known_guard_message_is_returned_as_feedback():
+    class Database(MockBigQuery):
+        def dry_run(self, sql):
+            if sql == 'SELECT 3':
+                raise SecurityRejected('SQL references a table outside the approved BigQuery datasets')
+            return super().dry_run(sql)
+
+    model = workflow(**{'sde.refine_error': ['SELECT 4']})
+    output = sde_sql.SDESQL(model, Database([])).run('question', schema_text='schema')
+    assert output['status'] == 'executed'
+    assert 'outside the approved BigQuery datasets' in model.calls[-1]['prompt']

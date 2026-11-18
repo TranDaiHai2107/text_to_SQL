@@ -91,6 +91,18 @@ def build_cohort(manifest, store, work, staging_deadline):
                 if staging_deadline > datetime.fromisoformat(record['artifact_expires_at_utc']):
                     raise JudgeIncomplete('RETENTION_SCOPE_EXCEEDED')
                 sample = stage_saved_prediction(record, question, store=store, root=target, benchmark_root=SOURCE)
+            elif row['format'] == 'sql_only' and record['method'] == method:
+                # Prediction with SQL but no executed result (e.g. Ours fallback
+                # 'unexecuted_sql'): SQL tree only, no result file is staged.
+                if not record.get('sql') or record.get('status') == 'EXECUTED':
+                    raise JudgeIncomplete('SQL_ONLY_FORMAT_MISMATCH')
+                number = case_id.rsplit('/', 1)[1]
+                source_dir = SOURCE / 'data/splits' / split / case_id
+                (target / f'query_{number}.txt').write_text(question.text, encoding='utf-8')
+                (target / f'sql_{number}.sql').write_text(record['sql'], encoding='utf-8')
+                for name in ('sql_rubric_tree.json', 'results_rubric_tree.json'):
+                    shutil.copyfile(source_dir / name, target / name)
+                sample = target
             else:
                 raise JudgeIncomplete('UNSUPPORTED_PREDICTION_FORMAT')
             for name in ('sql_rubric_tree.json', 'results_rubric_tree.json'):

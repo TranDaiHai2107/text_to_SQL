@@ -16,12 +16,42 @@ def _direct_column_origin(scope, column, seen=frozenset()):
     source = scope.sources.get(column.table)
     if isinstance(source, exp.Table):
         return source, column.name
-    if not isinstance(source, Scope) or source in seen or not isinstance(source.expression, exp.Select):
+    if not isinstance(source, Scope) or source in seen:
         return None
-    projections = [item for item in source.expression.selects if item.alias_or_name == column.name]
+    return _projection_origin(source, column.name, seen | {source})
+
+
+def _projection_origin(source, name, seen, position=None):
+    """Origin of output column ``name`` of a SELECT or of every branch of a set operation."""
+    if isinstance(source.expression, exp.SetOperation):
+        branches = list(source.set_operation_scopes)
+        first = source.expression
+        while isinstance(first, exp.SetOperation):
+            first = first.this
+        if not branches or not isinstance(first, exp.Select):
+            return None
+        names = [item.alias_or_name for item in first.selects]
+        if position is None:
+            if names.count(name) != 1:
+                return None
+            position = names.index(name)
+        index = position
+        origins = [_projection_origin(b, name, seen | {b}, position=index) for b in branches]
+        if any(o is None for o in origins) or len({(o[0].name, o[1]) for o in origins}) != 1:
+            return None
+        return origins[0]
+    if not isinstance(source.expression, exp.Select):
+        return None
+    selects = source.expression.selects
+    if position is not None:
+        if position >= len(selects):
+            return None
+        projections = [selects[position]]
+    else:
+        projections = [item for item in selects if item.alias_or_name == name]
     if len(projections) != 1:
         return None
-    return _direct_column_origin(source, projections[0].unalias(), seen | {source})
+    return _direct_column_origin(source, projections[0].unalias(), seen)
 
 
 def _join_conjuncts(predicate):
@@ -55,8 +85,12 @@ def _missing_join_key(scopes, event, dictionary, tables_by_scope):
             incoming = join.this.alias_or_name
             right_tables = source_tables.get(incoming, set())
             left_tables = set().union(*(source_tables.get(alias, set()) for alias in visible))
-            relevant = ((event in left_tables and dictionary in right_tables)
-                        or (dictionary in left_tables and event in right_tables))
+            # Only the JOIN that first pairs the two tables needs the composite key;
+            # a side that already holds both was paired (and checked) in its own scope.
+            relevant = ((event in left_tables and dictionary in right_tables
+                         and dictionary not in left_tables and event not in right_tables)
+                        or (dictionary in left_tables and event in right_tables
+                            and event not in left_tables and dictionary not in right_tables))
             if relevant:
                 keys_by_pair = {}
                 for eq in _join_conjuncts(join.args.get('on')):
@@ -75,7 +109,25 @@ def _missing_join_key(scopes, event, dictionary, tables_by_scope):
                     return True
                 found = True
             visible.add(incoming)
-    return not found
+    # No explicit JOIN pairs the two tables (e.g. EXISTS / IN subqueries): the
+    # JOIN rule does not apply; correlated predicates are checked separately.
+    return False
+
+
+def _missing_correlated_version(tree):
+    """An AND-group equating two icd_code columns must also equate icd_version."""
+    for where in tree.find_all(exp.Where):
+        eqs = list(_join_conjuncts(where.this))
+        pairs = {frozenset((e.this.sql(), e.expression.sql())): (e.this.name, e.expression.name)
+                 for e in eqs if isinstance(e.this, exp.Column) and isinstance(e.expression, exp.Column)
+                 and e.this.table and e.expression.table and e.this.table != e.expression.table}
+        codes = [k for k, names in pairs.items() if names == ('icd_code', 'icd_code')]
+        versions = [k for k, names in pairs.items() if names == ('icd_version', 'icd_version')]
+        for code in codes:
+            tables = {ref.split('.')[0] for ref in code}
+            if not any({ref.split('.')[0] for ref in v} == tables for v in versions):
+                return True
+    return False
 
 
 def _literal_value(node):
@@ -151,7 +203,7 @@ class Schema:
         for table in self.tables:self.descriptions.setdefault(table,TABLE_MEANINGS.get(table,table))
 
     @classmethod
-    def from_records(cls, records, dialect='postgres'):
+    def from_records(cls, records, dialect='bigquery'):
         tables,ddl,descriptions={},{},{}
         for row in records:
             tree=parse_one(row['ddl'],read=dialect)
@@ -256,7 +308,7 @@ class Schema:
                 elif t.catalog or t.db not in ('','public') or t.name not in self.tables:raise ValueError('Unknown/external table: '+t.sql())
                 tables.add(t.name)
             if not tables:raise ValueError('SQL must read the database, not guess a literal answer')
-            qualified=qualify(tree.copy(),dialect=self.dialect,schema=self.tables,expand_stars=False,
+            qualified=qualify(tree.copy(),dialect=self.dialect,schema=self.tables,expand_stars=True,
                 infer_schema=False,validate_qualify_columns=True,quote_identifiers=False,identify=False,allow_partial_qualification=False)
             refs=set()
             scopes = traverse_scope(qualified)
@@ -285,7 +337,7 @@ class Schema:
             tables_by_scope = _scope_tables(scopes)
             for a,b in [('diagnoses_icd','d_icd_diagnoses'),('procedures_icd','d_icd_procedures')]:
                 if self.has_ref(a+'.icd_version') and self.has_ref(b+'.icd_version'):
-                    if _missing_join_key(scopes,a,b,tables_by_scope):raise ValueError('Missing composite icd_version JOIN')
+                    if _missing_join_key(scopes,a,b,tables_by_scope) or _missing_correlated_version(tree):raise ValueError('Missing composite icd_version JOIN')
             # A placeholder filter (WHERE FALSE, 1=0) silently empties a cohort.
             # Unreferenced CTEs cannot change the result and are ignored.
             referenced={t.name.lower() for t in tree.find_all(exp.Table)}
@@ -301,5 +353,23 @@ class Schema:
             result.update(valid=True,tables=sorted(tables),used_refs=sorted(refs),output_columns=projections,
                 ast_sql=tree.sql(dialect=self.dialect),has_distinct=bool(tree.find(exp.Distinct)),
                 has_order=bool(tree.find(exp.Order)),has_limit=bool(tree.find(exp.Limit)))
-        except Exception as e:result['errors'].append(str(e)[:500])
+        except Exception as e:result['errors'].append(self._with_closest_names(str(e))[:500])
         return result
+
+    def _with_closest_names(self,message):
+        """Append the closest real schema names to an unknown-name error (metadata only)."""
+        import difflib
+        table=re.search(r'Unknown table: `?([^`\s]+)`?',message)
+        column=(re.search(r"[Cc]olumn '?\"?([A-Za-z_][\w]*)'?\"? could not be resolved",message)
+                or re.search(r'Unknown column: `?"?([A-Za-z_][\w]*)',message))
+        if table:
+            name=table.group(1).split('.')[-1].strip('"`')
+            close=difflib.get_close_matches(name,list(self.tables),n=3,cutoff=0.5)
+        elif column:
+            name=column.group(1)
+            names=sorted({c for cols in self.tables.values() for c in cols})
+            close=difflib.get_close_matches(name,names,n=3,cutoff=0.6)
+            close=[f'{t}.{c}' for c in close for t,cols in self.tables.items() if c in cols][:6]
+        else:
+            return message
+        return message+(' Closest schema names: '+', '.join(close) if close else '')

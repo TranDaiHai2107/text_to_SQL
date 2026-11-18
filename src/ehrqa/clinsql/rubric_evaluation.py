@@ -93,9 +93,16 @@ class LeafLedger:
         raise JudgeIncomplete('JUDGE_RETRY_LIMIT')
 
 
-def _sample_digest(sample):
+def _sample_digest(sample, *, require_result=True):
     paths = []
-    for pattern in ('query_*.txt', 'sql_*.sql', 'result_*.csv', 'sql_rubric_tree.json', 'results_rubric_tree.json'):
+    patterns = ('query_*.txt', 'sql_*.sql', 'result_*.csv', 'sql_rubric_tree.json', 'results_rubric_tree.json')
+    if not require_result:
+        # SQL-only sample: the prediction has SQL but no executed result. The
+        # official scorer still grades its SQL tree (results score is 0).
+        if list(sample.glob('result_*.csv')):
+            raise JudgeIncomplete('UNEXPECTED_RESULT_FILE')
+        patterns = tuple(p for p in patterns if p != 'result_*.csv')
+    for pattern in patterns:
         matches = list(sample.glob(pattern))
         if len(matches) != 1 or not matches[0].is_file() or not matches[0].stat().st_size:
             raise JudgeIncomplete('MISSING_OR_AMBIGUOUS_SAMPLE_FILE')
@@ -127,8 +134,8 @@ def create_scorer(source, lock, judge, ledger, *, scope, authorize):
         def __init__(self):
             pass  # The explicit transport replaces native Azure construction.
 
-        def _prepare_sample(self, sample_dir):
-            self.sample_hash = _sample_digest(sample_dir)
+        def _prepare_sample(self, sample_dir, require_result=True):
+            self.sample_hash = _sample_digest(sample_dir, require_result=require_result)
             self.case = '/'.join(sample_dir.parts[-4:])
             _validate_rubrics(sample_dir)
 
@@ -139,10 +146,10 @@ def create_scorer(source, lock, judge, ledger, *, scope, authorize):
             except (OSError, ValueError, KeyError, TypeError):
                 raise JudgeIncomplete('INVALID_SAMPLE_OR_RUBRIC') from None
 
-        def score_sql_without_results(self, sample_dir):
+        def score_sql_without_results(self, sample_dir, *, require_result=True):
             """Use the native SQL tree with a row-free judge payload."""
             try:
-                self._prepare_sample(sample_dir)
+                self._prepare_sample(sample_dir, require_result)
                 files = {
                     'query': next(sample_dir.glob('query_*.txt')).read_text(encoding='utf-8').strip(),
                     'test_sql': next(sample_dir.glob('sql_*.sql')).read_text(encoding='utf-8').strip(),

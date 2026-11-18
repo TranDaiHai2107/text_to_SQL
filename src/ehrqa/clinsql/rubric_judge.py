@@ -82,6 +82,9 @@ class JudgeConfig:
     temperature: float | None = None
     cached_input_usd_per_million: str | None = None
     adapted_max_completion_tokens: int | None = 1024
+    # Tier 2 low-cost adapted judge: e.g. 'minimal'. None keeps the provider default
+    # and the previous configuration hash.
+    reasoning_effort: str | None = None
 
     def parameters(self):
         params = {self.azure_token_parameter: 1024}
@@ -93,6 +96,8 @@ class JudgeConfig:
             else:
                 params[self.azure_token_parameter] = self.adapted_max_completion_tokens
             params['store'] = False
+            if self.reasoning_effort is not None:
+                params['reasoning_effort'] = self.reasoning_effort
             if self.temperature is not None:
                 params['temperature'] = self.temperature
         return params
@@ -110,7 +115,8 @@ class JudgeConfig:
                     or self.azure_token_parameter != 'max_completion_tokens'
                     or (self.adapted_max_completion_tokens is not None and
                         self.adapted_max_completion_tokens <= 0)
-                    or (self.temperature is not None and not 0 <= self.temperature <= 2)):
+                    or (self.temperature is not None and not 0 <= self.temperature <= 2)
+                    or self.reasoning_effort not in {None, 'minimal', 'low', 'medium', 'high'}):
                 raise ValueError('Adapted judge requires a pinned OpenAI snapshot and supported parameters')
         else:
             raise ValueError('Unknown judge mode')
@@ -125,6 +131,8 @@ class JudgeConfig:
         config = asdict(self)
         if self.adapted_max_completion_tokens == 1024:
             config.pop('adapted_max_completion_tokens')
+        if self.reasoning_effort is None:
+            config.pop('reasoning_effort')
         return digest({'config': config, 'parameters': self.parameters(),
                        'api_version': '2024-12-01-preview' if self.mode == NATIVE else 'v1'})
 

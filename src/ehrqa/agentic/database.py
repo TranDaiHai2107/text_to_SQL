@@ -1,4 +1,4 @@
-"""Query result representation shared by the MIMIC-IV PostgreSQL pipeline."""
+"""Query result representation shared by the CLINSQL (BigQuery) pipeline."""
 from dataclasses import dataclass
 from decimal import Decimal
 import hashlib

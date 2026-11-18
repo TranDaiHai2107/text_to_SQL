@@ -11,7 +11,8 @@ import json
 import re
 import time
 
-from .openai_provider import (AmbiguousModelRequest, ModelGenerationFailure,
+from .openai_provider import (TRANSPORT_BACKOFF_SECONDS, _transient,
+                              AmbiguousModelRequest, ModelGenerationFailure,
                               ModelUsageUnknown, GPT5_MINI_MAX_OUTPUT, OPENAI_API_BASE, request_receipt)
 from .pilot_api_budget import PersistentAPIBudgetLedger
 from .benchmark_model import BENCHMARK_LLM, ModelMismatch, require_benchmark_model
@@ -25,8 +26,12 @@ class OpenAIChatMultiProvider:
                  model_id: str = BENCHMARK_LLM,
                  max_completion_tokens: int | None = 4096,
                  timeout_seconds: float = 90,
-                 reasoning_effort: str = 'medium', client=None, group_nine=False):
+                 reasoning_effort: str = 'medium', client=None, group_nine=False,
+                 transport_retries: int = 0):
         require_benchmark_model(model_id)
+        if not 0 <= transport_retries <= 3:
+            raise ValueError('Transport retries must be between 0 and 3')
+        self.transport_retries = transport_retries
         if (max_completion_tokens is not None and max_completion_tokens <= 0) or timeout_seconds <= 0:
             raise ValueError('Positive token and timeout caps required')
         if reasoning_effort not in {'low', 'medium', 'high'}:
@@ -67,15 +72,29 @@ class OpenAIChatMultiProvider:
     def _request(self, stage, prompt, n):
         require_benchmark_model(self.model_id)
         kwargs = self._payload(prompt, n)
-        reservation = self.ledger.reserve(
-            stage=stage, prompt=prompt,
-            output_cap=n * (self.max_completion_tokens or GPT5_MINI_MAX_OUTPUT),
-            transport=('openai.chat.completions', self.model_id),
-            request_metadata=request_receipt('/chat/completions', kwargs, 'messages'))
         started = time.monotonic()
-        try:
-            response = self.client.chat.completions.create(**kwargs)
-        except Exception as exc:
+        retries = 0
+        failure = None
+        while True:
+            # Same bounded transport retry as OpenAIModelProvider: a fresh
+            # reservation per attempt; failed attempts stay charged at the cap.
+            reservation = self.ledger.reserve(
+                stage=stage, prompt=prompt,
+                output_cap=n * (self.max_completion_tokens or GPT5_MINI_MAX_OUTPUT),
+                transport=('openai.chat.completions', self.model_id),
+                request_metadata=request_receipt('/chat/completions', kwargs, 'messages'))
+            try:
+                response = self.client.chat.completions.create(**kwargs)
+                break
+            except Exception as exc:
+                if retries < self.transport_retries and _transient(exc):
+                    time.sleep(TRANSPORT_BACKOFF_SECONDS[min(retries, len(TRANSPORT_BACKOFF_SECONDS) - 1)])
+                    retries += 1
+                    continue
+                failure = exc
+                break
+        if failure is not None:
+            exc = failure
             error = AmbiguousModelRequest(
                 'Multi-choice request outcome unknown; inspect before resuming',
                 cause_type=type(exc).__name__,

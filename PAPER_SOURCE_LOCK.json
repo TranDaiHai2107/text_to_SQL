@@ -9,16 +9,6 @@
       "evaluation/clinical_rubric_scorer.py": "3a3b9734cab64fafbde7f387d5cb84f569d9072acbb6e7e072311f2b858f475c"
     }
   },
-  "mac_sql": {
-    "origin": "https://github.com/wbbeyourself/MAC-SQL.git",
-    "path": "external/mac_sql_official",
-    "commit": "31a9df5e0d520be4769be57a4b9022e5e34a14f4",
-    "tree": "1bad8640204314eb08b5cc6022ad94e57ae748dd",
-    "key_files": {
-      "core/agents.py": "ac076325e1dc445844defe16f2bb81541cc2ce300ea5b62829b0d5955d11863e",
-      "core/chat_manager.py": "b6e6771111acf0618270bc826fc063e2689c155a35dbbd5bbea814802f95e100"
-    }
-  },
   "sde_sql": {
     "origin": "https://github.com/Lancelot-Xie/SDE-SQL.git",
     "path": "external/sde_sql_official",
