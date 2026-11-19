@@ -1,0 +1,37 @@
+{
+  "paper": "OmniSQL: Synthesizing High-quality Text-to-SQL Data at Scale, PVLDB 18(11), 2025",
+  "paper_url": "https://www.vldb.org/pvldb/vol18/p4695-li.pdf",
+  "source_url": "https://github.com/RUCKBReasoning/OmniSQL",
+  "source_commit": "a66d732010c89fac4353488d1c59e0b06f92b742",
+  "source_tree": "000a300e80af93a77ab0949f30c9101aa3117848",
+  "huggingface_dataset_revision": "e1db8bb10ef11f92eacd8d87801d716ba0e9e9be",
+  "huggingface_model_revisions": {
+    "seeklhy/OmniSQL-7B": "af4eed67f561bbeea555c017dae4b38b93bac2eb",
+    "seeklhy/OmniSQL-14B": "5c379862fb21fb978f6916d7429c8675f21e848d",
+    "seeklhy/OmniSQL-32B": "409cf678b8500d250bfa8735b8ae3a9dc203ef5f"
+  },
+  "official_source_path": "benchmarks/omnisql/official",
+  "key_file_sha256": {
+    "train_and_evaluate/evaluate_bird.py": "5ae11cdb48afe7ce1920c51fa549f5a5b0fe0c643248a189c56bd4e855ec771a",
+    "train_and_evaluate/auto_evaluation.py": "f1c0362f69749219b4518c593d9c8b55067972bee086582889f7035e5042da15",
+    "train_and_evaluate/infer.py": "c16243b83183f7b807efb980c92c32d82dc052a66cc902d761a60e55bdfebd58",
+    "train_and_evaluate/process_dataset.py": "643b99f7f9a84d2f083a957f5a52e09a669ac8b45d58d74f46050a000ba6eac4",
+    "train_and_evaluate/eval_open_source_models.py": "d063fcacac75640ffe82799e05ff0eafdb6e16528fa5d28eded54a05e0883e8e"
+  },
+  "bird_release": "dev_20240627",
+  "bird_archive_sha256": "cdd6d19faeb45a23970b98d3ef6c40a87987c95459c2cf12076897a60cf5a630",
+  "bird_dev_json_sha256": "630272f2b1c44d8cef2c3b246f623355cf0bbc1e832c81061df895530dfc2f06",
+  "bird_tables_sha256": "35e7f73f2bc3a3bc4def9466215f7617ff8b37e9b2837f03539a42c9e9c69d97",
+  "omnisql_processed_prompt_sha256": "65186bb8046e20f30c0fe0c560d7cabef6baa0741a2602dd4f6936d55ddf5b50",
+  "official_predictions_url": "https://drive.google.com/file/d/1Mj6uNQxg-eghNK3-u7Zr0Z7iVuQKSgmz/view",
+  "official_predictions_archive_sha256": "4319fb3534debf020c6930ff4f7c50a21269cd43f6f0daaa9310a720cb173cd2",
+  "bird_dev_questions": 1534,
+  "bird_dev_databases": 11,
+  "paper_gpt4o_model": "gpt-4o-2024-11-20",
+  "paper_gpt4o_bird_ex_greedy": 0.619,
+  "paper_gpt4o_bird_ex_majority_8": 0.64,
+  "paper_gpt4o_mini_model": "gpt-4o-mini-2024-07-18",
+  "paper_gpt4o_mini_bird_ex_greedy": 0.588,
+  "paper_gpt4o_mini_bird_ex_majority_8": 0.615,
+  "source_bytes_verified_against": "raw.githubusercontent.com at source_commit (LF, byte-identical)"
+}

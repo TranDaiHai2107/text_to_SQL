@@ -3,3 +3,5 @@
 *.json text eol=lf
 *.md text eol=lf
 *.yml text eol=lf
+# Upstream OmniSQL source must stay byte-identical (LF) on every OS
+benchmarks/omnisql/official/** -text

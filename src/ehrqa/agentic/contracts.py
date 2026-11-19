@@ -61,7 +61,61 @@ _LEADING_CLAUSE=re.compile(r'^\s*([^.;]{3,200}?)(?=[.;:]\s|\s+[Aa]mong\b|,\s+(?:
 _FIRST_SENTENCE=re.compile(r'^\s*([^.;]{3,200}?)(?=[.;]\s|\s+[Aa]mong\b)')
 
 
-def normalize_linking(question,obj,schema,catalog):
+def normalize_linking_generic(question,obj,schema):
+    """Meaning-preserving interface repairs of a linker output (BIRD profile).
+
+    1. A link whose span is not verbatim takes the span of its own requirement.
+    2. A link naming several comma-separated columns becomes one link per column.
+    3. A link to a column that does not exist is dropped (the requirement stays unlinked).
+    4. Without any 'output' requirement, the whole question is added as the output obligation.
+    5. A number the requirements do not cover gets a requirement spanning its clause.
+    Then the shared link/join/catalog repairs apply (no reference-patient rule).
+    """
+    warnings=[]
+    requirements=obj.get('requirements')
+    if not isinstance(requirements,list):return obj,warnings
+    by_id={r.get('id'):r for r in requirements if isinstance(r,dict)}
+    def next_id():
+        return next(f'r{i}' for i in range(1,64) if f'r{i}' not in by_id)
+    links=obj.get('links')
+    if isinstance(links,list):
+        kept=[]
+        for link in links:
+            if not isinstance(link,dict):
+                kept.append(link);continue
+            req=by_id.get(link.get('requirement_id'))
+            if req and isinstance(req.get('span'),str) and req['span'] in question and (
+                    not isinstance(link.get('span'),str) or link['span'] not in question):
+                link['span']=req['span'];warnings.append(f"link span replaced by requirement {req['id']} span")
+            columns=[c.strip() for c in str(link.get('column') or '').split(',') if c.strip()]
+            for column in columns or [link.get('column')]:
+                item={**link,'column':column}
+                table=item.get('table')
+                if isinstance(table,str) and '.' not in table.strip('`') and not schema.has_ref(f'{table}.{column}'):
+                    warnings.append(f'dropped link to unknown column {table}.{column}')
+                    continue
+                kept.append(item)
+            if len(columns)>1:warnings.append(f"split multi-column link {link.get('column')}")
+        obj['links']=kept
+    if len(requirements)<32 and not any(isinstance(r,dict) and r.get('kind')=='output' for r in requirements):
+        rid=next_id()
+        requirements.append({'id':rid,'kind':'output','span':question,
+                             'description':'Return exactly the information the question asks for.'})
+        by_id[rid]=requirements[-1];warnings.append(f'added whole-question output requirement {rid}')
+    spans=' '.join(r.get('span','') for r in requirements if isinstance(r,dict) and isinstance(r.get('span'),str))
+    for literal in re.findall(r'\b\d+(?:\.\d+)?\b',question):
+        if literal in spans or len(requirements)>=32:continue
+        clause=next((c.strip() for c in re.split(r'[,;.?!]\s',question) if re.search(r'\b'+re.escape(literal)+r'\b',c)),None)
+        if clause and clause in question:
+            rid=next_id()
+            requirements.append({'id':rid,'kind':'population','span':clause,
+                                 'description':'Constraint stated in the question; apply it exactly as written.'})
+            by_id[rid]=requirements[-1];spans+=' '+clause
+            warnings.append(f'added requirement {rid} covering literal {literal}')
+    return obj,warnings
+
+
+def normalize_linking(question,obj,schema,catalog,*,reference_patient=True):
     """Deterministic, meaning-preserving repairs of a linker output (CLINSQL profile).
 
     Returns (obj, warnings). Only formatting is repaired; no clinical mapping is
@@ -76,7 +130,7 @@ def normalize_linking(question,obj,schema,catalog):
     """
     warnings=[]
     requirements=obj.get('requirements')
-    if isinstance(requirements,list):
+    if isinstance(requirements,list) and reference_patient:
         options=[m.group(1).strip() for m in (_REFERENCE_PATIENT.match(question),_LEADING_CLAUSE.match(question),
                  _FIRST_SENTENCE.match(question)) if m]
         # Prefer the first opening clause that actually carries a number.
@@ -176,6 +230,33 @@ def linking(question,obj,schema,catalog):
     return obj
 
 
+PLAN_OPERATIONS=('filter','join','select_event','aggregate','rank','project')
+
+
+def normalize_decomposition_generic(obj,requirements):
+    """Interface repairs of a plan (BIRD profile); step descriptions carry the semantics.
+
+    1. An operation copied as the template list ("filter|join") keeps its first valid name.
+    2. Requirements no step covers are attached to the output step, which produces the answer.
+    """
+    warnings=[]
+    steps=obj.get('steps')
+    if not isinstance(steps,list):return obj,warnings
+    for step in steps:
+        op=step.get('operation') if isinstance(step,dict) else None
+        if isinstance(op,str) and op not in PLAN_OPERATIONS:
+            valid=[o for o in re.split(r'[|,/\s]+',op.strip().lower()) if o in PLAN_OPERATIONS]
+            if valid:
+                step['operation']=valid[0];warnings.append(f"operation {op!r} -> {valid[0]}")
+    output=next((s for s in steps if isinstance(s,dict) and s.get('id')==obj.get('output_step')),None)
+    if output is not None and isinstance(output.get('requirement_ids'),list):
+        covered={i for s in steps if isinstance(s,dict) and isinstance(s.get('requirement_ids'),list) for i in s['requirement_ids']}
+        missing=[r['id'] for r in requirements if r['id'] not in covered]
+        if missing:
+            output['requirement_ids'].extend(missing);warnings.append(f'output step covers {missing}')
+    return obj,warnings
+
+
 def decomposition(obj,requirements,schema):
     steps=obj.get('steps')
     if not isinstance(steps,list) or not 1<=len(steps)<=24:raise StageError('Missing/oversized decomposition')
@@ -187,6 +268,8 @@ def decomposition(obj,requirements,schema):
         if step.get('operation') not in {'filter','join','select_event','aggregate','rank','project'}:raise StageError('Invalid relational operation')
         if not isinstance(step.get('depends_on'),list) or not set(step['depends_on'])<=set(seen):raise StageError('Cyclic/forward/missing dependency')
         if not isinstance(step.get('requirement_ids'),list) or not set(step['requirement_ids'])<=wanted:raise StageError('Unknown requirement in plan')
+        if isinstance(step.get('tables'),list):
+            step['tables']=[schema.canonical_table(t) or t if isinstance(t,str) else t for t in step['tables']]
         if not isinstance(step.get('tables'),list) or not set(step['tables'])<=set(schema.tables):raise StageError('Unknown plan table')
         if not isinstance(step.get('description'),str) or not step['description'].strip():raise StageError('Missing step description')
         seen[sid]=step

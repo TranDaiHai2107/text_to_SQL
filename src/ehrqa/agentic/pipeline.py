@@ -13,6 +13,8 @@ from ehrqa.clinsql.execution_errors import IncompleteResultError, SecurityReject
 
 
 STATIC_PAYLOAD_KEYS=('schema','relationships','examples','full_schema_available')
+# Benchmark profiles: always return a best-effort SQL (fail open with flags).
+PROFILES=('clinsql','bird')
 
 
 class PipelineError(RuntimeError): pass
@@ -41,10 +43,16 @@ class Config:
     # independent candidate only when the first does not execute or returns no
     # values; no LLM selector.
     adaptive_single: bool=False
+    # v7 (BIRD): extra sampled direct candidates from ONE request (n completions at
+    # sample_temperature); vote only among candidates that return values; LLM selector
+    # only when the largest result groups tie.
+    extra_samples: int=0
+    sample_temperature: float=0.8
+    value_vote: bool=False
     run_version: str | None=None
 
     def __post_init__(self):
-        if self.profile!='clinsql':raise ValueError('Unsupported profile')
+        if self.profile not in PROFILES:raise ValueError('Unsupported profile')
         if not 0<=self.max_repairs<=3 or not 0<=self.semantic_repairs<=1:raise ValueError('Invalid repair bounds')
         if self.max_model_calls<1:raise ValueError('Invalid call budget')
 
@@ -55,7 +63,7 @@ class FullAgentic:
         self.config=config or Config()
         self.procedure_grounding = procedure_grounding
 
-    def run(self,question,*,query_id=None,history_context=(),saved_linking=None):
+    def run(self,question,*,query_id=None,history_context=(),saved_linking=None,evidence=None):
         trace=Trace(self.config.log_dir,query_id=query_id)
         self.trace=trace
         calls=0
@@ -64,12 +72,17 @@ class FullAgentic:
         procedure_sets = {}
         # v5 CLINSQL: one verifier attempt, evidence defects downgrade checks
         # instead of rejecting the audit; see contracts.verification(lenient=True).
-        lenient=self.config.profile=='clinsql'
+        lenient=self.config.profile in PROFILES
         schema=self.db.schema
         history=[{k:str(r[k])[:(1000 if k=='sql' else 500)] for k in ['role','content','sql','result_summary'] if k in r}
                  for r in list(history_context)[-8:]]
         retrieval_question=question
-        grounding_question=(question if isinstance(question,str) else '')+' '+json.dumps(history,ensure_ascii=False)
+        # BIRD: the benchmark's external-knowledge "evidence" accompanies the question in
+        # every stage (the baseline prompt includes it too). Requirement spans stay verbatim
+        # substrings of the question itself.
+        evidence=evidence.strip() if isinstance(evidence,str) and evidence.strip() else None
+        if evidence:retrieval_question=question+' '+evidence
+        grounding_question=(question if isinstance(question,str) else '')+' '+(evidence or '')+' '+json.dumps(history,ensure_ascii=False)
 
         call_lock=threading.Lock()
 
@@ -87,6 +100,7 @@ class FullAgentic:
                 payload={k:data[k] for k in STATIC_PAYLOAD_KEYS if k in data}
                 payload.update({k:v for k,v in data.items() if k not in payload})
                 payload['original_question']=question
+                if evidence:payload['external_knowledge']=evidence
                 if history:
                     payload.update(conversation_context=history,contextualized_question_advisory=retrieval_question)
                 if feedback:
@@ -144,6 +158,14 @@ class FullAgentic:
                     sql=self.db.prepare_sql(sql)
                     inspection=schema.inspect(sql,grounding_question)
                 error=None;result=None;category=None
+                if (not inspection['valid'] and self.config.profile=='bird'
+                        and not any(s in e for e in inspection['errors']
+                                    for s in ('Mutating','Unsafe function','Exactly one','must read the database'))):
+                    # BIRD: the read-only SQLite engine is the authority. A static-analysis
+                    # finding is advisory, so a validator false positive cannot block an
+                    # executable query; it is reported with any execution error.
+                    inspection={'valid':True,'errors':[],'warnings':inspection['errors'],'tables':[],
+                                'used_refs':[],'output_columns':[],'ast_sql':sql,'static_advisory':True}
                 if inspection['valid']:
                     try:
                         result=self.db.execute(sql,grounding_question)
@@ -156,6 +178,8 @@ class FullAgentic:
                     except ValueError as e:
                         if self.config.profile!='clinsql':
                             error=str(e)[:500]
+                            if inspection.get('static_advisory'):
+                                error+=' | static analysis: '+'; '.join(inspection['warnings'])[:500]
                         else:
                             # Same disclosure rule as the CLINSQL CoT baseline: only a
                             # whitelisted error class, never raw database text.
@@ -171,9 +195,9 @@ class FullAgentic:
                 else:
                     error='; '.join(inspection['errors'])
                     category='schema'
-                    if self.config.profile=='clinsql':
+                    if self.config.profile in PROFILES:
                         try:
-                            parse(sql,read='bigquery')
+                            parse(sql,read=schema.dialect)
                         except sql_errors.SqlglotError:
                             category='syntax'
                 history.append({'attempt':attempt+1,'sql':sql,'error':error,'error_category':category,'inspection':inspection})
@@ -184,7 +208,11 @@ class FullAgentic:
                     trace.emit('schema.backward_linking',candidate_id=cid,forward=sorted(forward),
                                backward=inspection['used_refs'],union=sorted(forward|set(inspection['used_refs'])),
                                newly_used_refs=sorted(set(inspection['used_refs'])-forward))
-                    catalog=build_catalog(sql,cid,schema.dialect)
+                    try:
+                        catalog=build_catalog(sql,cid,schema.dialect)
+                    except sql_errors.SqlglotError:
+                        if not inspection.get('static_advisory'):raise
+                        catalog=[{'id':cid+':query','kind':'whole_query','sql':sql}]
                     trace.emit('candidate.evidence',candidate_id=cid,catalog=catalog)
                     return {'id':cid,'sql':sql,'status':'executed','inspection':inspection,'result':result,'history':history,'evidence_catalog':catalog}
                 if attempt<max_repairs:
@@ -255,6 +283,36 @@ class FullAgentic:
                 trace.emit('candidate.interface_error',**failure)
                 return None
 
+        def sample_candidates(common,n):
+            """v7: n sampled direct full-schema SQLs from one request; each executed/repaired."""
+            nonlocal calls
+            with call_lock:
+                if calls>=self.config.max_model_calls:raise PipelineError('Per-question model-call budget exhausted')
+                calls+=1
+                call_number=calls
+            data={**common,'strategy':'sampled_direct_full_schema','schema':schema.payload()}
+            payload={k:data[k] for k in STATIC_PAYLOAD_KEYS if k in data}
+            payload.update({k:v for k,v in data.items() if k not in payload})
+            payload['original_question']=question
+            if evidence:payload['external_knowledge']=evidence
+            messages=[{'role':'system','content':prompts.system(self.config.profile,'generate')},
+                      {'role':'user','content':json.dumps(payload,ensure_ascii=False,default=str)}]
+            trace.emit('model.request',operation='generate_samples',call=call_number,input=payload,
+                       input_hash=digest(messages),n=n,temperature=self.config.sample_temperature)
+            result=self.model.sample('generate',messages,4096,n=n,temperature=self.config.sample_temperature)
+            trace.emit('model.response',operation='generate_samples',call=call_number,
+                       **{k:v for k,v in result.items() if k!='contents'},output=result['contents'])
+            proposals=[]
+            for content in result['contents']:
+                try:proposals.append(sql_object(contracts.json_object(content)))
+                except (contracts.StageError,TypeError,KeyError,AttributeError):pass
+            base={**common,'schema':schema.payload()}
+            jobs=[('s'+str(i+1),proposal) for i,proposal in enumerate(proposals)]
+            if self.config.parallel_branches and jobs:
+                with ThreadPoolExecutor(max_workers=min(4,len(jobs))) as pool:
+                    return list(pool.map(lambda job:execute_proposal(job[0],job[1],base),jobs))
+            return [execute_proposal(cid,proposal,base) for cid,proposal in jobs]
+
         def lite_flow(common,scope):
             """v8: one pruned-schema candidate; escalate once to an independent full-schema one."""
             pruned=schema.payload(scope) if scope else None
@@ -296,6 +354,11 @@ class FullAgentic:
                 backward=set(c1['inspection']['used_refs']) if c1 and c1.get('inspection',{}).get('valid') else set()
                 c2=branch(1,'decomposed_linked_schema',common,linked,backward)
             candidates[:]=[c for c in (c1,c2,c3) if c]
+            if self.config.extra_samples:
+                try:
+                    candidates.extend(sample_candidates(common,self.config.extra_samples))
+                except StageInterfaceError as error:
+                    trace.emit('pipeline.fallback',kind='sampling_interface',error=str(error))
             executed=[c for c in candidates if c['status']=='executed']
             if not executed:
                 attempted=[c for c in candidates if c.get('sql') and c['sql']!='null']
@@ -305,12 +368,33 @@ class FullAgentic:
                     return finish('unresolved',attempted[-1]['sql'],'Fallback: no executable candidate; last generated SQL returned')
                 if interface_failures:return finish('error','','No candidate; branch interface failures')
                 return finish('abstained','null','All branches declined to generate SQL')
+            pool=executed
+            if self.config.value_vote and any(has_values(c) for c in executed):
+                pool=[c for c in executed if has_values(c)]
             groups={}
-            for c in executed:groups.setdefault(c['result'].fingerprint(),[]).append(c)
+            for c in pool:groups.setdefault(c['result'].fingerprint(),[]).append(c)
             trace.emit('selection.fingerprints',groups=[[c['id'] for c in g] for g in groups.values()],
                        has_values={c['id']:has_values(c) for c in executed})
-            majority=max(groups.values(),key=len)
-            if len(majority)>=2 and has_values(majority[0]):
+            ranked=sorted(groups.values(),key=len,reverse=True)
+            majority=ranked[0]
+            tied=len(ranked)>1 and len(ranked[1])==len(majority)
+            if self.config.value_vote and len(majority)>=2 and not tied:
+                chosen,how=majority[0],f'value_vote_{len(majority)}_of_{len(pool)}'
+            elif self.config.value_vote and len(groups)==1:
+                chosen,how=majority[0],('single_executed' if len(pool)==1 else 'agreement_without_values')
+            elif self.config.value_vote:
+                top=[g[0] for g in ranked if len(g)==len(majority)][:6]
+                chosen,how=None,f'llm_selection_tie_{len(top)}x{len(majority)}'
+                try:
+                    decision=select(top,require_supported=False)
+                    trace.emit('selection.resolution',decision=decision)
+                    chosen=next((c for c in top if c['id']==decision.get('selected_id')),None)
+                except StageInterfaceError as error:
+                    trace.emit('pipeline.fallback',kind='selection_fallback',error=str(error))
+                if chosen is None:
+                    fallbacks.append('selection_fallback')
+                    chosen,how=top[0],'selection_fallback'
+            elif len(majority)>=2 and has_values(majority[0]):
                 chosen,how=majority[0],f'fingerprint_majority_{len(majority)}_of_{len(executed)}'
             elif len(groups)==1:
                 chosen,how=majority[0],('single_executed' if len(executed)==1 else 'agreement_without_values')
@@ -406,14 +490,19 @@ class FullAgentic:
             if saved_linking is None:
                 try:
                     def validate_link(obj):
-                        if self.config.profile=='clinsql':
+                        if self.config.profile=='bird':
+                            obj,generic=contracts.normalize_linking_generic(question,obj,schema)
+                            obj,repairs=contracts.normalize_linking(question,obj,schema,clinical['records'],reference_patient=False)
+                            repairs=generic+repairs
+                            if repairs:trace.emit('schema.linking_normalized',repairs=repairs)
+                        elif self.config.profile in PROFILES:
                             obj,repairs=contracts.normalize_linking(question,obj,schema,clinical['records'])
                             if repairs:trace.emit('schema.linking_normalized',repairs=repairs)
                         return contracts.linking(question,obj,schema,clinical['records'])
                     links=ask('link',{'schema':schema.payload(),'schema_candidates':ctx['schema'],
                                       'catalog':clinical['records']},validate_link,tokens=8192)
                 except StageInterfaceError as error:
-                    if self.config.profile!='clinsql':raise
+                    if self.config.profile not in PROFILES:raise
                     # Fail open: an invalid linker interface must not prevent an
                     # answer. Full-schema branches still run; the case is flagged.
                     link_fallback=True
@@ -435,16 +524,21 @@ class FullAgentic:
                                candidate_count=len(error.candidates))
                     return finish('abstained','null',str(error))
             skip_decomposed=link_fallback
-            lite=self.config.adaptive_single and self.config.profile=='clinsql'
+            lite=self.config.adaptive_single and self.config.profile in PROFILES
             if link_fallback or lite:
                 plan={'steps':[],'output_step':None}
             else:
+                def validate_plan(obj):
+                    if self.config.profile=='bird':
+                        obj,repairs=contracts.normalize_decomposition_generic(obj,links['requirements'])
+                        if repairs:trace.emit('query.decomposition_normalized',repairs=repairs)
+                    return contracts.decomposition(obj,links['requirements'],schema)
                 try:
                     plan=ask('decompose',{'requirements':links['requirements'],'links':links['links'],
                              'relationships':schema.edges,'ambiguities':links['ambiguities']},
-                             lambda obj:contracts.decomposition(obj,links['requirements'],schema),tokens=8192)
+                             validate_plan,tokens=8192)
                 except StageInterfaceError as error:
-                    if self.config.profile!='clinsql':raise
+                    if self.config.profile not in PROFILES:raise
                     # Fail open like the linker: an invalid plan only removes the
                     # decomposed branch; full-schema branches still answer.
                     skip_decomposed=True
@@ -473,7 +567,7 @@ class FullAgentic:
                 # gold tables for only 15% of questions (85% even with linked + core tables),
                 # while input tokens are a small share of cost. Savings come from fewer calls.
                 return lite_flow(common,None)
-            if self.config.fingerprint_selection and self.config.profile=='clinsql':
+            if self.config.fingerprint_selection and self.config.profile in PROFILES:
                 return fingerprint_flow(common,linked,skip_decomposed,verify_enabled)
             for index,strategy in enumerate(['direct_full_schema','decomposed_linked_schema','independent_full_schema']):
                 if skip_decomposed and index==1:continue
@@ -498,7 +592,7 @@ class FullAgentic:
                     candidates.append(candidate)
                     if candidate['status']!='executed':continue
                     if not verify_enabled:
-                        if self.config.profile=='clinsql':
+                        if self.config.profile in PROFILES:
                             # C: nothing can rank later branches, so stop at the first executable SQL.
                             trace.emit('pipeline.early_stop',candidate_id=candidate['id'],reason='verification_disabled')
                             break
@@ -506,7 +600,7 @@ class FullAgentic:
                     try:
                         check=verify(candidate)
                     except StageInterfaceError:
-                        if self.config.profile!='clinsql':raise
+                        if self.config.profile not in PROFILES:raise
                         # C: the verifier gave no usable audit; keep this executable SQL.
                         fallbacks.append('unverified_selection')
                         trace.emit('pipeline.early_stop',candidate_id=candidate['id'],reason='verifier_interface_failure')
@@ -544,7 +638,7 @@ class FullAgentic:
             eligible=list(unique.values())
             trace.emit('selection.eligibility',eligible_ids=[c['id'] for c in eligible],
                        result_groups={c['id']:c['result'].fingerprint() for c in eligible},agreement_is_semantic_proof=False)
-            if not eligible and self.config.profile=='clinsql':
+            if not eligible and self.config.profile in PROFILES:
                 # Fail open with flags: a benchmark answer is always produced when
                 # any candidate executed (unknown verdict preferred over contradicted),
                 # otherwise the last generated SQL is returned unexecuted.
@@ -570,13 +664,13 @@ class FullAgentic:
             try:
                 decision=select(eligible)
             except StageInterfaceError as error:
-                if self.config.profile!='clinsql':raise
+                if self.config.profile not in PROFILES:raise
                 fallbacks.append('selection_fallback')
                 trace.emit('pipeline.fallback',kind='selection_fallback',error=str(error))
                 return finish('answered',eligible[0]['sql'],'Fallback: selector interface failed; first supported candidate',eligible[0])
             trace.emit('selection.resolution',decision=decision)
             if decision['selected_id'] is None:
-                if self.config.profile=='clinsql':
+                if self.config.profile in PROFILES:
                     fallbacks.append('selection_fallback')
                     trace.emit('pipeline.fallback',kind='selection_fallback',reason=decision['reason'])
                     return finish('answered',eligible[0]['sql'],'Fallback: selector refused; first supported candidate',eligible[0])

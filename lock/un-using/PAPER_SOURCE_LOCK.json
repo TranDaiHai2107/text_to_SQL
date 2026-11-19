@@ -1,7 +1,7 @@
 {
   "clinsql": {
     "origin": "https://github.com/Barryshen1/ClinSQL.git",
-    "path": "external/clinsql_official",
+    "path": "lock/un-using/clinsql_official",
     "commit": "1d819960eb3ce3ac0e9beb4e801810a05735fd58",
     "tree": "920d5b10525a123c47d6fca6376233aa16fae84c",
     "key_files": {
@@ -11,7 +11,7 @@
   },
   "sde_sql": {
     "origin": "https://github.com/Lancelot-Xie/SDE-SQL.git",
-    "path": "external/sde_sql_official",
+    "path": "lock/un-using/sde_sql_official",
     "commit": "e425408fcb13d69b0bd15f917b819591805a8973",
     "tree": "18998a5729cbf547f9e65d203e3401254f467147",
     "key_files": {

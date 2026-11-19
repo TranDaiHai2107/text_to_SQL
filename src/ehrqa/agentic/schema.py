@@ -215,6 +215,13 @@ class Schema:
         s.add_declared_relations()
         return s
 
+    def canonical_table(self, name):
+        """Schema spelling of a table name, or None (exact match; see BirdSchema)."""
+        return name if name in self.tables else None
+
+    def canonical_ref(self, ref):
+        return ref
+
     def has_ref(self, ref):
         if not isinstance(ref,str) or ref.count('.')!=1:return False
         t,c=ref.split('.')
@@ -305,8 +312,8 @@ class Schema:
                 if t.name.lower() in ctes:continue
                 if self.dialect=='bigquery':
                     if t.name not in self.tables:raise ValueError('Unknown table: '+t.sql())
-                elif t.catalog or t.db not in ('','public') or t.name not in self.tables:raise ValueError('Unknown/external table: '+t.sql())
-                tables.add(t.name)
+                elif t.catalog or t.db not in ('','public') or self.canonical_table(t.name) is None:raise ValueError('Unknown/external table: '+t.sql())
+                tables.add(self.canonical_table(t.name) or t.name)
             if not tables:raise ValueError('SQL must read the database, not guess a literal answer')
             qualified=qualify(tree.copy(),dialect=self.dialect,schema=self.tables,expand_stars=True,
                 infer_schema=False,validate_qualify_columns=True,quote_identifiers=False,identify=False,allow_partial_qualification=False)
@@ -318,7 +325,7 @@ class Schema:
                     while parent is not None:
                         source=parent.sources.get(c.table)
                         if isinstance(source,exp.Table):
-                            if self.has_ref(source.name+'.'+c.name):refs.add(source.name+'.'+c.name)
+                            if self.has_ref(source.name+'.'+c.name):refs.add(self.canonical_ref(source.name+'.'+c.name))
                             break
                         parent=parent.parent
             # Patient IDs are not allowed to leak in from a demonstration.

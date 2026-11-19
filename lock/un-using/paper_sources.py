@@ -6,8 +6,8 @@ import json
 from pathlib import Path
 import subprocess
 
-ROOT = Path(__file__).resolve().parent
-LOCK = ROOT / 'PAPER_SOURCE_LOCK.json'
+ROOT = Path(__file__).resolve().parents[2]
+LOCK = ROOT / 'lock' / 'un-using' / 'PAPER_SOURCE_LOCK.json'
 
 
 def git(repo: Path, *args: str) -> str:

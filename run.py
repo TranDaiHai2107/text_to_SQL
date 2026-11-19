@@ -7,15 +7,10 @@ import sys
 
 ROOT = Path(__file__).resolve().parent
 MODULES = {
-    "clinsql-inspect": "ehrqa.cli.clinsql",
     "bigquery-preflight": "ehrqa.cli.bigquery_preflight",
     "bigquery-sql-smoke": "ehrqa.cli.bigquery_sql_smoke",
     "bigquery-approved-smoke": "ehrqa.cli.bigquery_approved_smoke",
-    "phase-a-retention": "ehrqa.cli.phase_a_retention",
-    "phase-c1-pilot": "ehrqa.cli.phase_c1_pilot",
-    "four-method-pilot": "ehrqa.cli.four_method_pilot",
     "openai-access-probe": "ehrqa.cli.openai_access_probe",
-    "clinsql-rubric": "ehrqa.cli.clinsql_rubric",
 }
 
 RESEARCH_ENV_KEYS = frozenset({

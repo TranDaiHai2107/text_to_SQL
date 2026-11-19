@@ -16,6 +16,11 @@ __pycache__/
 /external/clinsql_official/
 /external/mac_sql_official/
 /external/sde_sql_official/
+/external/omnisql_official/
+/lock/un-using/clinsql_official/
+/lock/un-using/sde_sql_official/
+/data/benchmarks/bird/
+/results/omnisql/
 .pytest_cleanup_*/
 .pytest_restructure_*/
 .pytest_run/
@@ -35,6 +40,7 @@ build/
 venv/
 .venv/
 .venv_papers/
+.venv_bird/
 env/
 
 # ===== Environment Variables =====
