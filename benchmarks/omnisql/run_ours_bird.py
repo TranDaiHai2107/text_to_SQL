@@ -14,6 +14,13 @@ Variants (ablation-friendly; the same code with Config switches):
         value-only vote over greedy + 8 samples, tie selector); v8_no<layer> ablates one layer
   v9    v8 + plan-prompt generator (8 more samples), set-based vote, sampled selector only when
         no result group holds a majority; v9_no<part> ablates one part
+  v10   v9 + draft-guided literal check feeding the greedy repair, vote tier without unstored
+        literals, pairwise (both orders, share x win rate) resolution of no-majority votes;
+        v10_<part> ablates/changes one part (merge resolver, divide-and-conquer generator at the
+        same budget, early stop for cost); not yet run
+  ub0_baseline .. ub7_pairwise
+        update_baseline: the OmniSQL baseline protocol (ub0) upgraded one change per rung up to
+        v10 (ub7); see src/ehrqa/bird/update_baseline.py
   v7    v6 + 6 sampled direct candidates from one request (T=0.8), vote only among
         candidates returning values, LLM selector only when the top result groups tie
 """
@@ -40,12 +47,20 @@ from ehrqa.bird.fewshot import TrainExamples  # noqa: E402
 from ehrqa.bird.model import BudgetExceeded, ChatModel, SpendTracker  # noqa: E402
 from ehrqa.bird.ours_v8 import OursV8, V8Config  # noqa: E402
 from ehrqa.bird.ours_v9 import OursV9, V9Config  # noqa: E402
+from ehrqa.bird.ours_v10 import OursV10, V10Config  # noqa: E402
+from ehrqa.bird.update_baseline import NAMES as UB_VARIANTS, UpdateBaseline  # noqa: E402
 
 V8_VARIANTS = {'v8': {}, 'v8_novalues': {'values': False}, 'v8_nofewshot': {'fewshot': False},
                'v8_norepair': {'repair': False}, 'v8_noselect': {'select': False},
                'v8_novote': {'vote': False}}
 V9_VARIANTS = {'v9': {}, 'v9_noplan': {'plan_samples': 0}, 'v9_noselect': {'select': False},
                'v9_multiset': {'set_vote': False}}
+V10_VARIANTS = {'v10': {},
+                'v10_listwise': {'resolve': 'listwise'},  # v9 resolver: isolates the value parts
+                'v10_novalue': {'value_check': False, 'value_filter': False},  # isolates the resolver
+                'v10_merge': {'resolve': 'merge'},
+                'v10_dc': {'plan_samples': 4, 'dc_samples': 4},  # same 17-candidate budget, third generator
+                'v10_early': {'early_stop_share': 0.9}}  # cost: skip plan samples only if all 9 (g + 8) agree (8/9 = 0.889)
 
 DEV = DATA / 'dev_20240627'
 VALUE_INDEX = DATA / 'ours_value_index'
@@ -96,7 +111,7 @@ def score_subset(out: Path, gold: list[dict], done: dict[int, dict], model: str)
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--variant', choices=('v6', 'v7', 'lite', 'full', *V8_VARIANTS, *V9_VARIANTS), default='v6')
+    parser.add_argument('--variant', choices=('v6', 'v7', 'lite', 'full', *V8_VARIANTS, *V9_VARIANTS, *V10_VARIANTS, *UB_VARIANTS), default='v6')
     parser.add_argument('--model', default='gpt-4o-mini-2024-07-18')
     parser.add_argument('--sample', type=int, help='seeded random subset of dev rows')
     parser.add_argument('--seed', type=int, default=20261119)
@@ -156,7 +171,16 @@ def main() -> None:
             db = database(index)
             started = time.monotonic()
             try:
-                if args.variant in V9_VARIANTS:
+                if args.variant in UB_VARIANTS:
+                    pipeline = UpdateBaseline(db, model, rung=args.variant, examples=examples, log_dir=out / 'traces')
+                    output = pipeline.run(q['question'], q['evidence'], prompts[index]['input_seq'],
+                                          query_id=str(index))
+                elif args.variant in V10_VARIANTS:
+                    pipeline = OursV10(db, model, examples=examples,
+                                       config=V10Config(**V10_VARIANTS[args.variant]), log_dir=out / 'traces')
+                    output = pipeline.run(q['question'], q['evidence'], prompts[index]['input_seq'],
+                                          query_id=str(index))
+                elif args.variant in V9_VARIANTS:
                     pipeline = OursV9(db, model, examples=examples, config=V9Config(**V9_VARIANTS[args.variant]),
                                       log_dir=out / 'traces')
                     output = pipeline.run(q['question'], q['evidence'], prompts[index]['input_seq'],

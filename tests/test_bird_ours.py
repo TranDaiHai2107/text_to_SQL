@@ -125,19 +125,26 @@ if __name__ == '__main__':
 
 
 class TextModel:
-    def __init__(self, greedy, samples, repair='', select='Answer: 1'):
-        self.greedy, self.samples, self.repair, self.select = greedy, samples, repair, select
+    def __init__(self, greedy, samples, repair='', select='Answer: 1', merge=''):
+        self.greedy, self.samples, self.repair, self.select, self.merge = greedy, samples, repair, select, merge
         self.prompts = []
 
+    def _select(self, prompt):
+        return self.select(prompt) if callable(self.select) else self.select
+
     def complete_text(self, stage, messages, tokens):
-        self.prompts.append((stage, messages[0]['content']))
-        text = {'generate': self.greedy, 'repair': self.repair, 'select': self.select}[stage]
+        prompt = messages[0]['content']
+        self.prompts.append((stage, prompt))
+        text = {'generate': self.greedy, 'repair': self.repair, 'merge': self.merge}.get(stage)
+        text = self._select(prompt) if text is None else text
         return {'content': text, 'usage': {'prompt_tokens': 1, 'completion_tokens': 1}, 'usd': 0}
 
     def sample_text(self, stage, messages, tokens, *, n, temperature):
-        self.prompts.append((stage, messages[0]['content']))
-        if stage == 'select':
-            return {'contents': [self.select] * n, 'usage': {'prompt_tokens': 1, 'completion_tokens': 1}, 'usd': 0}
+        prompt = messages[0]['content']
+        self.prompts.append((stage, prompt))
+        if stage.startswith('select'):
+            return {'contents': [self._select(prompt)] * n, 'usage': {'prompt_tokens': 1, 'completion_tokens': 1},
+                    'usd': 0}
         return {'contents': self.samples[:n], 'usage': {'prompt_tokens': 1, 'completion_tokens': 1}, 'usd': 0}
 
 
@@ -217,3 +224,139 @@ class OursV9Test(OursV8Test):
         output = self.run_v9(model, base_samples=2, plan_samples=0, select_samples=3)
         self.assertEqual(output['sql'], b)
         self.assertEqual(output['reason'], 'vote_1_of_3_selected_3')
+
+
+class OursV10Test(OursV8Test):
+    COUNT_WRONG = "SELECT COUNT(*) FROM frpm WHERE `County Name` = 'alameda'"
+    COUNT_GOOD = "SELECT COUNT(*) FROM frpm WHERE `County Name` = 'Alameda'"
+    A = "SELECT `County Name` FROM frpm WHERE `County Name` = 'Alameda' LIMIT 1"
+    B = "SELECT `County Name` FROM frpm WHERE `County Name` = 'Alpine' LIMIT 1"
+    C = "SELECT `County Name` FROM frpm WHERE `County Name` = 'Amador' LIMIT 1"
+
+    def run_v10(self, model, **flags):
+        from ehrqa.bird.ours_v10 import OursV10, V10Config
+        examples = lambda q: {'items': [{'question': 'Q?', 'external_knowledge': '', 'sql': 'SELECT 1'}]}
+        output = OursV10(self.db, model, examples=examples, config=V10Config(**flags)).run(
+            self.gold['question'], self.gold['evidence'], self.prompts[0]['input_seq'])
+        self.assertTrue(all(self.gold['SQL'] not in p for _, p in model.prompts))
+        return output
+
+    def test_literal_mismatches(self):
+        from ehrqa.bird.ours_v10 import literal_mismatches
+        index = self.db.values
+        found = literal_mismatches(self.COUNT_WRONG, index)
+        self.assertEqual([(m['literal'], m['op']) for m in found], [('alameda', '=')])
+        self.assertEqual(found[0]['similar'][0], 'Alameda')
+        self.assertEqual(literal_mismatches(self.COUNT_GOOD, index), [])
+        self.assertEqual(literal_mismatches("SELECT 1 FROM frpm T1 WHERE T1.`County Name` LIKE '%Alam%'", index), [])
+        self.assertEqual([m['literal'] for m in literal_mismatches(
+            "SELECT 1 FROM frpm WHERE `County Name` IN ('Alameda', 'Nowhere')", index)], ['Nowhere'])
+        self.assertEqual(literal_mismatches("SELECT 1 FROM frpm WHERE `County Name` NOT LIKE 'zz%'", index), [])
+        self.assertEqual(literal_mismatches("SELECT 1 FROM frpm WHERE `County Code` = 1", index), [])
+
+    def test_value_mismatch_triggers_repair_of_an_aggregate(self):
+        model = TextModel(fence(self.COUNT_WRONG), [], repair=fence(self.COUNT_GOOD))
+        output = self.run_v10(model, base_samples=0, plan_samples=0)
+        repair = [p for s, p in model.prompts if s == 'repair'][0]
+        self.assertIn('is not stored in that column', repair)
+        self.assertIn("'Alameda'", repair.split('Execution feedback:', 1)[1])
+        self.assertEqual(output['sql'], self.COUNT_GOOD)  # the unstored-literal greedy is dropped by the filter
+
+    def test_value_filter_drops_unstored_literal_candidates(self):
+        model = TextModel(fence(self.COUNT_WRONG), [fence(self.COUNT_WRONG), fence(self.COUNT_GOOD)])
+        output = self.run_v10(model, base_samples=2, plan_samples=0, repair=False)
+        self.assertEqual((output['sql'], output['reason']), (self.COUNT_GOOD, 'vote_1_of_1'))
+        model = TextModel(fence(self.COUNT_WRONG), [fence(self.COUNT_WRONG), fence(self.COUNT_GOOD)])
+        output = self.run_v10(model, base_samples=2, plan_samples=0, repair=False, value_filter=False,
+                              select=False)
+        self.assertEqual(output['sql'], self.COUNT_WRONG)
+
+    def test_pairwise_judges_both_orders_and_weights_by_share(self):
+        def pick_alpine(prompt):
+            second = prompt.split('Candidate 2:', 1)[1].split('Result:', 1)[0]
+            return 'Answer: 2' if 'Alpine' in second else 'Answer: 1'
+        model = TextModel(fence(self.A), [fence(self.B), fence(self.C)], select=pick_alpine)
+        output = self.run_v10(model, base_samples=2, plan_samples=0)
+        self.assertEqual(output['sql'], self.B)
+        self.assertEqual(output['reason'], 'vote_1_of_3_pair_b')
+        pairs = [p for s, p in model.prompts if s == 'select_pair']
+        self.assertEqual(len(pairs), 2)
+        self.assertTrue(all('Amador' not in p.split('Candidate SQL queries', 1)[1] for p in pairs))  # top-2 only
+        first = lambda p: p.split('Candidate 1:', 1)[1].split('Candidate 2:', 1)[0]
+        self.assertEqual({'Alameda' in first(p) for p in pairs}, {True, False})  # both orders
+
+    def test_merge_resolver(self):
+        new = "SELECT `County Name` FROM frpm WHERE `County Name` = 'Butte' LIMIT 1"
+        model = TextModel(fence(self.A), [fence(self.B)], merge=fence(new))
+        output = self.run_v10(model, base_samples=1, plan_samples=0, resolve='merge')
+        self.assertEqual((output['sql'], output['reason']), (new, 'vote_1_of_2_merge_new'))
+        merge = [p for s, p in model.prompts if s == 'merge'][0]
+        self.assertIn('corrected combination', merge)
+        self.assertIn('Alpine', merge)
+        model = TextModel(fence(self.A), [fence(self.B)], merge=fence(self.B.replace('LIMIT 1', 'LIMIT 1;')))
+        output = self.run_v10(model, base_samples=1, plan_samples=0, resolve='merge')
+        self.assertEqual((output['sql'], output['reason']), (self.B, 'vote_1_of_2_merge_agrees_s1'))
+
+    def test_divide_and_conquer_generator_and_early_stop(self):
+        model = TextModel(fence(self.A), [fence(self.A)] * 4)
+        self.run_v10(model, base_samples=2, plan_samples=2, dc_samples=2)
+        stages = [s for s, _ in model.prompts]
+        self.assertEqual(stages.count('generate_dc_samples'), 1)
+        dc = [p for s, p in model.prompts if s == 'generate_dc_samples'][0]
+        self.assertIn('divide and conquer', dc)
+        self.assertNotIn('Take a deep breath', dc)
+        model = TextModel(fence(self.A), [fence(self.A)] * 4)
+        output = self.run_v10(model, base_samples=2, plan_samples=2, dc_samples=2, early_stop_share=0.9)
+        stages = [s for s, _ in model.prompts]
+        self.assertNotIn('generate_plan_samples', stages)
+        self.assertNotIn('generate_dc_samples', stages)
+        self.assertEqual((output['reason'], output['model_calls']), ('vote_3_of_3', 2))
+        model = TextModel(fence(self.A), [fence(self.B), fence(self.A)])
+        self.run_v10(model, base_samples=1, plan_samples=1, early_stop_share=0.9)
+        self.assertIn('generate_plan_samples', [s for s, _ in model.prompts])
+
+    def test_config_rejects_unknown_resolver(self):
+        from ehrqa.bird.ours_v10 import V10Config
+        with self.assertRaises(ValueError):
+            V10Config(resolve='vote')
+
+
+class UpdateBaselineTest(OursV8Test):
+    EMPTY = "SELECT `County Name` FROM frpm WHERE `County Name` = 'nowhere'"
+    A = "SELECT `County Name` FROM frpm WHERE `County Name` = 'Alameda' LIMIT 1"
+
+    def run_rung(self, model, rung):
+        from ehrqa.bird.update_baseline import UpdateBaseline
+        examples = lambda q: {'items': [{'question': 'Q?', 'external_knowledge': '', 'sql': 'SELECT 1'}]}
+        output = UpdateBaseline(self.db, model, rung=rung, examples=examples).run(
+            self.gold['question'], self.gold['evidence'], self.prompts[0]['input_seq'])
+        self.assertTrue(all(self.gold['SQL'] not in p for _, p in model.prompts))
+        return output
+
+    def test_rung0_is_the_omnisql_protocol(self):
+        # 2 empty samples and 1 valued sample: the author rule lets empty results win; greedy does not vote
+        model = TextModel(fence(self.A), [fence(self.EMPTY)] * 2 + [fence(self.A)] + [fence(self.EMPTY)] * 5)
+        output = self.run_rung(model, 'ub0_baseline')
+        self.assertEqual((output['sql'], output['reason']), (self.EMPTY, 'vote_7_of_8'))
+        prompts = dict(model.prompts)
+        self.assertEqual(prompts['generate_samples'], self.prompts[0]['input_seq'])  # unchanged baseline prompt
+        self.assertEqual({s for s, _ in model.prompts}, {'generate', 'generate_samples'})
+
+    def test_rung1_changes_only_the_vote(self):
+        model = TextModel(fence(self.A), [fence(self.EMPTY)] * 2 + [fence(self.A)] + [fence(self.EMPTY)] * 5)
+        output = self.run_rung(model, 'ub1_vote')
+        self.assertEqual((output['sql'], output['reason']), (self.A, 'vote_1_of_1'))
+        self.assertEqual(dict(model.prompts)['generate_samples'], self.prompts[0]['input_seq'])
+
+    def test_ladder_is_cumulative_and_ends_at_v10(self):
+        from ehrqa.bird.ours_v10 import V10Config
+        from ehrqa.bird.update_baseline import NAMES, ladder_config
+        self.assertEqual(ladder_config('ub2_context').values, True)
+        self.assertEqual(ladder_config('ub2_context').vote_greedy, False)
+        self.assertEqual(ladder_config('ub3_repair').fewshot, True)
+        v9_like = ladder_config('ub5_select')
+        self.assertEqual((v9_like.plan_samples, v9_like.select, v9_like.resolve, v9_like.value_check),
+                         (8, True, 'listwise', False))
+        self.assertEqual(ladder_config(NAMES[-1]), V10Config())
+        with self.assertRaises(ValueError):
+            ladder_config('ub9')

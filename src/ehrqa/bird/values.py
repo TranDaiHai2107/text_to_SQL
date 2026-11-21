@@ -37,6 +37,7 @@ class ValueIndex:
         self._lock = threading.Lock()
         self._postings = None
         self._values = None
+        self._by_column = None
 
     def _build(self) -> list[list]:
         values = []
@@ -73,7 +74,20 @@ class ValueIndex:
                 for w in set(words(value)):
                     if w not in STOP:
                         postings[w].append(i)
-            self._values, self._postings = values, postings
+            by_column = defaultdict(set)
+            for table, column, value in values:
+                by_column[(table.lower(), column.lower())].add(value)
+            self._values, self._postings, self._by_column = values, postings, dict(by_column)
+
+    def column_values(self, table: str, column: str) -> set | None:
+        """Indexed stored values of one column (None: column not indexed, e.g. numeric or free text)."""
+        self._load()
+        return self._by_column.get((table.lower(), column.lower()))
+
+    def indexed_tables(self, column: str) -> list[str]:
+        """Tables whose column of this name is indexed."""
+        self._load()
+        return [t for (t, c) in self._by_column if c == column.lower()]
 
     def search(self, question: str, limit: int = 24, per_column: int = 4) -> list[dict]:
         self._load()
